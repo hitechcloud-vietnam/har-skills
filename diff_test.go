@@ -649,17 +649,17 @@ func TestDiffReportTextWithAllSections(t *testing.T) {
 	diff := Diff(h1, h2, DefaultDiffOptions())
 	report := diff.Report(FormatText)
 
-	if !containsSubstring(report, "新增请求") {
-		t.Error("Expected '新增请求' section in text report")
+	if !containsSubstring(report, "Added Requests") {
+		t.Error("Expected an 'Added Requests' section in the text report")
 	}
 	if len(diff.Removed) > 0 {
 		// Only check removed section if there are removed entries
-		if !containsSubstring(report, "删除请求") {
-			t.Error("Expected '删除请求' section in text report")
+		if !containsSubstring(report, "Removed Requests") {
+			t.Error("Expected a 'Removed Requests' section in the text report")
 		}
 	}
-	if !containsSubstring(report, "修改请求") {
-		t.Error("Expected '修改请求' section in text report")
+	if !containsSubstring(report, "Modified Requests") {
+		t.Error("Expected a 'Modified Requests' section in the text report")
 	}
 }
 
@@ -678,12 +678,12 @@ func TestDiffReportMarkdownWithAllSections(t *testing.T) {
 	diff := Diff(h1, h2, DefaultDiffOptions())
 	report := diff.Report(FormatMarkdown)
 
-	if !containsSubstring(report, "## 新增请求") {
-		t.Error("Expected '## 新增请求' section in markdown report")
+	if !containsSubstring(report, "## Added Requests") {
+		t.Error("Expected an '## Added Requests' section in the Markdown report")
 	}
 	if len(diff.Removed) > 0 {
-		if !containsSubstring(report, "## 删除请求") {
-			t.Error("Expected '## 删除请求' section in markdown report")
+		if !containsSubstring(report, "## Removed Requests") {
+			t.Error("Expected an '## Removed Requests' section in the Markdown report")
 		}
 	}
 }

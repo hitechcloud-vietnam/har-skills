@@ -290,7 +290,7 @@ func (r *Response) ToStandard() Response {
 	return *r
 }
 
-// Headers 接口实现
+// Headers interface implementation.
 
 // GetName implements the HeaderProvider interface.
 func (h *Headers) GetName() string {
@@ -316,7 +316,7 @@ func (h *Headers) ToStandard() Headers {
 	return *h
 }
 
-// Cookie 接口实现
+// Cookie interface implementation.
 
 // GetName implements the CookieProvider interface.
 func (c *Cookie) GetName() string {
@@ -390,7 +390,7 @@ func (c *Cookie) ToStandard() Cookie {
 	return *c
 }
 
-// Content 接口实现
+// Content interface implementation.
 
 // GetSize implements the ContentProvider interface.
 func (c *Content) GetSize() int {
@@ -440,7 +440,7 @@ func (c *Content) ToStandard() Content {
 	return *c
 }
 
-// Timings 接口实现
+// Timings interface implementation.
 
 // GetBlocked implements the TimingsProvider interface.
 func (t *Timings) GetBlocked() float64 {

@@ -247,8 +247,8 @@ func TestSummaryNilHar(t *testing.T) {
 	var h *Har
 	summary := h.Summary()
 
-	assert.Contains(t, summary, "HAR 文件摘要")
-	assert.Contains(t, summary, "总请求数: 0")
+	assert.Contains(t, summary, "HAR File Summary")
+	assert.Contains(t, summary, "Total requests: 0")
 }
 
 func TestPercentile(t *testing.T) {

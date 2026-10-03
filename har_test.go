@@ -30,7 +30,7 @@ func TestParseHarEmptyInput(t *testing.T) {
 	assert.Nil(t, har)
 	assert.NotNil(t, err)
 	assert.Equal(t, ErrCodeInvalidFormat, err.(*HarError).Code)
-	assert.Contains(t, err.Error(), "输入为空")
+	assert.Contains(t, err.Error(), "input is empty")
 }
 
 func TestParseHarNilInput(t *testing.T) {
@@ -94,7 +94,7 @@ func TestParseHarFileNonExistent(t *testing.T) {
 	assert.Nil(t, har)
 	assert.NotNil(t, err)
 	assert.Equal(t, ErrCodeFileSystem, err.(*HarError).Code)
-	assert.Contains(t, err.Error(), "无法读取文件")
+	assert.Contains(t, err.Error(), "unable to read file")
 }
 
 func TestParseHarFileNotJSON(t *testing.T) {

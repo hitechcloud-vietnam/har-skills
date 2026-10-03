@@ -505,7 +505,7 @@ func TestCovValidateURLsNoScheme(t *testing.T) {
 	assert.NotEmpty(t, warnings)
 	found := false
 	for _, w := range warnings {
-		if strings.Contains(w.Message, "缺少协议") {
+		if strings.Contains(w.Message, "URL is missing a scheme") {
 			found = true
 		}
 	}
@@ -521,7 +521,7 @@ func TestCovValidateURLsSpace(t *testing.T) {
 	assert.NotEmpty(t, warnings)
 	found := false
 	for _, w := range warnings {
-		if strings.Contains(w.Message, "空格") {
+		if strings.Contains(w.Message, "URL contains spaces") {
 			found = true
 		}
 	}
@@ -548,7 +548,7 @@ func TestCovValidateURLsParseError(t *testing.T) {
 	assert.NotEmpty(t, warnings)
 	found := false
 	for _, w := range warnings {
-		if strings.Contains(w.Message, "无效的URL格式") {
+		if strings.Contains(w.Message, "Invalid URL format") {
 			found = true
 		}
 	}

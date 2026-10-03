@@ -43,14 +43,14 @@ var customRules []ValidationRule
 //
 //	har.RegisterValidator("no-internal-ips", har.ValidationRule{
 //	    Name:        "no-internal-ips",
-//	    Description: "禁止访问内网IP地址",
+//	    Description: "Block access to private network IP addresses.",
 //	    Validate: func(h *har.Har) []*har.ValidationError {
 //	        var errors []*har.ValidationError
 //	        for _, entry := range h.Log.Entries {
 //	            if isInternalIP(entry.ServerIPAddress) {
 //	                errors = append(errors, &har.ValidationError{
 //	                    Field:   "serverIPAddress",
-//	                    Message: fmt.Sprintf("内网IP地址: %s", entry.ServerIPAddress),
+//	                    Message: fmt.Sprintf("Private network IP address: %s", entry.ServerIPAddress),
 //	                    Rule:    "no-internal-ips",
 //	                })
 //	            }
@@ -59,7 +59,7 @@ var customRules []ValidationRule
 //	    },
 //	})
 func RegisterValidator(name string, rule ValidationRule) {
-	// 检查是否已存在同名规则，如果存在则替换
+	// Check for an existing rule with the same name and replace it if found.
 	for i, r := range customRules {
 		if r.Name == name {
 			customRules[i] = rule
@@ -289,7 +289,7 @@ func validateCookieSameSite(har *Har, rootError *HarError) {
 		for j, cookie := range entry.Request.Cookies {
 			if !validSameSite[cookie.SameSite] {
 				_ = rootError.AddPartialError(NewValidationError(
-					fmt.Sprintf("Invalid Cookie.SameSite value: '%s'（有效值: Strict, Lax, None）", cookie.SameSite),
+					fmt.Sprintf("Invalid Cookie.SameSite value: '%s'(valid values: Strict, Lax, None).", cookie.SameSite),
 					fmt.Sprintf("log.entries[%d].request.cookies[%d].sameSite", i, j),
 				))
 			}
@@ -299,7 +299,7 @@ func validateCookieSameSite(har *Har, rootError *HarError) {
 		for j, cookie := range entry.Response.Cookies {
 			if !validSameSite[cookie.SameSite] {
 				_ = rootError.AddPartialError(NewValidationError(
-					fmt.Sprintf("Invalid Cookie.SameSite value: '%s'（有效值: Strict, Lax, None）", cookie.SameSite),
+					fmt.Sprintf("Invalid Cookie.SameSite value: '%s'(valid values: Strict, Lax, None).", cookie.SameSite),
 					fmt.Sprintf("log.entries[%d].response.cookies[%d].sameSite", i, j),
 				))
 			}

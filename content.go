@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-//MIMECategory represents a MIME type category.type MIMECategory string
+// MIMECategory 表示MIME类型的分类
+type MIMECategory string
 
 const (
 	MIMEImage      MIMECategory = "image"
@@ -24,11 +25,21 @@ const (
 	MIMEOther      MIMECategory = "other"
 )
 
-//ContentSummary summarizes all content in a HAR file.type ContentSummary struct {
-	TotalSize      int                  //Total size.	TextSize       int                  //Text content size.	BinarySize     int                  //Binary content size.	CompressedSize int                  //Compressed size.	ByCategory     map[MIMECategory]int //Size by category.	ByMIMEType     map[string]int       //Size by specific MIME type.}
+// ContentSummary summarizes all content in a HAR file.
+type ContentSummary struct {
+	TotalSize      int                  // Total size.
+	TextSize       int                  // Text content size.
+	BinarySize     int                  // Binary content size.
+	CompressedSize int                  // Compressed size.
+	ByCategory     map[MIMECategory]int // Size by category.
+	ByMIMEType     map[string]int       // Size by specific MIME type.
+}
 
-//MIMECategory returns the MIME category of the content.//
-//It uses the Content.MimeType field to determine the category.//Common MIME types are supported; unrecognized types are categorized as MIMEOther.func (c *Content) MIMECategory() MIMECategory {
+// MIMECategory returns the MIME category of the content.
+//
+// It uses the Content.MimeType field to determine the category.
+// Common MIME types are supported; unrecognized types are categorized as MIMEOther.
+func (c *Content) MIMECategory() MIMECategory {
 	if c == nil {
 		return MIMEOther
 	}
@@ -104,8 +115,12 @@ const (
 	return MIMEOther
 }
 
-//IsBinary checks whether the content is binary.//
-//It checks the MIME type and content bytes.//Text MIME types (text/*, application/json, application/xml, application/javascript, etc.)//are considered non-binary. If the content text is available, http.DetectContentType() is also used.func (c *Content) IsBinary() bool {
+// IsBinary checks whether the content is binary.
+//
+// It checks the MIME type and content bytes.
+// Text MIME types (text/*, application/json, application/xml, application/javascript, etc.)
+// are considered non-binary. If the content text is available, http.DetectContentType() is also used.
+func (c *Content) IsBinary() bool {
 	if c == nil {
 		return false
 	}
@@ -127,16 +142,21 @@ const (
 	return true
 }
 
-//IsText checks whether the content is text.//
-//It is the inverse of IsBinary: text content returns true.func (c *Content) IsText() bool {
+// IsText checks whether the content is text.
+//
+// It is the inverse of IsBinary: text content returns true.
+func (c *Content) IsText() bool {
 	if c == nil {
 		return false
 	}
 	return !c.IsBinary()
 }
 
-//DetectMIMEType uses http.DetectContentType to detect the actual MIME type of the content.//
-//If the content text is available, it decodes the content bytes before detecting the MIME type.//If detection is not possible (the content is empty or decoding fails), it falls back to Content.MimeType.func (c *Content) DetectMIMEType() string {
+// DetectMIMEType uses http.DetectContentType to detect the actual MIME type of the content.
+//
+// If the content text is available, it decodes the content bytes before detecting the MIME type.
+// If detection is not possible (the content is empty or decoding fails), it falls back to Content.MimeType.
+func (c *Content) DetectMIMEType() string {
 	if c == nil {
 		return ""
 	}
@@ -153,8 +173,10 @@ const (
 	return c.MimeType
 }
 
-//Hash calculates the SHA-256 hash of the content.//
-//It hashes the decoded content bytes and returns the hash as a hexadecimal string.func (c *Content) Hash() (string, error) {
+// Hash calculates the SHA-256 hash of the content.
+//
+// It hashes the decoded content bytes and returns the hash as a hexadecimal string.
+func (c *Content) Hash() (string, error) {
 	if c == nil {
 		return "", NewInvalidFormatError("Content is empty")
 	}
@@ -171,8 +193,11 @@ const (
 	return fmt.Sprintf("%x", hash), nil
 }
 
-//ParseJSON parses the content text as a JSON value.//
-//It returns the parsed JSON value, which may be an object, array, string, and so on.//It returns an error if the content is empty or is not valid JSON.func (c *Content) ParseJSON() (interface{}, error) {
+// ParseJSON parses the content text as a JSON value.
+//
+// It returns the parsed JSON value, which may be an object, array, string, and so on.
+// It returns an error if the content is empty or is not valid JSON.
+func (c *Content) ParseJSON() (interface{}, error) {
 	if c == nil {
 		return nil, NewInvalidFormatError("Content is empty")
 	}
@@ -194,8 +219,11 @@ const (
 	return result, nil
 }
 
-//ParseAsMap parses the content text as a JSON object (map).//
-//It attempts to parse the content as a JSON object (map[string]interface{}).//It returns an error if the content is not a JSON object (for example, if it is an array or string).func (c *Content) ParseAsMap() (map[string]interface{}, error) {
+// ParseAsMap parses the content text as a JSON object (map).
+//
+// It attempts to parse the content as a JSON object (map[string]interface{}).
+// It returns an error if the content is not a JSON object (for example, if it is an array or string).
+func (c *Content) ParseAsMap() (map[string]interface{}, error) {
 	if c == nil {
 		return nil, NewInvalidFormatError("Content is empty")
 	}
@@ -220,8 +248,11 @@ const (
 	return result, nil
 }
 
-//ContentLength returns the value of the response Content-Length header.//
-//It looks up the Content-Length header in Response.Headers and returns its integer value.//It returns -1 if the header is not present.func (e *Entries) ContentLength() int {
+// ContentLength returns the value of the response Content-Length header.
+//
+// It looks up the Content-Length header in Response.Headers and returns its integer value.
+// It returns -1 if the header is not present.
+func (e *Entries) ContentLength() int {
 	if e == nil {
 		return -1
 	}
@@ -239,8 +270,10 @@ const (
 	return -1
 }
 
-//HasContentLengthMismatch checks whether the Content-Length header differs from the actual content size.//
-//It compares the Content-Length header value with Response.Content.Size and returns true if they differ.func (e *Entries) HasContentLengthMismatch() bool {
+// HasContentLengthMismatch checks whether the Content-Length header differs from the actual content size.
+//
+// It compares the Content-Length header value with Response.Content.Size and returns true if they differ.
+func (e *Entries) HasContentLengthMismatch() bool {
 	if e == nil {
 		return false
 	}
@@ -253,8 +286,12 @@ const (
 	return contentLen != e.Response.Content.Size
 }
 
-//EstimateTransferSize estimates the actual transfer size.//
-//It estimates the content actual network transfer size, accounting for compression and other factors.//It prefers Response.TransferSize (a Chrome extension field),//then Response.BodySize minus Compression, and finally Content.Size.func (e *Entries) EstimateTransferSize() int {
+// EstimateTransferSize estimates the actual transfer size.
+//
+// It estimates the actual network transfer size, accounting for compression and other factors.
+// It prefers Response.TransferSize (a Chrome extension field),
+// then Response.BodySize minus Compression, and finally Content.Size.
+func (e *Entries) EstimateTransferSize() int {
 	if e == nil {
 		return 0
 	}
@@ -277,8 +314,11 @@ const (
 	return e.Response.Content.Size
 }
 
-//ContentSummary returns a summary of all content in the HAR file.//
-//It summarizes content types and sizes for all entries, including total, text, and binary sizes,//compressed sizes, and sizes grouped by MIME category and specific MIME type.func (h *Har) ContentSummary() *ContentSummary {
+// ContentSummary returns a summary of all content in the HAR file.
+//
+// It summarizes content types and sizes for all entries, including total, text, and binary sizes,
+// compressed sizes, and sizes grouped by MIME category and specific MIME type.
+func (h *Har) ContentSummary() *ContentSummary {
 	if h == nil {
 		return nil
 	}
@@ -321,8 +361,10 @@ const (
 	return summary
 }
 
-//SaveToFile saves the decoded content to a file.//
-//It automatically decodes base64 and decompresses content, then writes the resulting raw data to the specified path.func (c *Content) SaveToFile(path string) error {
+// SaveToFile saves the decoded content to a file.
+//
+// It automatically decodes base64 and decompresses content, then writes the resulting raw data to the specified path.
+func (c *Content) SaveToFile(path string) error {
 	if c == nil {
 		return NewInvalidFormatError("Content is empty")
 	}
@@ -343,7 +385,8 @@ const (
 	return nil
 }
 
-//isTextMIME checks whether the MIME type is a text type.func isTextMIME(mime string) bool {
+// isTextMIME checks whether the MIME type is a text type.
+func isTextMIME(mime string) bool {
 	if mime == "" {
 		return false
 	}

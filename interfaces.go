@@ -19,7 +19,7 @@ type HARProvider interface {
 	// GetPages returns all pages.
 	GetPages() []PageProvider
 
-	// ToStandard 转换为标准HAR对象
+	// converts to a standard Har object.
 	ToStandard() *Har
 }
 
@@ -58,7 +58,7 @@ type RequestProvider interface {
 	// GetHTTPVersion returns the HTTP version.
 	GetHTTPVersion() string
 
-	// GetHeaders 获取头部信息
+	// returns header information.
 	GetHeaders() []HeaderProvider
 
 	// GetCookies returns cookie information.
@@ -76,7 +76,7 @@ type RequestProvider interface {
 	// GetHeadersSize returns the header size.
 	GetHeadersSize() int
 
-	// ToStandard 转换为标准Request对象
+	// converts to a standard Request object.
 	ToStandard() Request
 }
 
@@ -91,13 +91,13 @@ type ResponseProvider interface {
 	// GetHTTPVersion returns the HTTP version.
 	GetHTTPVersion() string
 
-	// GetHeaders 获取头部信息
+	// returns header information.
 	GetHeaders() []HeaderProvider
 
 	// GetCookies returns cookie information.
 	GetCookies() []CookieProvider
 
-	// GetContent 获取内容
+	// returns the content.
 	GetContent() ContentProvider
 
 	// GetBodySize returns the response body size.
@@ -106,19 +106,19 @@ type ResponseProvider interface {
 	// GetHeadersSize returns the header size.
 	GetHeadersSize() int
 
-	// ToStandard 转换为标准Response对象
+	// converts to a standard Response object.
 	ToStandard() Response
 }
 
-// HeaderProvider 定义HTTP头部的接口
+// HeaderProvider defines the interface for an HTTP header.
 type HeaderProvider interface {
 	// GetName returns the name.
 	GetName() string
 
-	// GetValue 获取值
+	// returns the value.
 	GetValue() string
 
-	// ToStandard 转换为标准Header对象
+	// converts to a standard Header object.
 	ToStandard() Headers
 }
 
@@ -127,58 +127,58 @@ type CookieProvider interface {
 	// GetName returns the name.
 	GetName() string
 
-	// GetValue 获取值
+	// returns the value.
 	GetValue() string
 
-	// GetDomain 获取域
+	// returns the domain.
 	GetDomain() string
 
-	// GetPath 获取路径
+	// returns the path.
 	GetPath() string
 
-	// GetExpires 获取过期时间
+	// returns the expiration time.
 	GetExpires() time.Time
 
-	// IsHTTPOnly 是否为HTTPOnly
+	// reports whether the cookie is HttpOnly.
 	IsHTTPOnly() bool
 
-	// IsSecure 是否为Secure
+	// reports whether the cookie is secure.
 	IsSecure() bool
 
 	// GetSameSite returns the SameSite value.
 	GetSameSite() string
 
-	// ToStandard 转换为标准Cookie对象
+	// converts to a standard Cookie object.
 	ToStandard() Cookie
 }
 
 // ContentProvider defines the interface for content.
 type ContentProvider interface {
-	// GetSize 获取大小
+	// returns the size.
 	GetSize() int
 
 	// GetMimeType returns the MIME type.
 	GetMimeType() string
 
-	// GetText 获取文本内容（如果有）
+	// returns the text content, if available.
 	GetText() string
 
-	// GetEncoding 获取编码（如果有）
+	// returns the encoding, if available.
 	GetEncoding() string
 
 	// GetCompression returns the number of bytes saved by compression.
 	GetCompression() int
 
-	// ToStandard 转换为标准Content对象
+	// converts to a standard Content object.
 	ToStandard() Content
 }
 
-// TimingsProvider 定义计时信息的接口
+// TimingsProvider defines the interface for timing information.
 type TimingsProvider interface {
-	// GetBlocked 获取被阻塞时间
+	// returns the blocked duration.
 	GetBlocked() float64
 
-	// GetDNS 获取DNS解析时间
+	// returns the DNS resolution duration.
 	GetDNS() float64
 
 	// GetConnect returns the connection duration.
@@ -196,7 +196,7 @@ type TimingsProvider interface {
 	// GetSSL returns the SSL handshake duration.
 	GetSSL() float64
 
-	// ToStandard 转换为标准Timings对象
+	// converts to standard Timings.
 	ToStandard() Timings
 }
 
@@ -214,7 +214,7 @@ type PageProvider interface {
 	// GetPageTimings returns page timing information.
 	GetPageTimings() PageTimingsProvider
 
-	// ToStandard 转换为标准Page对象
+	// converts to a standard Page object.
 	ToStandard() Pages
 }
 

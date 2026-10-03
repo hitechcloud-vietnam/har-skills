@@ -22,7 +22,7 @@ func ParseHarFromReader(r io.Reader) (*Har, error) {
 
 	har, err := ParseHar(data)
 	if err != nil {
-		// ParseHar 的所有错误路径均返回 *HarError
+		// All error paths in ParseHar return *HarError.
 		return nil, err.(*HarError)
 	}
 
@@ -40,7 +40,7 @@ func ParseHarFromReaderWithOptions(r io.Reader, options ParseOptions) (*Har, err
 
 	har, err := ParseHarWithOptions(data, options)
 	if err != nil {
-		// ParseHarWithOptions 的所有错误路径均返回 *HarError
+		// All error paths in ParseHarWithOptions return *HarError.
 		return nil, err.(*HarError)
 	}
 

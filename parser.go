@@ -19,7 +19,7 @@ func ParseHarWithOptions(harFileBytes []byte, options ParseOptions) (*Har, error
 		return nil, NewInvalidFormatError("Input is not valid JSON")
 	}
 
-	// 如果是严格模式，直接解析
+	// In strict mode, parse directly.
 	if !options.Lenient {
 		har := new(Har)
 		err := json.Unmarshal(harFileBytes, har)
@@ -27,7 +27,7 @@ func ParseHarWithOptions(harFileBytes []byte, options ParseOptions) (*Har, error
 			return nil, WrapJSONUnmarshalError(err)
 		}
 
-		// 如果需要验证
+		// Validate if requested.
 		if !options.SkipValidation {
 			if err := validateHar(har); err != nil {
 				return nil, err
@@ -175,7 +175,7 @@ func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
 						} else {
 							_ = rootError.AddPartialError(
 								NewJSONParseError(
-									fmt.Sprintf("无法解析第%d个page", i+1), err).
+									fmt.Sprintf("Unable to parse page %d", i+1), err).
 									WithField(fmt.Sprintf("log.pages[%d]", i)))
 						}
 					}

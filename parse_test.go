@@ -21,7 +21,7 @@ func TestValidateInput_EmptyInput(t *testing.T) {
 	harErr, ok := err.(*HarError)
 	require.True(t, ok, "expected HarError type")
 	assert.Equal(t, ErrCodeInvalidFormat, harErr.Code)
-	assert.Contains(t, harErr.Message, "输入为空")
+	assert.Contains(t, harErr.Message, "Input is empty")
 }
 
 func TestValidateInput_NilInput(t *testing.T) {

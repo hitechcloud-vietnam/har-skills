@@ -230,7 +230,7 @@ func (h *StreamingHar) GetPages() []Pages {
 func (h *StreamingHar) Entries() *StreamingEntryIterator {
 	if h == nil {
 		return &StreamingEntryIterator{
-			err:    NewInvalidFormatError("StreamingHar对象为空"),
+			err:    NewInvalidFormatError("StreamingHar object is nil"),
 			entry:  Entries{},
 			closed: true,
 		}
@@ -330,7 +330,7 @@ func (it *StreamingEntryIterator) Next() bool {
 					found = true
 					it.entriesStarted = true
 				} else {
-					it.err = NewInvalidFormatError(fmt.Sprintf("预期在'entries'字段后找到'['，但实际为: %v", token))
+					it.err = NewInvalidFormatError(fmt.Sprintf("Expected '[' after the 'entries' field, got: %v", token))
 					return false
 				}
 			}
@@ -371,7 +371,7 @@ func (it *StreamingEntryIterator) Position() int {
 // Err returns any error encountered while iterating.
 func (it *StreamingEntryIterator) Err() error {
 	if it == nil {
-		return NewInvalidFormatError("StreamingEntryIterator对象为空")
+		return NewInvalidFormatError("StreamingEntryIterator object is nil")
 	}
 	if it.err == io.EOF {
 		return nil
@@ -406,7 +406,7 @@ func (it *StreamingEntryIterator) Close() error {
 // GetAllEntries returns all entries (a convenience method that loads everything into memory).
 func (sh *StreamingHar) GetAllEntries() ([]Entries, error) {
 	if sh == nil {
-		return nil, NewInvalidFormatError("StreamingHar对象为空")
+		return nil, NewInvalidFormatError("StreamingHar object is nil")
 	}
 
 	var entries []Entries
