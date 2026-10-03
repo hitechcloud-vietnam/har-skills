@@ -1,41 +1,41 @@
 ---
-title: 过滤与链式结果
+title: Filtering and Chained Results
 titleTemplate: false
 ---
 
-# 过滤与链式结果
+# Filtering and Chained Results
 
-`filter.go` 是 SDK 中最常用的模块之一。`Filter(FilterOptions)` 返回 `*FilterResult`，后者提供一整套链式方法（排序、截取、链式再过滤、转回 `*Har`）。同时 `*Har` 上挂了一批 `Find*` 快捷方法覆盖常见查询。`functional_options.go` 又提供了函数式 `FilterWith(WithFilter*...)`。三套 API 共同覆盖"结构化过滤 + 链式变换 + 函数式拼装"三种风格。
+`filter.go` is one of the most used modules in the SDK. `Filter(FilterOptions)` returns a `*FilterResult` that offers a full set of chained methods (sort, slice, chain another filter, convert back to `*Har`). At the same time, a batch of `Find*` shortcut methods hang off `*Har` to cover common queries. `functional_options.go` adds the functional `FilterWith(WithFilter*...)`. Together the three APIs cover "structured filtering + chained transformation + functional assembly".
 
-## FilterOptions 字段
+## FilterOptions fields
 
-`FilterOptions` 是结构体式配置，所有字段都是零值友好（零值表示"不过滤该维度"）：
+`FilterOptions` is the struct-style config; all fields are zero-value friendly (zero means "do not filter on this dimension"):
 
 ```go
 type FilterOptions struct {
-    URL             string    // URL 包含的字符串，或配合 UseRegex 后的正则
-    Method          string    // 请求方法
-    StatusCode      int       // 精确状态码
-    StatusCodeMin   int       // 最小状态码（与 Max 组成区间）
-    StatusCodeMax   int       // 最大状态码
-    ContentType     string    // 内容类型（MIME 子串匹配）
-    StartTime       time.Time // 开始时间下界
-    EndTime         time.Time // 结束时间上界
-    MinDuration     float64   // 最小持续时间（ms）
-    MaxDuration     float64   // 最大持续时间（ms）
+    URL             string    // substring of URL, or regex when UseRegex is set
+    Method          string    // HTTP method
+    StatusCode      int       // exact status code
+    StatusCodeMin   int       // min status code (paired with Max for a range)
+    StatusCodeMax   int       // max status code
+    ContentType     string    // content type (MIME substring match)
+    StartTime       time.Time // lower bound of startedDateTime
+    EndTime         time.Time // upper bound of startedDateTime
+    MinDuration     float64   // min duration (ms)
+    MaxDuration     float64   // max duration (ms)
     ResourceType    string    // Chrome _resourceType
-    HasError        bool      // 是否有错误（_error 非空）
-    HeaderName      string    // 请求头名
-    HeaderValue     string    // 请求头值（空表示只按名存在性）
-    RespHeaderName  string    // 响应头名
-    RespHeaderValue string    // 响应头值
-    UseRegex        bool      // 是否对 URL 用正则匹配
+    HasError        bool      // only entries with _error set
+    HeaderName      string    // request header name
+    HeaderValue     string    // request header value (empty = existence check only)
+    RespHeaderName  string    // response header name
+    RespHeaderValue string    // response header value
+    UseRegex        bool      // whether to match URL as regex
 }
 ```
 
-字段之间存在组合：`StatusCodeMin`+`StatusCodeMax` 构成区间；`StartTime`+`EndTime` 构成时间窗；`MinDuration`+`MaxDuration` 构成耗时区间。`HasError` 为 true 时只保留带 `_error` 的条目。
+Fields combine: `StatusCodeMin`+`StatusCodeMax` form a range; `StartTime`+`EndTime` form a time window; `MinDuration`+`MaxDuration` form a duration range. When `HasError` is true, only entries with `_error` are kept.
 
-## Filter 返回 FilterResult
+## Filter returns FilterResult
 
 ```go
 type FilterResult struct {
@@ -45,12 +45,12 @@ type FilterResult struct {
 func (h *Har) Filter(options FilterOptions) *FilterResult
 ```
 
-`Filter` 不会修改原 `*Har`——它把匹配的条目切片放进新的 `FilterResult`。结果对象是链式操作的起点。
+`Filter` does not mutate the original `*Har` — it places the matching entry slice into a new `FilterResult`. The result object is the starting point for chained operations.
 
 ```go
 h, _ := har.ParseHarFile("capture.har")
 
-// 找出 GET 且状态码 200 的请求
+// Find GET requests with status 200
 result := h.Filter(har.FilterOptions{
     Method:    "GET",
     StatusCode: 200,
@@ -58,17 +58,17 @@ result := h.Filter(har.FilterOptions{
 fmt.Println("matched:", result.Count())
 ```
 
-::: tip 访问结果条目
-`FilterResult.Entries` 是导出切片，可直接遍历：`for i := range result.Entries { ... }`。`First()`/`Last()`/`At(i)` 是便捷访问器，`Count()` 返回数量。
+::: tip Accessing result entries
+`FilterResult.Entries` is an exported slice, so you can iterate it directly: `for i := range result.Entries { ... }`. `First()` / `Last()` / `At(i)` are convenience accessors; `Count()` returns the count.
 :::
 
-## 链式方法
+## Chained methods
 
-链式调用是一条处理管道：每一步返回 `*FilterResult`，下一步在前一步的结果上继续。下面的时序图展示了 `FilterWith(...) → SortByDurationDesc() → Limit(10) → ToHar()` 的完整流转，各阶段如何传递切片、最终如何打包成独立 `*Har`：
+A chained call is a processing pipeline: each step returns `*FilterResult`, and the next step continues on the previous result. The sequence diagram below shows the full flow `FilterWith(...) → SortByDurationDesc() → Limit(10) → ToHar()`, how the slice is passed between stages, and how it is finally packed into a standalone `*Har`:
 
 ```mermaid
 sequenceDiagram
-    participant Caller as 调用方
+    participant Caller as Caller
     participant H as Har
     participant FR as FilterResult
     participant Sort as SortByDurationDesc
@@ -76,63 +76,63 @@ sequenceDiagram
     participant TH as ToHar
 
     Caller->>H: FilterWith(WithFilterMethod("GET"), ...)
-    H->>FR: 过滤匹配条目放入新 FilterResult.Entries
+    H->>FR: place matching entries into a new FilterResult.Entries
     FR-->>Caller: FilterResult
 
     Caller->>FR: SortByDurationDesc()
-    FR->>Sort: 持有原切片引用
-    Sort-->>FR: 原地降序排序，返回自身
-    FR-->>Caller: FilterResult（同一对象）
+    FR->>Sort: holds reference to underlying slice
+    Sort-->>FR: sort in place descending, return self
+    FR-->>Caller: FilterResult (same object)
 
     Caller->>FR: Limit(10)
-    FR->>Lim: 取前 10 条
-    Lim-->>FR: 截短切片，返回自身
-    FR-->>Caller: FilterResult（同一对象）
+    FR->>Lim: take first 10
+    Lim-->>FR: truncate slice, return self
+    FR-->>Caller: FilterResult (same object)
 
     Caller->>FR: ToHar()
-    FR->>TH: 复制条目 + 保留 Log.Creator/Version
-    TH-->>Caller: 独立 Har（可交给 SecurityAudit 等）
+    FR->>TH: copy entries + preserve Log.Creator/Version
+    TH-->>Caller: standalone Har (hand to SecurityAudit etc.)
 
-    Note over FR,Lim: 排序/截取都是链上同一对象的 原地变换；ToHar 才产生新 Har
+    Note over FR,Lim: sort/slice mutate the same chained object in place, only ToHar produces a new Har
 ```
 
-`*FilterResult` 的方法都返回 `*FilterResult`（除了 `ToHar()` 和访问器），因此可以串起来。按职责归类如下：
+The methods on `*FilterResult` all return `*FilterResult` (except `ToHar()` and the accessors), so they chain. Grouped by responsibility:
 
-### 计数与访问器
+### Count and accessors
 
-| 方法 | 作用 | 返回 |
-|------|------|------|
-| `Count() int` | 条目数 | `int` |
-| `First() *Entries` | 第一条 | `*Entries` |
-| `Last() *Entries` | 最后一条 | `*Entries` |
-| `At(i) *Entries` | 第 i 条（越界返回 nil） | `*Entries` |
+| Method | Effect | Returns |
+|--------|--------|---------|
+| `Count() int` | number of entries | `int` |
+| `First() *Entries` | first entry | `*Entries` |
+| `Last() *Entries` | last entry | `*Entries` |
+| `At(i) *Entries` | i-th entry (nil if out of range) | `*Entries` |
 
-### 排序（链式）
+### Sorting (chained)
 
-| 方法 | 作用 | 返回 |
-|------|------|------|
-| `SortByTime() *FilterResult` | 按开始时间升序 | 链 |
-| `SortByDuration() *FilterResult` | 按总耗时升序 | 链 |
-| `SortByDurationDesc() *FilterResult` | 按总耗时降序 | 链 |
-| `SortBySize() *FilterResult` | 按响应大小升序 | 链 |
-| `SortBySizeDesc() *FilterResult` | 按响应大小降序 | 链 |
+| Method | Effect | Returns |
+|--------|--------|---------|
+| `SortByTime() *FilterResult` | sort by start time ascending | chain |
+| `SortByDuration() *FilterResult` | sort by total duration ascending | chain |
+| `SortByDurationDesc() *FilterResult` | sort by total duration descending | chain |
+| `SortBySize() *FilterResult` | sort by response size ascending | chain |
+| `SortBySizeDesc() *FilterResult` | sort by response size descending | chain |
 
-### 分页与链式再过滤（链式）
+### Pagination and chained re-filtering (chained)
 
-| 方法 | 作用 | 返回 |
-|------|------|------|
-| `Limit(n) *FilterResult` | 取前 n 条 | 链 |
-| `Offset(n) *FilterResult` | 跳过前 n 条 | 链 |
-| `Chain(opts) *FilterResult` | 在当前结果上再过滤 | 链 |
+| Method | Effect | Returns |
+|--------|--------|---------|
+| `Limit(n) *FilterResult` | take first n | chain |
+| `Offset(n) *FilterResult` | skip first n | chain |
+| `Chain(opts) *FilterResult` | filter the current result again | chain |
 
-### 转换出口
+### Conversion exit
 
-| 方法 | 作用 | 返回 |
-|------|------|------|
-| `ToHar() *Har` | 转回独立 `*Har`（保留元信息） | `*Har` |
+| Method | Effect | Returns |
+|--------|--------|---------|
+| `ToHar() *Har` | convert back to a standalone `*Har` (metadata preserved) | `*Har` |
 
 ```go
-// 最慢的 10 个 GET/200 请求
+// The 10 slowest GET/200 requests
 top := h.Filter(har.FilterOptions{
     Method:    "GET",
     StatusCode: 200,
@@ -143,27 +143,27 @@ for _, e := range top.Entries {
 }
 ```
 
-`Chain` 让你在已过滤结果上叠加新条件，无需重新从原 `*Har` 过滤：
+`Chain` lets you stack new conditions on an already-filtered result without re-filtering from the original `*Har`:
 
 ```go
-// 先按域名，再按状态码
+// First by domain, then by status code
 apiResult := h.Filter(har.FilterOptions{URL: "api.example.com"}).
     Chain(har.FilterOptions{StatusCode: 500})
 ```
 
-`ToHar()` 把当前结果集打包成一个独立的 `*Har`，原 `Log.Creator`/`Version` 等元信息保留——适合把子集交给其他分析方法或导出。
+`ToHar()` packs the current result set into a standalone `*Har`, preserving the original `Log.Creator` / `Version` and other metadata — handy for handing a subset to other analysis methods or exporting it.
 
-## 快捷 Find 方法
+## Shortcut Find methods
 
-`*Har` 上挂了一批 `Find*` 方法，覆盖最常见的查询，省去手写 `FilterOptions`。先看这张家族分类图——按"按什么维度查"归成 5 类，每类对应若干方法：
+A batch of `Find*` methods hang off `*Har` to cover the most common queries, sparing you from writing `FilterOptions` by hand. First look at this family diagram — grouped by "which dimension to query on" into 5 categories, each pointing to its methods:
 
 ```mermaid
 flowchart LR
-    Root[Har Find 家族] --> URL[按 URL/域名]
-    Root --> Status[按状态码]
-    Root --> Perf[按性能]
-    Root --> Header[按头部/Cookie]
-    Root --> Other[其它维度]
+    Root[Har Find family] --> URL[By URL / domain]
+    Root --> Status[By status code]
+    Root --> Perf[By performance]
+    Root --> Header[By header / cookie]
+    Root --> Other[Other dimensions]
 
     URL --> M1[FindByURL pattern, regex]
     URL --> M2[FindByDomain]
@@ -197,43 +197,43 @@ flowchart LR
     classDef gray fill:#475569,color:#fff;
 ```
 
-| 方法 | 等价 FilterOptions |
-|------|-------------------|
-| `FindErrors()` | 状态码 4xx/5xx |
-| `FindRedirects()` | 状态码 3xx |
+| Method | Equivalent FilterOptions |
+|--------|--------------------------|
+| `FindErrors()` | status 4xx/5xx |
+| `FindRedirects()` | status 3xx |
 | `FindSlowRequests(ms)` | `MinDuration = ms` |
-| `FindByDomain(domain)` | URL 含该域名 |
-| `FindByURL(pattern, regex)` | `URL=pattern`，`UseRegex=regex` |
+| `FindByDomain(domain)` | URL contains the domain |
+| `FindByURL(pattern, regex)` | `URL=pattern`, `UseRegex=regex` |
 | `FindByStatusCodeRange(min, max)` | `StatusCodeMin/Max` |
 | `FindByContentType(ct)` | `ContentType=ct` |
 | `FindByHeader(name, value)` | `HeaderName/HeaderValue` |
 | `FindByResponseHeader(name, value)` | `RespHeaderName/RespHeaderValue` |
-| `FindByCookie(name)` | 存在名为 name 的 Cookie |
+| `FindByCookie(name)` | a cookie named name exists |
 | `FindByResourceType(rt)` | `ResourceType=rt` |
-| `FindByServerIP(ip)` | `ServerIPAddress` 匹配 |
-| `FindByConnection(connID)` | `Connection` 匹配 |
-| `FindCacheHits()` | 缓存命中 |
+| `FindByServerIP(ip)` | `ServerIPAddress` matches |
+| `FindByConnection(connID)` | `Connection` matches |
+| `FindCacheHits()` | cache hits |
 | `FindByTimeRange(start, end)` | `StartTime/EndTime` |
 
 ```go
-// 5xx 错误，按耗时降序
+// 5xx errors, sorted by duration descending
 errs := h.FindByStatusCodeRange(500, 599).SortByDurationDesc()
 
-// 慢于 1s 的请求
+// Requests slower than 1s
 slow := h.FindSlowRequests(1000)
 
-// 正则匹配 API 路径
+// Regex-match API paths
 api := h.FindByURL(`^https://api\.example\.com/v[0-9]+`, true)
 
-// 含 Authorization 头的请求
+// Requests with an Authorization header
 authed := h.FindByHeader("Authorization", "")
 ```
 
-`FindByURL` 第二个参数是 `regex bool`：false 做子串匹配，true 做正则。这与 CLI `find "pattern" --regex` 一一对应。
+The second argument of `FindByURL` is `regex bool`: false does a substring match, true does a regex match. This maps one-to-one onto the CLI `find "pattern" --regex`.
 
-## 函数式 FilterWith
+## Functional FilterWith
 
-`functional_options.go` 提供函数式入口 `FilterWith(opts ...FilterOption) *FilterResult`，与 `Filter(FilterOptions)` 完全等价，只是配置用 `WithFilter*` 闭包：
+`functional_options.go` provides the functional entry `FilterWith(opts ...FilterOption) *FilterResult`, fully equivalent to `Filter(FilterOptions)` but configured with `WithFilter*` closures:
 
 ```go
 result := h.FilterWith(
@@ -242,15 +242,15 @@ result := h.FilterWith(
 ).SortByDurationDesc().Limit(10).ToHar()
 ```
 
-`WithFilter*` 工厂一览（详见 [函数式选项](./functional-options)）：
+The `WithFilter*` factories at a glance (see [Functional options](./functional-options)):
 
-- `WithFilterURL(s)` / `WithFilterRegex()` — URL 匹配，`WithFilterRegex()` 切正则模式
+- `WithFilterURL(s)` / `WithFilterRegex()` — URL match; `WithFilterRegex()` toggles regex mode
 - `WithFilterMethod(m)` / `WithFilterStatusCode(c)` / `WithFilterStatusCodeRange(min, max)`
 - `WithFilterContentType(ct)` / `WithFilterResourceType(rt)`
 - `WithFilterTimeRange(start, end)` / `WithFilterDuration(min, max)`
 - `WithFilterHasError()` / `WithFilterHeader(name, value)` / `WithFilterResponseHeader(name, value)`
 
-函数式的优势在于**条件拼装**——根据运行时条件决定加哪些过滤维度，无需预填一个巨大结构体：
+The functional style shines at **conditional assembly** — deciding which dimensions to filter at runtime without pre-filling a giant struct:
 
 ```go
 opts := []har.FilterOption{har.WithFilterMethod("GET")}
@@ -263,14 +263,14 @@ if minMs > 0 {
 result := h.FilterWith(opts...).SortByDurationDesc().Limit(50)
 ```
 
-## 链式组合示例
+## Chained composition example
 
-把上面所有能力串起来——一个真实的"慢接口排查"流程：
+String all the above together — a real "slow endpoint triage" flow:
 
 ```go
 h, _ := har.ParseHarFile("capture.har")
 
-// 目标：找出 API 域名下、5xx、最慢的 10 个请求，导出为独立 HAR
+// Goal: find the 10 slowest 5xx requests under the API domain, export as a standalone HAR
 hot := h.FilterWith(
     har.WithFilterURL("api.example.com"),
     har.WithFilterStatusCodeRange(500, 599),
@@ -282,15 +282,15 @@ for i := range hot.Entries {
     fmt.Printf("  %6.1fms  %d  %s\n", e.Time, e.Response.Status, e.Request.URL)
 }
 
-// 打包成独立 HAR，交给 security 审计或导出
+// Pack into a standalone HAR and hand it to security audit or export
 subHar := hot.ToHar()
 report := subHar.SecurityAudit()
 fmt.Println("sub-set security score:", report.Score)
 ```
 
-这段代码同时演示了：函数式拼装（`FilterWith`）、链式变换（`SortByDurationDesc().Limit`）、访问器（`Count`）、直接遍历切片（`range hot.Entries`）、转回 `*Har`（`ToHar`）后接入其他分析模块。
+This snippet demonstrates functional assembly (`FilterWith`), chained transformation (`SortByDurationDesc().Limit`), accessors (`Count`), direct slice iteration (`range hot.Entries`), and converting back to `*Har` (`ToHar`) before plugging into other analysis modules.
 
-## 下一步
+## Next steps
 
-- 过滤选项的函数式 `With*` 全表，见 [函数式选项](./functional-options)。
-- 拿到 `*Har` 子集后做安全/性能分析，见数据结构页中 `SecurityAudit`/`PerformanceScore` 等方法的引用。
+- For the full table of functional `With*` filter options, see [Functional options](./functional-options).
+- For running security/performance analysis on a `*Har` subset, refer to the `SecurityAudit` / `PerformanceScore` methods mentioned on the data-structures page.

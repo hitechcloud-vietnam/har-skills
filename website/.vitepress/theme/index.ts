@@ -12,7 +12,7 @@ import CommandTable from './components/CommandTable.vue'
 export default {
   extends: DefaultTheme,
   Layout: () => {
-    // 使用默认布局，仅通过全局样式覆盖外观
+    // Use the default layout and customize its appearance with global styles.
     return h(DefaultTheme.Layout, null, {})
   },
   enhanceApp({ app }) {
@@ -23,7 +23,7 @@ export default {
     app.component('CommandTable', CommandTable)
   },
   setup() {
-    // 客户端启动后接管 mermaid 骨架屏容器：解码源码 → mermaid.render → 替换骨架
+    // Take over Mermaid skeleton containers on the client: decode source, render, and replace the skeleton.
     setupMermaidRenderer()
   }
 } satisfies Theme

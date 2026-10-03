@@ -1,14 +1,14 @@
 ---
-title: 宽松解析与错误体系
+title: Lenient Parsing and Error System
 ---
 
-# 宽松解析与错误体系
+# Lenient Parsing and the Error System
 
-真实世界的 HAR 文件常常"半损坏"——旧工具漏字段、字段类型不符、个别 entry 结构错位。标准 `json.Unmarshal` 遇到第一处错误就整体失败，连 999 条好数据也拿不到。har-skills 用 `HarError` 错误体系 + `parseLenient` 宽松解析，做到"逐字段容错、坏字段记入警告、好数据照常返回"。
+Real-world HAR files are often "half-broken" — legacy tools drop fields, types mismatch, individual entries are malformed. Standard `json.Unmarshal` fails the whole document on the first error, discarding 999 good entries. har-skills pairs a structured `HarError` system with `parseLenient` to deliver per-field tolerance: bad fields become warnings, good data still comes back.
 
-## 错误体系
+## The Error System
 
-### ErrorCode 枚举
+### ErrorCode Enum
 
 ```go
 // errors.go
@@ -16,68 +16,68 @@ type ErrorCode int
 
 const (
     ErrCodeUnknown ErrorCode = iota
-    ErrCodeFileSystem      // 文件系统错误（打开/读取/关闭）
-    ErrCodeJSONParse       // JSON 解析错误
-    ErrCodeInvalidFormat   // 格式错误（如不是 JSON）
-    ErrCodeValidation      // 验证错误（不符合 HAR 规范）
-    ErrCodeMissingField    // 必需字段缺失
-    ErrCodeInvalidValue    // 字段值无效
-    ErrCodeUnsupported     // 不支持的操作
+    ErrCodeFileSystem      // filesystem error (open/read/close)
+    ErrCodeJSONParse       // JSON parse error
+    ErrCodeInvalidFormat   // format error (e.g. not JSON)
+    ErrCodeValidation      // validation error (violates HAR spec)
+    ErrCodeMissingField    // required field missing
+    ErrCodeInvalidValue    // field value invalid
+    ErrCodeUnsupported     // unsupported operation
 )
 ```
 
-### HarError 结构
+### HarError Struct
 
 ```go
 // errors.go
 type HarError struct {
-    Code          ErrorCode            // 错误类型代码
-    Message       string               // 错误信息
-    Err           error                // 原始错误（可被 Unwrap）
-    Field         string               // 字段路径，如 "log.entries[0].request.url"
-    Metadata      map[string]interface{}  // 额外上下文（如 offset、filePath）
-    PartialErrors []*HarError          // 部分解析错误（递归）
+    Code          ErrorCode            // error code
+    Message       string               // message
+    Err           error                // underlying error (Unwrap-able)
+    Field         string               // field path, e.g. "log.entries[0].request.url"
+    Metadata      map[string]interface{}  // extra context (offset, filePath, ...)
+    PartialErrors []*HarError          // partial-parse errors (recursive)
 }
 ```
 
-`HarError` 是错误体系的中心。它实现了 `error`、`Unwrap()`（支持 `errors.Is/As`），并带一组构建/查询方法：
+`HarError` is the center of the system. It implements `error` and `Unwrap()` (so `errors.Is/As` work), and carries a set of builders / queries:
 
 ```mermaid
 graph TD
   HE["HarError"]:::root
-  HE --> Code["Code: ErrorCode<br/>错误类型代码"]
-  HE --> Msg["Message: string<br/>错误信息"]
-  HE --> Err["Err: error<br/>原始错误（可被 Unwrap）"]
-  HE --> Field["Field: string<br/>字段路径，如 log.entries[0].request.url"]
-  HE --> Meta["Metadata: map[string]interface{}<br/>额外上下文（offset、filePath）"]
-  HE --> PE["PartialErrors: []*HarError<br/>部分解析错误（递归）"]
-  PE -.->|"递归指向"| HE
-  Code -.->|"构造器"| Ctor["NewJSONParseError / NewValidationError /<br/>NewMissingFieldError / ..."]
+  HE --> Code["Code: ErrorCode<br/>error code"]
+  HE --> Msg["Message: string<br/>message"]
+  HE --> Err["Err: error<br/>underlying error (Unwrap-able)"]
+  HE --> Field["Field: string<br/>field path, e.g. log.entries[0].request.url"]
+  HE --> Meta["Metadata: map[string]interface{}<br/>extra context (offset, filePath, ...)"]
+  HE --> PE["PartialErrors: []*HarError<br/>partial-parse errors (recursive)"]
+  PE -.->|"recursive ref"| HE
+  Code -.->|"constructors"| Ctor["NewJSONParseError / NewValidationError /<br/>NewMissingFieldError / ..."]
   Field -.->|"WithField(field)"| HE
   Meta -.->|"WithMetadata(key,value)"| HE
   PE -.->|"AddPartialError(*HarError)"| HE
   classDef root fill:#cce5ff,stroke:#004085,stroke-width:2px
 ```
 
-| 类别 | 方法 |
-|------|------|
-| 构建上下文 | `WithField(field)`、`WithMetadata(key, value)` |
-| 部分错误 | `AddPartialError(*HarError)`、`HasPartialErrors()`、`GetPartialErrors()` |
-| 查询 | `GetCode()`、`IsFileSystemError()`、`IsJSONParseError()`、`IsFormatError()`、`IsValidationError()` |
+| Category | Methods |
+|----------|---------|
+| Context | `WithField(field)`, `WithMetadata(key, value)` |
+| Partial errors | `AddPartialError(*HarError)`, `HasPartialErrors()`, `GetPartialErrors()` |
+| Queries | `GetCode()`, `IsFileSystemError()`, `IsJSONParseError()`, `IsFormatError()`, `IsValidationError()` |
 
-`Error()` 会把 Field、原始 Err、PartialErrors 全拼进消息，便于一眼看清出错位置与原因：
+`Error()` folds Field, the underlying Err, and PartialErrors into one message so you can see the location and cause at a glance:
 
 ```go
-// errors.go — Error() 的输出形如：
-// 字段 'log.entries[3].request.url': 无效的URL格式: ... - original error
-//   (部分错误: 无法解析第3个entry: ...; 字段 'log.entries[5]': ...)
+// errors.go — Error() output resembles:
+// field 'log.entries[3].request.url': invalid URL format: ... - original error
+//   (partial errors: unable to parse entry 3: ...; field 'log.entries[5]': ...)
 ```
 
-### 构造器与 JSON 错误包装
+### Constructors and JSON Error Wrapping
 
 ```go
 // errors.go
-NewHarError(code, message, err)        // 通用
+NewHarError(code, message, err)        // generic
 NewFileSystemError(message, err)       // ErrCodeFileSystem
 NewJSONParseError(message, err)        // ErrCodeJSONParse
 NewValidationError(message, field)     // ErrCodeValidation + Field
@@ -87,7 +87,7 @@ NewInvalidValueError(field, value, reason)  // + Metadata["value"]
 NewUnsupportedError(message)           // ErrCodeUnsupported
 ```
 
-`WrapJSONUnmarshalError` 是关键：它把 `encoding/json` 的原始错误**分类细化**，提取 `Offset`/`Field`/类型信息：
+`WrapJSONUnmarshalError` is the key piece: it **classifies** raw `encoding/json` errors and extracts `Offset`/`Field`/type info:
 
 ```go
 // errors.go
@@ -95,48 +95,48 @@ func WrapJSONUnmarshalError(err error) *HarError {
     switch e := err.(type) {
     case *json.UnmarshalTypeError:
         return NewJSONParseError(
-            fmt.Sprintf("类型不匹配: 预期 %s 类型，但得到 %s",
+            fmt.Sprintf("type mismatch: expected %s, got %s",
                 e.Type.String(), e.Value), err).
             WithField(e.Field).WithMetadata("offset", e.Offset)
     case *json.SyntaxError:
         return NewJSONParseError(
-            fmt.Sprintf("JSON语法错误: %s", e.Error()), err).
+            fmt.Sprintf("JSON syntax error: %s", e.Error()), err).
             WithMetadata("offset", e.Offset)
     }
-    // 其他 "cannot unmarshal" 形态的错误也尽量拆出消息
+    // Other "cannot unmarshal" shapes also get their message extracted
     if strings.Contains(err.Error(), "cannot unmarshal") { /* ... */ }
-    return NewJSONParseError("JSON解析错误", err)
+    return NewJSONParseError("JSON parsing error", err)
 }
 ```
 
-这样调用方拿到的不是干巴巴的 "unexpected end of JSON input"，而是带偏移量、字段路径、预期类型的结构化错误。
+So callers don't get a bare "unexpected end of JSON input" — they get a structured error with offset, field path, and expected type.
 
-## 宽松解析核心：PartialErrors 实现部分成功
+## Lenient Parsing Core: PartialErrors Enable Partial Success
 
-`parseLenient` 的策略是 **逐字段用 `json.RawMessage` 解析**：先把 `log` 解析成 `map[string]json.RawMessage`，再对每个子字段单独 `json.Unmarshal`。单字段失败只记一条 `PartialError`，不中断其他字段：
+`parseLenient` parses **per field via `json.RawMessage`**: first unmarshal `log` into `map[string]json.RawMessage`, then `json.Unmarshal` each sub-field individually. A field failure records one `PartialError` without interrupting the others:
 
 ```go
-// parser.go — parseLenient 的核心循环（节选）
+// parser.go — parseLenient core loop (excerpt)
 var logData map[string]json.RawMessage
 if err := json.Unmarshal(logBytes, &logData); err != nil {
     return nil, WrapJSONUnmarshalError(err)
 }
 
 rootError := &HarError{Code: ErrCodeJSONParse,
-    Message: "HAR解析过程中发生错误，但部分内容已成功解析"}
+    Message: "errors occurred while parsing HAR, but some content was parsed successfully"}
 
-// version 字段：单独解析，失败只记 partial
+// version field: parse alone; failure only logs a partial
 if versionBytes, ok := logData["version"]; ok {
     var version string
     if err := json.Unmarshal(versionBytes, &version); err == nil {
-        har.Log.Version = version          // 成功 → 装回 Har
+        har.Log.Version = version          // success → put into Har
     } else {
         rootError.AddPartialError(
-            NewJSONParseError("无法解析version字段", err).
+            NewJSONParseError("unable to parse version field", err).
                 WithField("log.version"))
     }
 }
-// entries 数组：逐条 RawMessage，单条坏掉不影响其他条
+// entries array: per-entry RawMessage; one bad entry doesn't break the rest
 if entriesBytes, ok := logData["entries"]; ok {
     var entries []json.RawMessage
     if err := json.Unmarshal(entriesBytes, &entries); err == nil {
@@ -147,7 +147,7 @@ if entriesBytes, ok := logData["entries"]; ok {
             } else {
                 rootError.AddPartialError(
                     NewJSONParseError(
-                        fmt.Sprintf("无法解析第%d个entry", i+1), err).
+                        fmt.Sprintf("unable to parse entry %d", i+1), err).
                         WithField(fmt.Sprintf("log.entries[%d]", i)))
             }
         }
@@ -155,37 +155,37 @@ if entriesBytes, ok := logData["entries"]; ok {
 }
 ```
 
-返回逻辑：
+Return logic:
 
 ```go
-// 有错误且收集警告 → 若已解析出有效内容(version/entries/pages)，返回 Har + 警告
+// errors + collect warnings → if valid content was parsed, return Har + warning
 if rootError.HasPartialErrors() && options.CollectWarnings {
     if har.Log.Version != "" || len(har.Log.Entries) > 0 || len(har.Log.Pages) > 0 {
-        return har, rootError  // 部分成功
+        return har, rootError  // partial success
     }
-    return nil, rootError      // 完全失败
+    return nil, rootError      // total failure
 }
 ```
 
-## 严格 vs 宽松对比
+## Strict vs. Lenient
 
 ```mermaid
 graph LR
-  subgraph STRICT["严格解析（!Lenient）"]
+  subgraph STRICT["Strict parsing (!Lenient)"]
     direction TB
-    S1["json.Unmarshal(整份, &har)"]:::bad --> S2{"任一字段错?"}
-    S2 -->|"是"| S3["整体 fail<br/>返回 (nil, err)"]:::bad
-    S2 -->|"否"| S4["返回 (har, nil)"]:::ok
+    S1["json.Unmarshal(whole, &har)"]:::bad --> S2{"any field error?"}
+    S2 -->|"yes"| S3["total fail<br/>return (nil, err)"]:::bad
+    S2 -->|"no"| S4["return (har, nil)"]:::ok
   end
-  subgraph LENIENT["宽松解析（Lenient + CollectWarnings）"]
+  subgraph LENIENT["Lenient parsing (Lenient + CollectWarnings)"]
     direction TB
-    L1["map[string]json.RawMessage"] --> L2["逐字段 Unmarshal"]
-    L2 --> L3["version OK → 装回"]:::ok
-    L2 --> L4["creator OK → 装回"]:::ok
-    L2 --> L5["entries 0..N OK → 装回"]:::ok
-    L2 --> L6["entries[3] 错 → AddPartialError"]:::warn
-    L6 --> L7["entries 4..N 继续解析"]:::ok
-    L7 --> L8["返回 (har, rootError)<br/>har 含 N-1 条好数据"]:::ok
+    L1["map[string]json.RawMessage"] --> L2["per-field Unmarshal"]
+    L2 --> L3["version OK → store"]:::ok
+    L2 --> L4["creator OK → store"]:::ok
+    L2 --> L5["entries 0..N OK → store"]:::ok
+    L2 --> L6["entries[3] bad → AddPartialError"]:::warn
+    L6 --> L7["entries 4..N keep going"]:::ok
+    L7 --> L8["return (har, rootError)<br/>har holds N-1 good entries"]:::ok
   end
   classDef ok fill:#d4edda,stroke:#28a745
   classDef warn fill:#fff3cd,stroke:#856404
@@ -193,62 +193,61 @@ graph LR
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```
-严格解析（!Lenient）                      宽松解析（Lenient + CollectWarnings）
+Strict parsing (!Lenient)                  Lenient parsing (Lenient + CollectWarnings)
 ─────────────────────                    ─────────────────────────────────
-│ json.Unmarshal(整份, &har)   │          │ map[string]json.RawMessage      │
-│        │                     │          │        │                         │
-│        ▼                     │          │        ▼ 逐字段 Unmarshal        │
-│  任一字段错 → 整体 fail       │          │  version OK → 装回               │
-│  (返回 nil, err)             │          │  creator OK → 装回               │
-│                              │          │  entries[0..N] OK → 装回         │
-│                              │          │  entries[3] 错 → AddPartialError │
-│                              │          │  entries[4..N] 继续解析          │
+│ json.Unmarshal(whole, &har)   │          │ map[string]json.RawMessage      │
+│        │                     │          │        ▼ per-field Unmarshal     │
+│        ▼                     │          │  version OK → store              │
+│  any field error → total fail │          │  creator OK → store              │
+│  (return nil, err)           │          │  entries[0..N] OK → store        │
+│                              │          │  entries[3] bad → AddPartialError│
+│                              │          │  entries[4..N] keep going        │
 │                              │          │        ▼                         │
-│                              │          │  返回 (har, rootError)           │
-│                              │          │  har 含 N-1 条好数据              │
+│                              │          │  return (har, rootError)         │
+│                              │          │  har holds N-1 good entries      │
 └──────────────────────────────┘          └─────────────────────────────────┘
 ```
 </details>
 
-## 入口与 ParseOptions
+## Entry Points and ParseOptions
 
 ```go
 // errors.go
 type ParseOptions struct {
-    Lenient         bool  // 宽松模式
-    SkipValidation  bool  // 跳过规范验证
-    CollectWarnings bool  // 收集警告而非直接失败
-    MaxWarnings     int   // 最大警告数（默认 100）
+    Lenient         bool  // lenient mode
+    SkipValidation  bool  // skip spec validation
+    CollectWarnings bool  // collect warnings instead of failing
+    MaxWarnings     int   // max warnings (default 100)
 }
 ```
 
-`ParseOptions` 是**结构体式**选项，与 `options.go` 的**函数式 Option**（`WithSkipValidation()`/`WithMemoryOptimized()` 等）互补：前者适合显式、可序列化的配置；后者适合链式调用。两者通过 `options.toParseOptions()` 互转。
+`ParseOptions` is a **struct-style** option set, complementary to the **functional Options** in `options.go` (`WithSkipValidation()`/`WithMemoryOptimized()` etc.): the former suits explicit, serializable config; the latter suits chained calls. They interconvert via `options.toParseOptions()`.
 
-四档入口，从底层到便利：
+Four tiers of entry points, from low- to high-level:
 
 ```go
 // parser.go
-// 1. 全控制（结构体选项）
+// 1. Full control (struct options)
 har, err := ParseHarWithOptions(bytes, ParseOptions{Lenient: true, CollectWarnings: true})
 har, err := ParseHarFileWithOptions("capture.har", opts)
 
-// 2. 增强版：返回 (*Har, *HarError)，错误带结构
+// 2. Enhanced: returns (*Har, *HarError) with structured error
 har, harErr := ParseHarEnhanced(bytes)
 har, harErr := ParseHarFileEnhanced("capture.har")
 
-// 3. 一键宽松
+// 3. One-shot lenient
 har, err := ParseHarLenient(bytes)        // = Default + Lenient + CollectWarnings
 har, err := ParseHarFileLenient("capture.har")
 
-// 4. 警告模式：返回 (*Result, error)
+// 4. Warnings mode: returns (*Result, error)
 res, err := ParseHarWithWarnings(bytes)        // res.Har + res.Warnings
 res, err := ParseHarFileWithWarnings("capture.har")
 ```
 
-`Result` 与 `ParseHarWithWarnings`：
+`Result` and `ParseHarWithWarnings`:
 
 ```go
 // parser.go
@@ -258,35 +257,35 @@ type Result struct {
 }
 ```
 
-它比 `ParseHarLenient` 多两步：解析后跑 `validateURLs`（检查空格、缺协议、`url.Parse` 失败）和 `performFullValidation`（把 `ValidateHarFile` 的 partial errors 转成警告），并对警告去重（`appendWarnings` 用 `field:message` 做 key）。最终 `res.Warnings` 是一份完整的"问题清单"，`res.Har` 仍可正常使用。
+It does two more things than `ParseHarLenient`: after parsing it runs `validateURLs` (checks spaces, missing scheme, `url.Parse` failures) and `performFullValidation` (converts `ValidateHarFile` partial errors into warnings), and dedups warnings (`appendWarnings` keys on `field:message`). The final `res.Warnings` is a complete "issue list" while `res.Har` remains usable.
 
-## 适用场景
+## When to Use
 
 ```mermaid
 flowchart TD
-  Q1{"HAR 文件来源 / 完整性？"}
-  Q1 -->|"可疑"| LEN["宽松解析<br/>（旧工具导出、字段缺失/类型不符、半损坏文件）<br/>收益：抢救可用数据 + 精确报告每个坏字段"]
-  Q1 -->|"干净（自家工具/规范导出）"| STD["标准解析<br/>（ParseHar / ParseHarWithOptions 默认严格）<br/>收益：最快路径 + 失败即定位"]
+  Q1{"HAR file source / integrity?"}
+  Q1 -->|"suspect"| LEN["Lenient parsing<br/>(legacy tool exports, missing fields / type mismatch, half-broken)<br/>benefit: salvage usable data + precise per-field report"]
+  Q1 -->|"clean (homegrown tool / spec-compliant)"| STD["Standard parsing<br/>(ParseHar / ParseHarWithOptions strict by default)<br/>benefit: fastest path, fail-fast locating"]
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ HAR 文件来源 / 完整性？                                        │
+│ HAR file source / integrity?                                  │
 └────────┬───────────────────────────┬─────────────────────────┘
-  可疑    │                       干净│ （自家工具/规范导出）
+  suspect│                       clean│ (homegrown tool / spec-compliant)
          ▼                           ▼
-   宽松解析                       标准解析
-   (旧工具导出、                   (ParseHar / ParseHarWithOptions
-    字段缺失/类型不符,               默认严格)
-    半损坏文件)                     收益：最快路径 + 失败即定位
-   收益：抢救可用数据 +
-         精确报告每个坏字段
+   Lenient parsing                 Standard parsing
+   (legacy tool exports,           (ParseHar / ParseHarWithOptions
+    missing fields / type             strict by default)
+    mismatch, half-broken)         benefit: fastest path, fail-fast locating
+   benefit: salvage usable data +
+         precise per-field report
 ```
 </details>
 
-- **适合**：处理半损坏 HAR——旧版浏览器/抓包工具导出（字段命名不规范）、传输截断、手动编辑出错。`ParseHarWithWarnings` 尤其适合 CI/数据入库前的"体检"：拿到结果与问题清单。
-- **错误体系独立价值**：即使不用宽松解析，`WrapJSONUnmarshalError` 也让 `ParseHar` 的失败信息从模糊变得可定位（带 offset、field、类型），便于上游日志与告警。
-- **注意**：宽松模式**不能修复语义错误**——它能跳过解析失败的字段，但对"类型对但值非法"（如 URL 缺协议）只能记警告、不会改写。需要修正请配合 `transform` 命令或 SDK 的 `Transform`/`RewriteURL`。
+- **Good fit**: half-broken HARs — legacy browser/capture-tool exports (non-standard field naming), truncation in transit, manual edits gone wrong. `ParseHarWithWarnings` is especially handy as a "health check" before CI / data ingestion: you get both the result and the issue list.
+- **The error system pays off on its own**: even without lenient mode, `WrapJSONUnmarshalError` turns `ParseHar` failures from vague into locatable (offset, field, type), feeding upstream logs and alerts.
+- **Note**: lenient mode **does not fix semantic errors** — it can skip fields that fail to parse, but for "right type, illegal value" (e.g. URL missing a scheme) it only records a warning, never rewrites. To fix, pair with the `transform` command or the SDK's `Transform`/`RewriteURL`.

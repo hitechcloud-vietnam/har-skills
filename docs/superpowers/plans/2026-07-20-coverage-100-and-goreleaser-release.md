@@ -1,33 +1,33 @@
-# Coverage 100% & GoReleaser 发布流程验证 Implementation Plan
+# Coverage 100% & GoReleaser Release Workflow Verification Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development`
 > Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** 将根包单元测试覆盖率从 99.7% 提升到 100%（覆盖 12 个函数的剩余错误/边界分支），并验证 goreleaser 发布流程：现代化配置（补 `version: 2`、迁移废弃项）、对齐 Go 版本、实际打 tag 触发 GitHub Action 发布并核对 release 产物。
+**Goal:** Raise root-package unit test coverage from 99.7% to 100% by covering the remaining error and edge-case branches in 12 functions, and verify the GoReleaser release workflow: modernize the configuration (add `version: 2` and migrate deprecated options), align Go versions, create a tag to trigger a GitHub Actions release, and verify the release artifacts.
 
-**Architecture:** 数据流分两条独立线：
-1. **覆盖率线**：`go tool cover -func` 定位 4 个源文件（builder.go/decode.go/http_convert.go/redact.go）共 12 个函数的未覆盖分支 → 在新测试文件 `coverage_final_test.go` 中为每个未覆盖分支编写针对性测试（nil receiver / 空入参 / 损坏 payload / 不可达分支改源码）→ `go test -coverprofile` 验证 100.0%。
-2. **发布流程线**：`.goreleaser.yaml` 补 `version: 2` schema 声明 + 迁移 `snapshot.name_template` → `.github/workflows/goreleaser.yml` 的 Go 1.22 → 1.25（对齐 release.yml，因 go.mod=go 1.24）→ 本地 `goreleaser check` + `release --snapshot` 预演 → 打 `v0.1.1` tag 推送触发 Action → `gh release view v0.1.1` 核对产物清单与 checksums。
+**Architecture:** The workflow has two independent tracks:
+1. **Coverage:** Use `go tool cover -func` to locate uncovered branches in 12 functions across four source files (`builder.go`, `decode.go`, `http_convert.go`, and `redact.go`). Add targeted tests for each branch in `coverage_final_test.go` (nil receivers, empty input, corrupted payloads, and source changes for unreachable branches), then verify 100.0% with `go test -coverprofile`.
+2. **Release workflow:** Add the `version: 2` schema declaration to `.goreleaser.yaml` and migrate `snapshot.name_template`; update Go 1.22 to 1.25 in `.github/workflows/goreleaser.yml` to match `release.yml` (go.mod requires Go 1.24); run `goreleaser check` and `release --snapshot` locally; push a `v0.1.1` tag to trigger the Action; and verify the artifact list and checksums with `gh release view v0.1.1`.
 
-**Tech Stack:** Go 1.24+ (klauspost/compress v1.19.0 要求), goreleaser latest, GitHub Actions goreleaser-action@v5, testify v1.8.4, brotli v1.2.2, zstd v1.19.0
+**Tech Stack:** Go 1.24+ (required by klauspost/compress v1.19.0), latest GoReleaser, GitHub Actions goreleaser-action@v5, testify v1.8.4, brotli v1.2.2, and zstd v1.19.0
 
 **Risks:**
-- brotli/zstd 错误分支（decode.go:205/215/222/298/305）触发困难：brotli.Reader 几乎不返回错误、zstd.NewReader 初始化几乎不失败 → 缓解：Task 2 先尝试用合法 magic + 截断 payload 触发读取中段错误；若确不可达则在 Task 2 中改源码移除错误分支并更新注释
-- `AddEntryFromHTTPWithMeta` 的 har==nil 分支（builder.go:163）需 nil HarBuilder → 缓解：Task 1 用 `var b *HarBuilder`（未初始化）调用，ensureHar 对 nil receiver 返回 nil
-- Task 5 实际 release 创建公开 tag + release，不可静默回退 → 缓解：用增量版本 `v0.1.1`，发布前本地 snapshot 预演已验证通过，Action 失败可删 tag 重来
+- Brotli/Zstandard error branches (`decode.go:205/215/222/298/305`) are difficult to trigger: `brotli.Reader` rarely returns errors, and `zstd.NewReader` initialization rarely fails. Mitigation: in Task 2, first try a valid magic number with a truncated payload to trigger an error while reading; if the branch is truly unreachable, remove it from the source and update the comments.
+- The `har == nil` branch in `AddEntryFromHTTPWithMeta` (`builder.go:163`) requires a nil HarBuilder. Mitigation: in Task 1, call the method on `var b *HarBuilder`; `ensureHar` returns nil for a nil receiver.
+- Task 5 creates a public tag and release that cannot be silently rolled back. Mitigation: use the incremental version `v0.1.1`; validate the local snapshot before publishing, and delete the tag and retry if the Action fails.
 
 ---
 
-### Task 1: 覆盖 builder.go 剩余分支
+### Task 1: Cover the Remaining Branches in builder.go
 
 **Depends on:** None
 **Files:**
-- Modify: `coverage_final_test.go`（新建，覆盖 4 个源文件；本 Task 只写 builder.go 部分）
-- Source refs: `builder.go:160-168`（AddEntryFromHTTPWithMeta nil-har 分支）, `builder.go:265-268`（applyEntryMeta nil-entry 分支）, `builder.go:286-288`（InitiatorLine>0 分支）, `builder.go:692-694`（WriteEntryToWriter 编码错误分支）, `builder.go:703-705`（AppendEntryToJSONLFile 空路径分支）, `builder.go:814-816`（ToHarCopy nil-har 分支）, `builder.go:843-845`（SaveToFileWithOptions nil-har 分支）
+- Modify: `coverage_final_test.go` (new file covering four source files; this task adds only the builder.go tests)
+- Source refs: `builder.go:160-168` (AddEntryFromHTTPWithMeta nil-Har branch), `builder.go:265-268` (applyEntryMeta nil-entry branch), `builder.go:286-288` (InitiatorLine > 0 branch), `builder.go:692-694` (WriteEntryToWriter encoding error branch), `builder.go:703-705` (AppendEntryToJSONLFile empty-path branch), `builder.go:814-816` (ToHarCopy nil-Har branch), and `builder.go:843-845` (SaveToFileWithOptions nil-Har branch)
 
-- [ ] **Step 1: 创建 coverage_final_test.go — 覆盖 AddEntryFromHTTPWithMeta 与 applyEntryMeta 的 nil/InitiatorLine 分支**
+- [ ] **Step 1: Create coverage_final_test.go — cover the nil and InitiatorLine branches of AddEntryFromHTTPWithMeta and applyEntryMeta**
 
-新建文件，先写 builder.go 相关测试。`AddEntryFromHTTPWithMeta` 在 `b.ensureHar()` 返回 nil（即 `b` 为 nil `*HarBuilder`）时走 163 行返回 nil；`applyEntryMeta` 在 `entry==nil` 时走 266 行 return；InitiatorLine>0 走 286 行。
+Create the file and start with the builder.go tests. `AddEntryFromHTTPWithMeta` returns nil at line 163 when `b.ensureHar()` returns nil (that is, when `b` is a nil `*HarBuilder`); `applyEntryMeta` returns at line 266 when `entry == nil`; and a positive InitiatorLine exercises line 286.
 
 ```go
 package har
@@ -42,7 +42,7 @@ import (
 )
 
 // Cover AddEntryFromHTTPWithMeta nil-HarBuilder branch (builder.go:163-165):
-// var b *HarBuilder (未初始化) -> ensureHar 返回 nil -> har==nil -> return nil.
+// A nil *HarBuilder causes ensureHar to return nil, so har == nil and the method returns nil.
 func TestCovAddEntryFromHTTPWithMeta_NilBuilder(t *testing.T) {
 	body := bytes.NewBufferString(`{"k":"v"}`)
 	req := httptest.NewRequest(http.MethodPost, "https://api.example.com", body)
@@ -79,13 +79,13 @@ func TestCovApplyEntryMeta_Branches(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 追加 WriteEntryToWriter 编码错误分支与 AppendEntryToJSONLFile 空路径分支测试**
+- [ ] **Step 2: Add tests for the WriteEntryToWriter encoding-error branch and AppendEntryToJSONLFile empty-path branch**
 
-`WriteEntryToWriter`（builder.go:692）的 `encoder.Encode(entry)` 错误分支需注入不可编码的 entry；`AppendEntryToJSONLFile`（builder.go:703）的空 path 分支直接传 `""`。
+Trigger the `encoder.Encode(entry)` error branch in `WriteEntryToWriter` (`builder.go:692`) by injecting an entry that cannot be encoded. Exercise the empty-path branch in `AppendEntryToJSONLFile` (`builder.go:703`) by passing `""`.
 
 ```go
 // Cover WriteEntryToWriter Encode-error branch (builder.go:692-694):
-// 注入 Response.Error = func(){} (json.Marshal 不支持的类型) 触发 Encode 失败.
+// Set Response.Error to func(){} (a type unsupported by json.Marshal) to make Encode fail.
 func TestCovWriteEntryToWriter_EncodeError(t *testing.T) {
 	entry := Entries{
 		Request:  Request{Method: "GET", URL: "https://example.com"},
@@ -103,50 +103,50 @@ func TestCovAppendEntryToJSONLFile_EmptyPath(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: 追加 SafeRecorder ToHarCopy 与 SaveToFileWithOptions 的 nil-har 分支测试**
+- [ ] **Step 3: Add tests for the nil-Har branches of SafeRecorder ToHarCopy and SaveToFileWithOptions**
 
-`ToHarCopy`（builder.go:814）在 recorder.ToHar() 返回 nil 时返回 nil；`SaveToFileWithOptions`（builder.go:843）同理。需构造一个内部 har 为 nil 的 SafeRecorder——用 `NewSafeRecorderFromRecorder(NewRecorder())` 后不 Capture 任何条目，看 ToHar 是否返回 nil。先查 Recorder.ToHar 对空 recorder 的行为，若返回非 nil Har 则改用直接构造 `&SafeRecorder{recorder: NewRecorder()}` 但确保 ToHar 返回 nil 的方式。最稳妥：构造一个 recorder 内部 har 字段为 nil 的场景。读取 `Recorder` 结构确认字段名。
+`ToHarCopy` (`builder.go:814`) returns nil when `recorder.ToHar()` returns nil; `SaveToFileWithOptions` (`builder.go:843`) behaves similarly. Construct a SafeRecorder whose internal Har is nil. Try `NewSafeRecorderFromRecorder(NewRecorder())` without capturing any entries and check whether ToHar returns nil. First inspect how `Recorder.ToHar` behaves for an empty recorder. If it returns a non-nil Har, directly construct `&SafeRecorder{recorder: NewRecorder()}` and ensure ToHar returns nil. The safest approach is to create a recorder whose internal Har field is nil; inspect the Recorder struct to confirm the field name.
 
 ```go
 // Cover SafeRecorder.ToHarCopy nil-har branch (builder.go:814-816) and
 // SaveToFileWithOptions nil-har branch (builder.go:843-845).
 func TestCovSafeRecorder_NilHarBranches(t *testing.T) {
-	// 构造内部 har 为 nil 的 SafeRecorder
+	// Construct a SafeRecorder with a nil internal Har.
 	sr := &SafeRecorder{recorder: &Recorder{}} // Recorder.har == nil
 
-	// ToHarCopy: ToHar() 返回 nil -> return nil (line 814-816)
+	// ToHarCopy: ToHar() returns nil, so return nil (lines 814-816).
 	h := sr.ToHarCopy()
 	if h != nil {
 		t.Fatalf("expected nil from ToHarCopy when recorder.har is nil, got %v", h)
 	}
 
-	// SaveToFileWithOptions: ToHar() 返回 nil -> error (line 843-845)
+	// SaveToFileWithOptions: ToHar() returns nil, so return an error (lines 843-845).
 	err := sr.SaveToFileWithOptions("/tmp/should-not-be-created.har", false, false)
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 }
 ```
 
-- [ ] **Step 4: 验证 builder.go 覆盖率提升**
+- [ ] **Step 4: Verify builder.go coverage**
 Run: `go test . -run 'TestCovAddEntryFromHTTPWithMeta_NilBuilder|TestCovApplyEntryMeta_Branches|TestCovWriteEntryToWriter_EncodeError|TestCovAppendEntryToJSONLFile_EmptyPath|TestCovSafeRecorder_NilHarBranches' -v -count=1`
 Expected:
   - Exit code: 0
-  - Output contains: "PASS" 且每个测试函数名出现 "ok"
+  - Output contains "PASS" and "ok" for every test function name.
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 Run: `git add coverage_final_test.go && git commit -m "test(builder): cover nil/InitiatorLine/encode-error/empty-path branches"`
 
 ---
 
-### Task 2: 覆盖 decode.go 剩余错误分支
+### Task 2: Cover the Remaining Error Branches in decode.go
 
 **Depends on:** None
 **Files:**
-- Modify: `coverage_final_test.go`（追加 decode.go 部分）
-- Source refs: `decode.go:205-208`（brotli 解压失败）, `decode.go:215-218`（zstd 初始化失败）, `decode.go:222-225`（zstd DecodeAll 失败）, `decode.go:298-301`（DecompressByEncoding brotli 失败）, `decode.go:305-308`（DecompressByEncoding zstd 初始化失败）
+- Modify: `coverage_final_test.go` (add the decode.go tests)
+- Source refs: `decode.go:205-208` (Brotli decompression failure), `decode.go:215-218` (Zstandard initialization failure), `decode.go:222-225` (Zstandard DecodeAll failure), `decode.go:298-301` (DecompressByEncoding Brotli failure), and `decode.go:305-308` (DecompressByEncoding Zstandard initialization failure)
 
-- [ ] **Step 1: 调研 brotli/zstd 错误分支可触达性 — 决定测试还是改源码**
+- [ ] **Step 1: Investigate whether the Brotli/Zstandard error branches are reachable — decide whether to test them or change the source**
 
-brotli.Reader.Read 几乎不返回错误（流式解码，坏数据也产出垃圾字节直到 EOF）；zstd.NewReader 对合法 magic + 损坏 payload 的初始化阶段可能不失败，失败发生在 DecodeAll。先尝试构造触发数据。
+`brotli.Reader.Read` rarely returns an error (streaming decode may produce garbage bytes for invalid data until EOF); `zstd.NewReader` may initialize successfully with a valid magic number and corrupted payload, with failure occurring in DecodeAll. First try to construct input that triggers the errors.
 
 Run: `cat <<'EOF' > /tmp/probe_brotli.go
 package main
@@ -157,14 +157,14 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 func main() {
-	// 合法 brotli magic 第一字节 0x21，但后续损坏
+	// Valid Brotli magic first byte (0x21), followed by corrupted data.
 	bad := []byte{0x21, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	r := brotli.NewReader(bytes.NewReader(bad))
 	buf := make([]byte, 64)
 	n, err := r.Read(buf)
 	fmt.Printf("brotli n=%d err=%v\n", n, err)
 
-	// zstd 合法 magic 28 B5 2F FD + 损坏 frame
+	// Valid Zstandard magic (28 B5 2F FD) followed by a corrupted frame.
 	badZstd := []byte{0x28, 0xB5, 0x2F, 0xFD, 0x00, 0x00, 0xFF, 0xFF}
 	dec, err := zstd.NewReader(bytes.NewReader(badZstd))
 	fmt.Printf("zstd NewReader err=%v\n", err)
@@ -177,31 +177,31 @@ EOF
 go run /tmp/probe_brotli.go`
 Expected:
   - Exit code: 0
-  - 输出展示 brotli/zstd 各 err 是否非 nil
+  - Output shows whether each Brotli/Zstandard error is non-nil.
 
-根据 Step 1 输出决定：若 brotli err != nil 可触发 → Step 2 写测试；若 err == nil（不可达）→ Step 2 改为移除 brotli 错误分支的源码修改 Step。
+Use the Step 1 output to decide: if the Brotli error is non-nil and triggerable, write a test in Step 2; if it is nil (unreachable), change Step 2 to remove the Brotli error branch from the source.
 
-- [ ] **Step 2: 追加 decompressIfNeeded 与 DecompressByEncoding 的 brotli/zstd 错误分支测试**
+- [ ] **Step 2: Add tests for the Brotli/Zstandard error branches in decompressIfNeeded and DecompressByEncoding**
 
-根据 Step 1 结果：若可触发，用 Step 1 中产生 err != nil 的 payload 作为输入数据，分别调用 `decompressIfNeeded(data, "")` 和 `DecompressByEncoding(data, "br")` / `DecompressByEncoding(data, "zstd")`，断言返回 `ErrCodeInvalidFormat` 错误。
+Based on Step 1, if the errors are triggerable, use the payload that produced a non-nil error as input to `decompressIfNeeded(data, "")` and `DecompressByEncoding(data, "br")` / `DecompressByEncoding(data, "zstd")`, and assert that each returns an `ErrCodeInvalidFormat` error.
 
 ```go
 // Cover decompressIfNeeded brotli error (decode.go:205-208) and zstd
 // errors (decode.go:215-218 init, 222-225 decode).
 func TestCovDecompressIfNeeded_BrotliZstdErrors(t *testing.T) {
-	// 用 Step 1 探测出的能触发 err != nil 的 payload
+	// Use the payload found in Step 1 that triggers a non-nil error.
 	badBrotli := []byte{0x21, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-	// badBrotli 须通过 isBrotliData 探测（前若干字节可解码出非空），
-	// 若 Step 1 显示 brotli 不可达，本函数改为测试 zstd 分支即可
+	// badBrotli must pass the isBrotliData check (the first few bytes decode to non-empty data).
+	// If Step 1 shows Brotli is unreachable, test only the Zstandard branch here.
 	_, err := decompressIfNeeded(badBrotli, "")
-	// 探测性断言：有错则覆盖 205-208，无错则 brotli 分支不可达（见 Step 1 备注）
+	// Probe assertion: an error covers lines 205-208; otherwise, the Brotli branch is unreachable (see Step 1).
 	if err != nil {
 		assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 	}
 
 	badZstd := []byte{0x28, 0xB5, 0x2F, 0xFD, 0x00, 0x00, 0xFF, 0xFF}
 	_, err = DecompressByEncoding(badZstd, "zstd")
-	// zstd 在 DecodeAll 或 NewReader 阶段失败 -> 覆盖 305-308 或 222-225
+	// A Zstandard failure in DecodeAll or NewReader covers lines 305-308 or 222-225.
 	if err == nil {
 		t.Skip("zstd did not error on this payload; branch may need source review")
 	}
@@ -217,38 +217,38 @@ func TestCovDecompressByEncoding_BrotliError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: 验证 decode.go 覆盖率**
+- [ ] **Step 3: Verify decode.go coverage**
 Run: `go test . -run 'TestCovDecompress' -v -count=1 && go test . -coverprofile=/tmp/c.out -count=1 && go tool cover -func=/tmp/c.out | grep "decode.go" | grep -v "100.0%"`
 Expected:
   - Exit code: 0
-  - decode.go 行无输出（全部 100.0%）或仅剩明确不可达分支
+  - No decode.go lines are reported (100.0% coverage), or only clearly unreachable branches remain.
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: Commit**
 Run: `git add coverage_final_test.go && git commit -m "test(decode): cover brotli/zstd decompression error branches"`
 
 ---
 
-### Task 3: 覆盖 http_convert.go 与 redact.go 剩余分支
+### Task 3: Cover the Remaining Branches in http_convert.go and redact.go
 
 **Depends on:** None
 **Files:**
-- Modify: `coverage_final_test.go`（追加 http_convert.go + redact.go 部分）
-- Source refs: `http_convert.go:108-110`（parseFormParams 空 body）, `http_convert.go:113-114`（空 pair）, `http_convert.go:150-152`（isTextContentType 二进制 application 子类型）, `redact.go:366-369`（redactJSONBody Unmarshal 错误防御分支）
+- Modify: `coverage_final_test.go` (add the http_convert.go and redact.go tests)
+- Source refs: `http_convert.go:108-110` (parseFormParams empty body), `http_convert.go:113-114` (empty pair), `http_convert.go:150-152` (binary application subtype in isTextContentType), and `redact.go:366-369` (redactJSONBody Unmarshal error defensive branch)
 
-- [ ] **Step 1: 追加 parseFormParams 与 isTextContentType 边界测试**
+- [ ] **Step 1: Add boundary tests for parseFormParams and isTextContentType**
 
-`parseFormParams("")` 走 108 行返回空切片；`parseFormParams("key=&")` 触发 113 空 pair continue；`isTextContentType("application/pdf")` 走 150 返回 false。
+`parseFormParams("")` returns an empty slice at line 108; `parseFormParams("key=&")` exercises the empty-pair continue at line 113; `isTextContentType("application/pdf")` returns false at line 150.
 
 ```go
 // Cover parseFormParams empty-body (http_convert.go:108-110) and
 // empty-pair continue (http_convert.go:113-114).
 func TestCovParseFormParams_Branches(t *testing.T) {
-	// 空 body -> 返回空切片 (line 108-110)
+	// Empty body returns an empty slice (lines 108-110).
 	if got := parseFormParams(""); len(got) != 0 {
 		t.Fatalf("expected empty slice for empty body, got %v", got)
 	}
-	// 含空 pair ("&" 分割出空段) -> continue (line 113-114)
-	// 含无 "=" 的 pair -> Param{Name: key} (line 118-119)
+	// An empty pair (an empty segment split by "&") continues (lines 113-114).
+	// A pair without "=" yields Param{Name: key} (lines 118-119).
 	params := parseFormParams("key=&noeq&k=v")
 	if len(params) != 3 {
 		t.Fatalf("expected 3 params, got %d", len(params))
@@ -281,55 +281,55 @@ func TestCovIsTextContentType_BinaryApplication(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 追加 redactJSONBody Unmarshal 错误防御分支测试**
+- [ ] **Step 2: Add a test for the redactJSONBody Unmarshal error defensive branch**
 
-`redactJSONBody` 在 `json.Unmarshal` 失败时返回 `(text, false)`（redact.go:366-369）。该分支理论不可达（调用前 `looksLikeJSON` 已过滤），但保留防御。需传入 looksLikeJSON 能通过但 Unmarshal 失败的数据——实际上 looksLikeJSON 与 Unmarshal 判定基本一致，该分支极可能不可达。先尝试传入形似 JSON 但非法的字符串。
+`redactJSONBody` returns `(text, false)` when `json.Unmarshal` fails (`redact.go:366-369`). This branch is theoretically unreachable because `looksLikeJSON` filters input first, but it is retained as a defensive check. Pass data that passes `looksLikeJSON` but fails to unmarshal. Since the checks are nearly equivalent, this branch is probably unreachable; first try a string that looks like JSON but is invalid.
 
 ```go
 // Cover redactJSONBody Unmarshal-error defensive branch (redact.go:366-369).
-// 该分支理论不可达（looksLikeJSON 已过滤），但保留防御。
+// This branch is theoretically unreachable (`looksLikeJSON` filters the input), but is retained defensively.
 func TestCovRedactJSONBody_UnmarshalError(t *testing.T) {
-	// 直接调用 redactJSONBody，传入 looksLikeJSON 能过但 Unmarshal 失败的输入。
-	// 若实际不可达，断言返回 (text, false) 即可（不 panic）。
-	text := `{"key": }` // 形似 JSON 但值缺失
+	// Call redactJSONBody directly with input that passes looksLikeJSON but fails to unmarshal.
+	// If the branch is unreachable, assert that it returns (text, false) without panicking.
+	text := `{"key": }` // Looks like JSON, but the value is missing.
 	opts := DefaultRedactOptions()
 	out, ok := redactJSONBody(text, opts, "***", nil)
-	// 无论是否触发防御分支，都不应 panic；ok=false 表示走了防御分支
+	// It must not panic; ok=false means the defensive branch was reached.
 	_ = out
 	_ = ok
 }
 ```
 
-- [ ] **Step 3: 验证 http_convert.go 与 redact.go 覆盖率**
+- [ ] **Step 3: Verify http_convert.go and redact.go coverage**
 Run: `go test . -run 'TestCovParseFormParams|TestCovIsTextContentType|TestCovRedactJSONBody' -v -count=1 && go test . -coverprofile=/tmp/c.out -count=1 && go tool cover -func=/tmp/c.out | grep -E "http_convert.go|redact.go" | grep -v "100.0%"`
 Expected:
   - Exit code: 0
-  - http_convert.go 行无输出（全 100%）
-  - redact.go 若仍有 366-369 未覆盖，记录为不可达防御分支
+  - No http_convert.go lines are reported (100% coverage).
+  - If redact.go lines 366-369 remain uncovered, record them as an unreachable defensive branch.
 
-- [ ] **Step 4: 验证整体覆盖率 100%**
+- [ ] **Step 4: Verify 100% overall coverage**
 Run: `go test . -coverprofile=/tmp/c.out -count=1 && go tool cover -func=/tmp/c.out | tail -1`
 Expected:
   - Exit code: 0
   - Output contains: "100.0% of statements"
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 Run: `git add coverage_final_test.go && git commit -m "test(coverage): cover http_convert/redact edge branches, reach 100%"`
 
 ---
 
-### Task 4: GoReleaser 配置现代化与 workflow 版本对齐
+### Task 4: Modernize the GoReleaser Configuration and Align the Workflow Go Version
 
 **Depends on:** None
 **Files:**
-- Modify: `.goreleaser.yaml:1`（补 `version: 2`）, `.goreleaser.yaml:78-79`（迁移 `snapshot.name_template`）
+- Modify: `.goreleaser.yaml:1` (add `version: 2`) and `.goreleaser.yaml:78-79` (migrate `snapshot.name_template`)
 - Modify: `.github/workflows/goreleaser.yml:22,34`（Go 1.22 → 1.25）
 
-- [ ] **Step 1: 修改 .goreleaser.yaml — 补 version: 2 声明**
-文件: `.goreleaser.yaml:1`（文件开头，在 `project_name:` 之前）
+- [ ] **Step 1: Update .goreleaser.yaml — add the version: 2 declaration**
+File: `.goreleaser.yaml:1` (at the beginning of the file, before `project_name:`)
 
 ```yaml
-# GoReleaser 配置 — HAR Skills CLI 多平台构建
+# GoReleaser configuration — multi-platform builds for the HAR Skills CLI
 # https://goreleaser.com
 
 version: 2
@@ -337,20 +337,20 @@ version: 2
 project_name: har-skills
 ```
 
-- [ ] **Step 2: 修改 .goreleaser.yaml — 迁移废弃的 snapshot.name_template**
-文件: `.goreleaser.yaml`（snapshot 区块，原 `snapshot: name_template: "{{ incpatch .Version }}-next"`）
+- [ ] **Step 2: Update .goreleaser.yaml — migrate the deprecated snapshot.name_template**
+File: `.goreleaser.yaml` (snapshot section, previously `snapshot: name_template: "{{ incpatch .Version }}-next"`)
 
-新版 goreleaser 用 `snapshot.version_template` 替代 `snapshot.name_template`。替换整个 snapshot 区块：
+Newer GoReleaser versions use `snapshot.version_template` instead of `snapshot.name_template`. Replace the entire snapshot section:
 
 ```yaml
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 ```
 
-- [ ] **Step 3: 修改 goreleaser.yml — Go 1.22 → 1.25（对齐 release.yml）**
-文件: `.github/workflows/goreleaser.yml:22`（test job）和 `:34`（goreleaser job）
+- [ ] **Step 3: Update goreleaser.yml — Go 1.22 → 1.25 (to match release.yml)**
+File: `.github/workflows/goreleaser.yml:22` (test job) and `:34` (GoReleaser job)
 
-go.mod 声明 go 1.24（klauspost/compress v1.19.0 要求），Go 1.22 无法构建。两处 Setup Go 的 go-version 改为 1.25：
+go.mod declares Go 1.24 (required by klauspost/compress v1.19.0), so Go 1.22 cannot build the project. Change the go-version in both Setup Go steps to 1.25:
 
 ```yaml
       - name: Setup Go
@@ -359,67 +359,67 @@ go.mod 声明 go 1.24（klauspost/compress v1.19.0 要求），Go 1.22 无法构
           go-version: "1.25"
 ```
 
-- [ ] **Step 4: 本地验证 goreleaser 配置与 snapshot 构建**
+- [ ] **Step 4: Validate the GoReleaser configuration and snapshot build locally**
 Run: `goreleaser check 2>&1 | tail -5 && goreleaser release --snapshot --clean 2>&1 | tail -5`
 Expected:
-  - `goreleaser check` 输出不含 "DEPRECATED" 和 "error"
-  - `goreleaser release --snapshot` 输出包含 "release succeeded"
+  - `goreleaser check` output contains neither "DEPRECATED" nor "error".
+  - `goreleaser release --snapshot` output contains "release succeeded".
   - Exit code: 0
 
-- [ ] **Step 5: 验证二进制版本注入正确**
+- [ ] **Step 5: Verify version metadata is injected into the binary**
 Run: `./dist/har_linux_amd64_v1/har --version`
 Expected:
   - Exit code: 0
-  - Output contains: "HAR Skills" 和 "commit:" 和 "date:"
+  - Output contains "HAR Skills", "commit:", and "date:".
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 6: Commit**
 Run: `git add .goreleaser.yaml .github/workflows/goreleaser.yml && git commit -m "fix(ci): modernize goreleaser config (version:2, snapshot template) and align Go to 1.25"`
 
 ---
 
-### Task 5: 实际打 tag 触发发布并核对 release 产物
+### Task 5: Create a Tag to Trigger a Release and Verify the Artifacts
 
 **Depends on:** Task 4
 **Files:**
-- 无文件修改（纯 git tag + GitHub Action 触发 + 产物核对）
+- No file changes (only create a git tag, trigger GitHub Actions, and verify the artifacts).
 
-- [ ] **Step 1: 确保所有改动已合并到 main**
+- [ ] **Step 1: Ensure all changes have been merged into main**
 Run: `git push origin docs-website:main 2>&1 | tail -3`
 Expected:
   - Exit code: 0
-  - 输出包含 "main" 且无 "rejected"
+  - Output contains "main" and does not contain "rejected".
 
-- [ ] **Step 2: 打 v0.1.1 tag 并推送触发 Release workflow**
+- [ ] **Step 2: Create and push the v0.1.1 tag to trigger the Release workflow**
 Run: `git tag v0.1.1 -m "Release v0.1.1: 100% coverage + goreleaser config modernization" && git push origin v0.1.1`
 Expected:
   - Exit code: 0
-  - 推送成功，触发 Release workflow
+  - The push succeeds and triggers the Release workflow.
 
-- [ ] **Step 3: 监控 Release workflow 直到完成**
+- [ ] **Step 3: Monitor the Release workflow until it completes**
 Run: `sleep 8 && gh run list --workflow=goreleaser.yml --limit 1`
 Expected:
-  - 出现一条由 `v0.1.1` tag 触发的 Release workflow run
-  - 持续用 `gh run watch <run-id>` 直到 status=completed
+  - A Release workflow run triggered by the `v0.1.1` tag appears.
+  - Keep running `gh run watch <run-id>` until the status is completed.
 
-- [ ] **Step 4: 核对 release 产物清单**
+- [ ] **Step 4: Verify the release artifact list**
 Run: `gh release view v0.1.1 --repo hitechcloud-vietnam/har-skills --json assets,tagName,body 2>&1 | jq -r '.assets[].name'`
 Expected:
   - Exit code: 0
-  - 输出包含 11 个平台制品：darwin_arm64, darwin_x86_64, freebsd_i386, freebsd_x86_64, linux_arm64, linux_armv6, linux_armv7, linux_i386, linux_x86_64, windows_i386, windows_x86_64
-  - 输出包含 "checksums.txt"
-  - body 包含 changelog 分组（新功能/Bug 修复/其他改动）
+  - Output contains artifacts for all 11 platforms: darwin_arm64, darwin_x86_64, freebsd_i386, freebsd_x86_64, linux_arm64, linux_armv6, linux_armv7, linux_i386, linux_x86_64, windows_i386, and windows_x86_64.
+  - Output contains "checksums.txt".
+  - The body includes changelog categories (New Features / Bug Fixes / Other Changes).
 
-- [ ] **Step 5: 下载并验证 linux_x86_64 制品可运行**
+- [ ] **Step 5: Download and verify that the linux_x86_64 artifact runs**
 Run: `gh release download v0.1.1 --repo hitechcloud-vietnam/har-skills --pattern "har-skills_*linux_x86_64.tar.gz" --dir /tmp/release-check && tar xzf /tmp/release-check/har-skills_*linux_x86_64.tar.gz -C /tmp/release-check && /tmp/release-check/har --version`
 Expected:
   - Exit code: 0
-  - 输出包含 "HAR Skills 0.1.1" 和 "commit:" 和 "date:"
+  - Output contains "HAR Skills 0.1.1", "commit:", and "date:".
 
-- [ ] **Step 6: 提交 release 结果记录到 CLAUDE.md（可选，仅更新版本号引用）**
+- [ ] **Step 6: Record the release results in CLAUDE.md (optional; update version references only)**
 
-跳过——CLAUDE.md 安装命令引用 `@latest`，无需随每个 release 更新版本号。
+Skip this step: the installation command in CLAUDE.md uses `@latest`, so the version does not need updating with every release.
 
-Run: `echo "Release v0.1.1 验证完成，产物清单与版本注入均符合预期"`
+Run: `echo "Release v0.1.1 verified; artifact list and version metadata are as expected"`
 Expected:
   - Exit code: 0
 

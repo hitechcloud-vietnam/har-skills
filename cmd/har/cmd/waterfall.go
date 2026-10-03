@@ -10,20 +10,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// waterfallCmd 生成瀑布流时间线分析
+// waterfallCmd generates a waterfall timeline analysis.
 var waterfallCmd = &cobra.Command{
 	Use:   "waterfall",
-	Short: "生成瀑布流时间线分析",
-	Long: `生成HAR文件的请求瀑布流时间线分析，展示各请求的
-时间关系和详细计时阶段。
+	Short: "Generate a waterfall timeline analysis",
+	Long: `Generate a request waterfall timeline for a HAR file, showing request
+timing relationships and detailed timing phases.
 
-支持关键路径分析、并发度分析、SLA合规检查和页面计时指标。
+Supports critical path analysis, concurrency analysis, SLA compliance checks, and page timing metrics.
 
-示例:
+Examples:
   har -f capture.har waterfall
   har -f capture.har waterfall --critical-path
   har -f capture.har waterfall --concurrency
-  har -f capture.har waterfall --sla "首页:/:2000" "API:/api:500"
+  har -f capture.har waterfall --sla "Home:/:2000" "API:/api:500"
   har -f capture.har waterfall --page-timings`,
 	RunE: runWaterfall,
 }
@@ -31,10 +31,10 @@ var waterfallCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(waterfallCmd)
 
-	waterfallCmd.Flags().Bool("critical-path", false, "显示关键路径（最长的请求依赖链）")
-	waterfallCmd.Flags().Bool("concurrency", false, "显示并发度时间线")
-	waterfallCmd.Flags().StringSlice("sla", nil, "SLA规则 (格式: name:urlPattern:maxDurationMs)")
-	waterfallCmd.Flags().Bool("page-timings", false, "显示页面计时指标")
+	waterfallCmd.Flags().Bool("critical-path", false, "Show the critical path (longest request dependency chain)")
+	waterfallCmd.Flags().Bool("concurrency", false, "Show the concurrency timeline")
+	waterfallCmd.Flags().StringSlice("sla", nil, "SLA rules (format: name:urlPattern:maxDurationMs)")
+	waterfallCmd.Flags().Bool("page-timings", false, "Show page timing metrics")
 }
 
 func runWaterfall(cmd *cobra.Command, args []string) error {
@@ -45,7 +45,7 @@ func runWaterfall(cmd *cobra.Command, args []string) error {
 	slaRules, _ := cmd.Flags().GetStringSlice("sla")
 	showPageTimings, _ := cmd.Flags().GetBool("page-timings")
 
-	// 根据标志决定输出内容
+	// Select the output based on the flags.
 	if showCriticalPath {
 		path := h.CriticalPath()
 		return internal.WriteOutput(cmd, path, func() string {
@@ -63,7 +63,7 @@ func runWaterfall(cmd *cobra.Command, args []string) error {
 	if len(slaRules) > 0 {
 		rules, err := parseSLARules(slaRules)
 		if err != nil {
-			return fmt.Errorf("解析SLA规则失败: %w", err)
+			return fmt.Errorf("failed to parse SLA rules: %w", err)
 		}
 		results := h.SLACheck(rules)
 		return internal.WriteOutput(cmd, results, func() string {
@@ -78,28 +78,28 @@ func runWaterfall(cmd *cobra.Command, args []string) error {
 		}, nil)
 	}
 
-	// 默认：显示瀑布流
+	// Show the waterfall by default.
 	entries := h.Waterfall()
 	return internal.WriteOutput(cmd, entries, func() string {
 		return formatWaterfall(entries)
 	}, nil)
 }
 
-// parseSLARules 解析SLA规则字符串
+// parseSLARules parses SLA rule strings.
 func parseSLARules(rules []string) ([]har.SLARule, error) {
 	var result []har.SLARule
 	for _, r := range rules {
 		parts := strings.SplitN(r, ":", 3)
 		if len(parts) != 3 {
-			return nil, fmt.Errorf("SLA规则格式应为 name:urlPattern:maxDurationMs, 实际: '%s'", r)
+			return nil, fmt.Errorf("expected SLA rule format name:urlPattern:maxDurationMs, got: '%s'", r)
 		}
 		maxMs, err := time.ParseDuration(parts[2])
 		if err != nil {
-			// 尝试解析为毫秒数值
+			// Try parsing the value as milliseconds.
 			var msInt int
 			n, _ := fmt.Sscanf(parts[2], "%d", &msInt)
 			if n != 1 {
-				return nil, fmt.Errorf("无法解析SLA最大时长 '%s': %w", parts[2], err)
+				return nil, fmt.Errorf("unable to parse maximum SLA duration '%s': %w", parts[2], err)
 			}
 			maxMs = time.Duration(msInt) * time.Millisecond
 		}
@@ -112,17 +112,17 @@ func parseSLARules(rules []string) ([]har.SLARule, error) {
 	return result, nil
 }
 
-// formatWaterfall 格式化瀑布流为ASCII文本
+// formatWaterfall formats the waterfall as ASCII text.
 func formatWaterfall(entries []har.WaterfallEntry) string {
 	if len(entries) == 0 {
-		return "无瀑布流数据。\n"
+		return "No waterfall data.\n"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("请求瀑布流\n")
+	sb.WriteString("Request Waterfall\n")
 	sb.WriteString("==========\n\n")
 
-	// 计算总时间范围
+	// Calculate the total time range.
 	maxEnd := time.Duration(0)
 	for _, e := range entries {
 		if e.EndTime > maxEnd {
@@ -130,8 +130,8 @@ func formatWaterfall(entries []har.WaterfallEntry) string {
 		}
 	}
 
-	// 每个条目一行，使用ASCII字符表示时间范围
-	barWidth := 50 // ASCII条宽度
+	// Show each entry on one line, using ASCII characters to represent its time range.
+	barWidth := 50 // ASCII bar width.
 	scale := float64(barWidth) / float64(maxEnd.Milliseconds())
 
 	for _, e := range entries {
@@ -147,26 +147,26 @@ func formatWaterfall(entries []har.WaterfallEntry) string {
 			urlDisplay = urlDisplay[:37] + "..."
 		}
 
-		// 构建时间条
+		// Build the timing bar.
 		bar := strings.Repeat(" ", startPos) + strings.Repeat("#", barLen)
 
 		sb.WriteString(fmt.Sprintf("#%2d %s %-6dms [%s]\n",
 			e.Index, urlDisplay, e.Duration.Milliseconds(), bar))
 	}
 
-	sb.WriteString(fmt.Sprintf("\n总时长: %.1fms\n", float64(maxEnd.Milliseconds())))
+	sb.WriteString(fmt.Sprintf("\nTotal duration: %.1fms\n", float64(maxEnd.Milliseconds())))
 
 	return sb.String()
 }
 
-// formatCriticalPath 格式化关键路径为文本
+// formatCriticalPath formats the critical path as text.
 func formatCriticalPath(path []har.WaterfallEntry) string {
 	if len(path) == 0 {
-		return "无关键路径数据。\n"
+		return "No critical path data.\n"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("关键路径分析\n")
+	sb.WriteString("Critical Path Analysis\n")
 	sb.WriteString("============\n\n")
 
 	totalDuration := time.Duration(0)
@@ -180,21 +180,21 @@ func formatCriticalPath(path []har.WaterfallEntry) string {
 			i+1, e.Index, e.Method, urlDisplay, e.Duration.Milliseconds()))
 	}
 
-	sb.WriteString(fmt.Sprintf("\n关键路径总耗时: %dms\n", totalDuration.Milliseconds()))
+	sb.WriteString(fmt.Sprintf("\nTotal critical path duration: %dms\n", totalDuration.Milliseconds()))
 	return sb.String()
 }
 
-// formatConcurrencyTimeline 格式化并发度时间线为文本
+// formatConcurrencyTimeline formats the concurrency timeline as text.
 func formatConcurrencyTimeline(timeline []har.ConcurrencyPoint) string {
 	if len(timeline) == 0 {
-		return "无并发度数据。\n"
+		return "No concurrency data.\n"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("并发度时间线\n")
+	sb.WriteString("Concurrency Timeline\n")
 	sb.WriteString("============\n\n")
 
-	sb.WriteString(fmt.Sprintf("%-12s %-6s %s\n", "时间", "并发数", "活跃条目"))
+	sb.WriteString(fmt.Sprintf("%-12s %-6s %s\n", "Time", "Concurrent", "Active Entries"))
 	sb.WriteString(strings.Repeat("-", 60) + "\n")
 
 	for _, p := range timeline {
@@ -209,18 +209,18 @@ func formatConcurrencyTimeline(timeline []har.ConcurrencyPoint) string {
 	return sb.String()
 }
 
-// formatSLAResults 格式化SLA检查结果为文本
+// formatSLAResults formats SLA check results as text.
 func formatSLAResults(results []har.SLAResult) string {
 	if len(results) == 0 {
-		return "无SLA检查结果。\n"
+		return "No SLA check results.\n"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("SLA合规检查\n")
+	sb.WriteString("SLA Compliance Check\n")
 	sb.WriteString("============\n\n")
 
 	sb.WriteString(fmt.Sprintf("%-15s %-6s %-10s %-10s %s\n",
-		"规则", "通过", "实际耗时", "最大允许", "超时"))
+		"Rule", "Passed", "Actual", "Maximum", "Overrun"))
 	sb.WriteString(strings.Repeat("-", 60) + "\n")
 
 	for _, r := range results {
@@ -242,23 +242,23 @@ func formatSLAResults(results []har.SLAResult) string {
 	return sb.String()
 }
 
-// formatPageTimings 格式化页面计时指标为文本
+// formatPageTimings formats page timing metrics as text.
 func formatPageTimings(metrics *har.PageTimingMetrics) string {
 	if metrics == nil {
-		return "无页面计时数据。\n"
+		return "No page timing data.\n"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("页面计时指标\n")
+	sb.WriteString("Page Timing Metrics\n")
 	sb.WriteString("============\n\n")
 
 	sb.WriteString(fmt.Sprintf("TTFB:             %dms\n", metrics.TTFB.Milliseconds()))
 	sb.WriteString(fmt.Sprintf("DOMContentLoaded: %dms\n", metrics.DOMContentLoaded.Milliseconds()))
 	sb.WriteString(fmt.Sprintf("OnLoad:           %dms\n", metrics.OnLoad.Milliseconds()))
-	sb.WriteString(fmt.Sprintf("总时间:           %dms\n", metrics.TotalTime.Milliseconds()))
-	sb.WriteString(fmt.Sprintf("DNS查询:          %dms\n", metrics.DNSLookup.Milliseconds()))
-	sb.WriteString(fmt.Sprintf("连接时间:         %dms\n", metrics.ConnectTime.Milliseconds()))
-	sb.WriteString(fmt.Sprintf("SSL时间:          %dms\n", metrics.SSLTime.Milliseconds()))
+	sb.WriteString(fmt.Sprintf("Total time:        %dms\n", metrics.TotalTime.Milliseconds()))
+	sb.WriteString(fmt.Sprintf("DNS lookup:        %dms\n", metrics.DNSLookup.Milliseconds()))
+	sb.WriteString(fmt.Sprintf("Connect time:      %dms\n", metrics.ConnectTime.Milliseconds()))
+	sb.WriteString(fmt.Sprintf("SSL time:           %dms\n", metrics.SSLTime.Milliseconds()))
 
 	return sb.String()
 }

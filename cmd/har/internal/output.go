@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// OutputFormat 输出格式类型
+// OutputFormat is an output format.
 type OutputFormat string
 
 const (
@@ -18,7 +18,7 @@ const (
 	FormatYAML OutputFormat = "yaml"
 )
 
-// GetFormat 从命令行标志获取输出格式
+// GetFormat gets the output format from the command-line flag.
 func GetFormat(cmd *cobra.Command) OutputFormat {
 	f, _ := cmd.Flags().GetString("format")
 	switch f {
@@ -33,22 +33,22 @@ func GetFormat(cmd *cobra.Command) OutputFormat {
 	}
 }
 
-// GetOutputPath 从命令行标志获取输出文件路径
+// GetOutputPath gets the output file path from the command-line flag.
 func GetOutputPath(cmd *cobra.Command) string {
 	path, _ := cmd.Flags().GetString("output")
 	return path
 }
 
-// NoHeader 从命令行标志获取是否隐藏表头
+// NoHeader gets whether table headers should be hidden from the command-line flag.
 func NoHeader(cmd *cobra.Command) bool {
 	nh, _ := cmd.Flags().GetBool("no-header")
 	return nh
 }
 
-// WriteOutput 根据格式输出数据
-// data: 用于 json/yaml 序列化的数据结构
-// textFunc: text 格式的输出字符串
-// csvFunc: csv 格式的输出字符串
+// WriteOutput writes data in the requested format.
+// data is the structure to serialize as JSON or YAML.
+// textFunc returns text-formatted output.
+// csvFunc returns CSV-formatted output.
 func WriteOutput(cmd *cobra.Command, data interface{}, textFunc func() string, csvFunc func() string) error {
 	format := GetFormat(cmd)
 	outputPath := GetOutputPath(cmd)
@@ -60,7 +60,7 @@ func WriteOutput(cmd *cobra.Command, data interface{}, textFunc func() string, c
 	case FormatJSON:
 		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
-			return fmt.Errorf("JSON序列化失败: %w", err)
+			return fmt.Errorf("JSON serialization failed: %w", err)
 		}
 		output = append(output, '\n')
 	case FormatCSV:
@@ -69,22 +69,22 @@ func WriteOutput(cmd *cobra.Command, data interface{}, textFunc func() string, c
 		} else {
 			output, err = json.Marshal(data)
 			if err != nil {
-				return fmt.Errorf("CSV序列化失败: %w", err)
+				return fmt.Errorf("CSV serialization failed: %w", err)
 			}
 		}
 	case FormatYAML:
-		// 使用SDK的YAML功能
+		// Use the SDK's YAML functionality.
 		if yamlMarshaler, ok := data.(interface{ ToYAML() (string, error) }); ok {
 			yamlStr, yamlErr := yamlMarshaler.ToYAML()
 			if yamlErr != nil {
-				return fmt.Errorf("YAML序列化失败: %w", yamlErr)
+				return fmt.Errorf("YAML serialization failed: %w", yamlErr)
 			}
 			output = []byte(yamlStr)
 		} else {
-			// 简单回退：使用JSON缩进格式
+			// Simple fallback: use indented JSON.
 			output, err = json.MarshalIndent(data, "", "  ")
 			if err != nil {
-				return fmt.Errorf("序列化失败: %w", err)
+				return fmt.Errorf("serialization failed: %w", err)
 			}
 			output = append(output, '\n')
 		}
@@ -94,7 +94,7 @@ func WriteOutput(cmd *cobra.Command, data interface{}, textFunc func() string, c
 		} else {
 			output, err = json.MarshalIndent(data, "", "  ")
 			if err != nil {
-				return fmt.Errorf("序列化失败: %w", err)
+				return fmt.Errorf("serialization failed: %w", err)
 			}
 			output = append(output, '\n')
 		}
@@ -103,26 +103,26 @@ func WriteOutput(cmd *cobra.Command, data interface{}, textFunc func() string, c
 	return WriteToFileOrStdout(outputPath, output)
 }
 
-// WriteStringOutput 输出字符串到文件或stdout
+// WriteStringOutput writes a string to a file or stdout.
 func WriteStringOutput(cmd *cobra.Command, content string) error {
 	outputPath := GetOutputPath(cmd)
 	return WriteToFileOrStdout(outputPath, []byte(content))
 }
 
-// WriteToFileOrStdout 将字节数据写入文件或标准输出
+// WriteToFileOrStdout writes bytes to a file or standard output.
 func WriteToFileOrStdout(path string, data []byte) error {
 	if path != "" {
 		if err := os.WriteFile(path, data, 0644); err != nil {
-			return fmt.Errorf("无法写入文件 '%s': %w", path, err)
+			return fmt.Errorf("unable to write file '%s': %w", path, err)
 		}
-		fmt.Fprintf(os.Stderr, "已写入 %d 字节到 %s\n", len(data), path)
+		fmt.Fprintf(os.Stderr, "Wrote %d bytes to %s\n", len(data), path)
 		return nil
 	}
 	_, err := os.Stdout.Write(data)
 	return err
 }
 
-// FormatBytes 格式化字节数为人类可读字符串
+// FormatBytes formats a byte count as a human-readable string.
 func FormatBytes(bytes int) string {
 	const (
 		KB = 1024
@@ -141,7 +141,7 @@ func FormatBytes(bytes int) string {
 	}
 }
 
-// FormatDuration 格式化毫秒为人类可读字符串
+// FormatDuration formats milliseconds as a human-readable string.
 func FormatDuration(ms float64) string {
 	if ms < 1000 {
 		return fmt.Sprintf("%.1f ms", ms)

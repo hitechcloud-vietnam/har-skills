@@ -516,12 +516,12 @@ func TestDecompressByEncodingMultiEncoding(t *testing.T) {
 		t.Errorf("Expected '%s', got '%s'", string(original), string(decompressed))
 	}
 
-	// 损坏的输入：第一层编码解压失败应返回错误（含层号信息）
+	// Corrupt input: failure to decode the first layer should report an error that includes its layer number.
 	_, err = DecompressByEncoding([]byte("not compressed"), "gzip, deflate")
 	if err == nil {
 		t.Error("Expected error for corrupt multi-encoding input, got nil")
 	}
-	if !strings.Contains(err.Error(), "第0层") {
+	if !strings.Contains(err.Error(), "layer 0") {
 		t.Errorf("Error should mention layer index, got: %s", err.Error())
 	}
 }

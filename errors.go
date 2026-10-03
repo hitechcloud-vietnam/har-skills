@@ -6,52 +6,52 @@ import (
 	"strings"
 )
 
-// ErrorCode 定义错误类型代码
+// ErrorCode identifies an error type.
 type ErrorCode int
 
 const (
-	// ErrCodeUnknown 未知错误
+	// ErrCodeUnknown is an unknown error.
 	ErrCodeUnknown ErrorCode = iota
-	// ErrCodeFileSystem 文件系统错误
+	// ErrCodeFileSystem is a file system error.
 	ErrCodeFileSystem
-	// ErrCodeJSONParse JSON解析错误
+	// ErrCodeJSONParse is a JSON parsing error.
 	ErrCodeJSONParse
-	// ErrCodeInvalidFormat 格式错误
+	// ErrCodeInvalidFormat indicates an invalid format.
 	ErrCodeInvalidFormat
-	// ErrCodeValidation 验证错误
+	// ErrCodeValidation is a validation error.
 	ErrCodeValidation
-	// ErrCodeMissingField 缺少必要字段
+	// ErrCodeMissingField indicates a required field is missing.
 	ErrCodeMissingField
-	// ErrCodeInvalidValue 字段值无效
+	// ErrCodeInvalidValue indicates an invalid field value.
 	ErrCodeInvalidValue
-	// ErrCodeUnsupported 不支持的操作
+	// ErrCodeUnsupported indicates an unsupported operation.
 	ErrCodeUnsupported
 )
 
-// HarError 自定义HAR错误类型
+// HarError is a custom HAR error type.
 type HarError struct {
-	// 错误代码
+	// Error code.
 	Code ErrorCode
-	// 错误信息
+	// Error message.
 	Message string
-	// 原始错误（可选）
+	// Original error, if any.
 	Err error
-	// 字段路径，用点号分隔，如 "log.entries[0].request.url"
+	// Dot-separated field path, such as "log.entries[0].request.url".
 	Field string
-	// 包含更多上下文信息的元数据
+	// Metadata containing additional context.
 	Metadata map[string]interface{}
-	// 如果是部分解析错误，包含的其他错误
+	// Other errors encountered during partial parsing.
 	PartialErrors []*HarError
 }
 
-// 实现error接口
+// Error implements the error interface.
 func (e *HarError) Error() string {
 	if e == nil {
 		return "<nil>"
 	}
 	msg := e.Message
 	if e.Field != "" {
-		msg = fmt.Sprintf("字段 '%s': %s", e.Field, msg)
+		msg = fmt.Sprintf("field '%s': %s", e.Field, msg)
 	}
 
 	if e.Err != nil {
@@ -67,7 +67,7 @@ func (e *HarError) Error() string {
 			partialMsgs = append(partialMsgs, pe.Error())
 		}
 		if len(partialMsgs) > 0 {
-			msg = fmt.Sprintf("%s (部分错误: %s)", msg, strings.Join(partialMsgs, "; "))
+			msg = fmt.Sprintf("%s (partial errors: %s)", msg, strings.Join(partialMsgs, "; "))
 		}
 	}
 
@@ -82,7 +82,7 @@ func (e *HarError) Unwrap() error {
 	return e.Err
 }
 
-// WithField 添加字段路径到错误
+// WithField adds a field path to the error.
 func (e *HarError) WithField(field string) *HarError {
 	if e == nil {
 		return nil
@@ -95,7 +95,7 @@ func (e *HarError) WithField(field string) *HarError {
 	return e
 }
 
-// WithMetadata 添加元数据到错误
+// WithMetadata adds metadata to the error.
 func (e *HarError) WithMetadata(key string, value interface{}) *HarError {
 	if e == nil {
 		return nil
@@ -107,7 +107,7 @@ func (e *HarError) WithMetadata(key string, value interface{}) *HarError {
 	return e
 }
 
-// AddPartialError 添加部分解析错误
+// AddPartialError adds a partial parsing error.
 func (e *HarError) AddPartialError(err *HarError) *HarError {
 	if e == nil {
 		return nil
@@ -119,7 +119,7 @@ func (e *HarError) AddPartialError(err *HarError) *HarError {
 	return e
 }
 
-// HasPartialErrors 检查是否包含部分错误
+// HasPartialErrors reports whether the error contains partial errors.
 func (e *HarError) HasPartialErrors() bool {
 	if e == nil {
 		return false
@@ -132,7 +132,7 @@ func (e *HarError) HasPartialErrors() bool {
 	return false
 }
 
-// GetPartialErrors 获取所有部分错误
+// GetPartialErrors returns all partial errors.
 func (e *HarError) GetPartialErrors() []*HarError {
 	if e == nil {
 		return nil
@@ -140,7 +140,7 @@ func (e *HarError) GetPartialErrors() []*HarError {
 	return e.PartialErrors
 }
 
-// GetCode 获取错误代码
+// GetCode returns the error code.
 func (e *HarError) GetCode() ErrorCode {
 	if e == nil {
 		return ErrCodeUnknown
@@ -148,7 +148,7 @@ func (e *HarError) GetCode() ErrorCode {
 	return e.Code
 }
 
-// IsFileSystemError 是否为文件系统错误
+// IsFileSystemError reports whether this is a file system error.
 func (e *HarError) IsFileSystemError() bool {
 	if e == nil {
 		return false
@@ -156,7 +156,7 @@ func (e *HarError) IsFileSystemError() bool {
 	return e.Code == ErrCodeFileSystem
 }
 
-// IsJSONParseError 是否为JSON解析错误
+// IsJSONParseError reports whether this is a JSON parsing error.
 func (e *HarError) IsJSONParseError() bool {
 	if e == nil {
 		return false
@@ -164,7 +164,7 @@ func (e *HarError) IsJSONParseError() bool {
 	return e.Code == ErrCodeJSONParse
 }
 
-// IsFormatError 是否为格式错误
+// IsFormatError reports whether this is a format error.
 func (e *HarError) IsFormatError() bool {
 	if e == nil {
 		return false
@@ -172,7 +172,7 @@ func (e *HarError) IsFormatError() bool {
 	return e.Code == ErrCodeInvalidFormat
 }
 
-// IsValidationError 是否为验证错误
+// IsValidationError reports whether this is a validation error.
 func (e *HarError) IsValidationError() bool {
 	if e == nil {
 		return false
@@ -180,7 +180,7 @@ func (e *HarError) IsValidationError() bool {
 	return e.Code == ErrCodeValidation
 }
 
-// NewHarError 创建新的HAR错误
+// NewHarError creates a HAR error.
 func NewHarError(code ErrorCode, message string, err error) *HarError {
 	return &HarError{
 		Code:    code,
@@ -189,72 +189,72 @@ func NewHarError(code ErrorCode, message string, err error) *HarError {
 	}
 }
 
-// NewFileSystemError 创建文件系统错误
+// NewFileSystemError creates a file system error.
 func NewFileSystemError(message string, err error) *HarError {
 	return NewHarError(ErrCodeFileSystem, message, err)
 }
 
-// NewJSONParseError 创建JSON解析错误
+// NewJSONParseError creates a JSON parsing error.
 func NewJSONParseError(message string, err error) *HarError {
 	return NewHarError(ErrCodeJSONParse, message, err)
 }
 
-// WrapJSONUnmarshalError 封装JSON解析错误以提供更详细信息
+// WrapJSONUnmarshalError wraps a JSON parsing error with additional details.
 func WrapJSONUnmarshalError(err error) *HarError {
 	if err == nil {
 		return nil
 	}
 
-	// 尝试从JSON错误中提取详细信息
+	// Try to extract details from the JSON error.
 	var jsonErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
 
 	if e, ok := err.(*json.UnmarshalTypeError); ok {
 		jsonErr = e
 		return NewJSONParseError(
-			fmt.Sprintf("类型不匹配: 预期 %s 类型，但得到 %s",
+			fmt.Sprintf("type mismatch: expected %s, got %s",
 				jsonErr.Type.String(), jsonErr.Value),
 			err,
 		).WithField(jsonErr.Field).WithMetadata("offset", jsonErr.Offset)
 	} else if e, ok := err.(*json.SyntaxError); ok {
 		syntaxErr = e
 		return NewJSONParseError(
-			fmt.Sprintf("JSON语法错误: %s", syntaxErr.Error()),
+			fmt.Sprintf("JSON syntax error: %s", syntaxErr.Error()),
 			err,
 		).WithMetadata("offset", syntaxErr.Offset)
 	} else if strings.Contains(err.Error(), "cannot unmarshal") {
-		// 处理其他无法精确识别类型的JSON解析错误
+		// Handle other JSON parsing errors whose type cannot be identified precisely.
 		parts := strings.Split(err.Error(), ":")
 		if len(parts) >= 2 {
 			return NewJSONParseError(
-				fmt.Sprintf("JSON解析错误: %s", strings.TrimSpace(parts[1])),
+				fmt.Sprintf("JSON parsing error: %s", strings.TrimSpace(parts[1])),
 				err,
 			)
 		}
 	}
 
-	// 默认JSON错误处理
-	return NewJSONParseError("JSON解析错误", err)
+	// Handle other JSON errors.
+	return NewJSONParseError("JSON parsing error", err)
 }
 
-// NewValidationError 创建验证错误
+// NewValidationError creates a validation error.
 func NewValidationError(message string, field string) *HarError {
 	return NewHarError(ErrCodeValidation, message, nil).WithField(field)
 }
 
-// NewInvalidFormatError 创建格式错误
+// NewInvalidFormatError creates an invalid format error.
 func NewInvalidFormatError(message string) *HarError {
 	return NewHarError(ErrCodeInvalidFormat, message, nil)
 }
 
-// NewMissingFieldError 创建缺少字段错误
+// NewMissingFieldError creates an error for a missing field.
 func NewMissingFieldError(field string) *HarError {
-	return NewHarError(ErrCodeMissingField, "必需字段缺失", nil).WithField(field)
+	return NewHarError(ErrCodeMissingField, "required field is missing", nil).WithField(field)
 }
 
-// NewInvalidValueError 创建字段值无效错误
+// NewInvalidValueError creates an error for an invalid field value.
 func NewInvalidValueError(field string, value interface{}, reason string) *HarError {
-	msg := "字段值无效"
+	msg := "invalid field value"
 	if reason != "" {
 		msg = msg + ": " + reason
 	}
@@ -263,24 +263,24 @@ func NewInvalidValueError(field string, value interface{}, reason string) *HarEr
 		WithMetadata("value", value)
 }
 
-// NewUnsupportedError 创建不支持的操作错误
+// NewUnsupportedError creates an unsupported operation error.
 func NewUnsupportedError(message string) *HarError {
 	return NewHarError(ErrCodeUnsupported, message, nil)
 }
 
-// ParseOptions 解析选项
+// ParseOptions configures parsing.
 type ParseOptions struct {
-	// 是否开启宽松解析模式，会尽量解析有效部分
+	// Enable lenient parsing, which attempts to parse valid portions of the input.
 	Lenient bool
-	// 是否跳过验证
+	// Skip validation.
 	SkipValidation bool
-	// 是否记录所有解析警告（不会导致解析失败）
+	// Collect all parsing warnings without failing the parse.
 	CollectWarnings bool
-	// 最大允许的警告数量，超过则停止解析
+	// Maximum number of warnings before parsing stops.
 	MaxWarnings int
 }
 
-// DefaultParseOptions 默认解析选项
+// DefaultParseOptions returns the default parsing options.
 func DefaultParseOptions() ParseOptions {
 	return ParseOptions{
 		Lenient:         false,

@@ -121,7 +121,7 @@ func TestWrapJSONUnmarshalError_CannotUnmarshalWithColon(t *testing.T) {
 		t.Errorf("expected Code %d, got %d", ErrCodeJSONParse, err.Code)
 	}
 	// Should use the part after the colon, trimmed
-	expectedMsg := "JSON解析错误: cannot unmarshal string into Go value of type int"
+	expectedMsg := "JSON parsing error: cannot unmarshal string into Go value of type int"
 	if err.Message != expectedMsg {
 		t.Errorf("expected Message %q, got %q", expectedMsg, err.Message)
 	}
@@ -138,7 +138,7 @@ func TestWrapJSONUnmarshalError_DefaultFallback(t *testing.T) {
 	if err.Code != ErrCodeJSONParse {
 		t.Errorf("expected Code %d, got %d", ErrCodeJSONParse, err.Code)
 	}
-	if err.Message != "JSON解析错误" {
+	if err.Message != "JSON parsing error" {
 		t.Errorf("expected default message, got %q", err.Message)
 	}
 }
@@ -228,8 +228,8 @@ func TestNewInvalidValueError_NoReason(t *testing.T) {
 	if err.Code != ErrCodeInvalidValue {
 		t.Errorf("expected Code %d, got %d", ErrCodeInvalidValue, err.Code)
 	}
-	// When reason is empty, the message should just be "字段值无效"
-	if err.Message != "字段值无效" {
+	// When reason is empty, the message should just be "invalid field value".
+	if err.Message != "invalid field value" {
 		t.Errorf("expected message without reason suffix, got %q", err.Message)
 	}
 }
@@ -259,7 +259,7 @@ func TestHarError_Error_Basic(t *testing.T) {
 func TestHarError_Error_WithField(t *testing.T) {
 	err := NewHarError(ErrCodeUnknown, "bad value", nil).WithField("log.version")
 	got := err.Error()
-	// Format: "字段 'log.version': bad value"
+	// Format: "field 'log.version': bad value"
 	if got == "bad value" {
 		t.Errorf("expected field prefix in error string, got %q", got)
 	}
@@ -320,7 +320,7 @@ func TestHarError_Error_OnlyNilPartialErrors(t *testing.T) {
 
 	assertDoesNotPanic(t, func() {
 		got := err.Error()
-		if contains(got, "部分错误") {
+		if contains(got, "partial errors") {
 			t.Errorf("expected nil partial errors to be omitted, got %q", got)
 		}
 	})

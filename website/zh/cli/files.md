@@ -1,29 +1,29 @@
 ---
-title: 文件操作
+title: File Operations
 titleTemplate: false
 ---
 
-# 文件操作
+# File Operations
 
-Level 2 的 4 个命令面向「多份 HAR 之间」的工作：对比、合并、拆分、验证。`diff` 与 `merge` 直接吃位置参数（不走 `-f`），`split` 与 `validate` 仍走 `--file`。它们既可能改文件（合并/拆分会写出新 HAR），也可能只产出报告（对比/验证）。
+The 4 Level 2 commands work "between HAR files": compare, merge, split, and validate. `diff` and `merge` take positional args (they bypass `-f`); `split` and `validate` still use `--file`. Some produce new HAR files (merge/split write output), others only reports (diff/validate).
 
-所有示例都可在仓库根目录直接运行，使用 `testdata/example.har` 或 `testdata/full.har`。
+Every example below runs from the repository root against `testdata/example.har` or `testdata/full.har`.
 
-## diff — 对比两个 HAR
+## diff — Compare Two HAR Files
 
-找出两个 HAR 之间新增、删除、修改的请求。位置参数 `<file1> <file2>`，**精确两个**（`cobra.ExactArgs(2)`），不走 `-f`。
+Find requests added, removed, and modified between two HAR files. Takes positional args `<file1> <file2>`, **exactly two** (`cobra.ExactArgs(2)`), and bypasses `-f`.
 
 ```bash
 har diff testdata/full.har testdata/large.har
 ```
 
-按 URL 匹配（默认按「索引 + URL」配对），并比较响应体：
+Match by URL (default is "index + URL" pairing) and compare response bodies:
 
 ```bash
 har diff testdata/full.har testdata/large.har --compare-by-url --include-body
 ```
 
-忽略 Cookie 与 Date 头的差异：
+Ignore Cookie and Date header differences:
 
 ```bash
 har diff a.har b.har --ignore-headers Cookie,Date
@@ -31,37 +31,37 @@ har diff a.har b.har --ignore-headers Cookie,Date
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--ignore-headers` | stringSlice | `[]` | 忽略的头部字段名（逗号分隔） |
-| `--ignore-timings` | bool | `true` | 忽略时间差异 |
-| `--ignore-dates` | bool | `true` | 忽略日期差异 |
-| `--include-body` | bool | `false` | 比较响应体内容 |
-| `--compare-by-url` | bool | `false` | 按 URL 匹配（默认按索引+URL） |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ignore-headers` | stringSlice | `[]` | Header field names to ignore (comma-separated) |
+| `--ignore-timings` | bool | `true` | Ignore timing differences |
+| `--ignore-dates` | bool | `true` | Ignore date differences |
+| `--include-body` | bool | `false` | Compare response bodies |
+| `--compare-by-url` | bool | `false` | Match by URL (default: index + URL) |
 
-::: tip 默认忽略什么
-`--ignore-timings` 与 `--ignore-dates` 默认都为 `true`——两条抓包的时间戳与各阶段耗时几乎不可能一致，默认忽略它们才能聚焦「请求本身有没有变」。需要看时间差异时显式传 `--ignore-timings=false`。
+::: tip What is ignored by default
+`--ignore-timings` and `--ignore-dates` both default to `true` — timestamps and per-phase timings of two captures are almost never identical, so ignoring them by default keeps the focus on "did the requests themselves change". Pass `--ignore-timings=false` explicitly when you do want timing differences.
 :::
 
-### 实现原理
+### How it works
 
-两个文件经 `internal.LoadHarFromArg` 分别加载（gzip 自动检测）；选项走 `har.DefaultDiffOptions()` 再用各 flag 覆盖；调用 `har.Diff(har1, har2, options)` 得到 `*DiffResult`。输出经 `internal.WriteOutput`：文本走 `diffResult.Report(har.FormatText)`，CSV 走 `diffResult.Report(har.FormatCSV)`，JSON 序列化整个 `*DiffResult`。
+Both files are loaded via `internal.LoadHarFromArg` (gzip auto-detected); options start from `har.DefaultDiffOptions()` and are overridden by each flag; `har.Diff(har1, har2, options)` returns a `*DiffResult`. Output goes through `internal.WriteOutput`: text via `diffResult.Report(har.FormatText)`, CSV via `diffResult.Report(har.FormatCSV)`, JSON serializes the whole `*DiffResult`.
 
-## merge — 合并多 HAR
+## merge — Merge Multiple HAR Files
 
-把多个 HAR 的条目合并到一个 HAR，沿用第一个文件的版本与创建者信息。位置参数 `<file1> [file2...]`，**至少一个**（`cobra.MinimumNArgs(1)`），不走 `-f`。
+Merge entries from multiple HAR files into one, keeping the first file's version and creator info. Takes positional args `<file1> [file2...]`, **at least one** (`cobra.MinimumNArgs(1)`), and bypasses `-f`.
 
 ```bash
 har merge part1.har part2.har part3.har
 ```
 
-合并并按 Method+URL 去重（保留最新的）：
+Merge and deduplicate by Method+URL (keep the newest):
 
 ```bash
 har merge a.har b.har --deduplicate -o merged.har
 ```
 
-不按时间排序（保留各文件原始拼接顺序）：
+Don't sort by time (keep the raw concatenation order of the inputs):
 
 ```bash
 har merge a.har b.har --sort-by-time=false -o raw.har
@@ -69,42 +69,42 @@ har merge a.har b.har --sort-by-time=false -o raw.har
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--sort-by-time` | bool | `true` | 合并后按 startedDateTime 排序 |
-| `--deduplicate` | bool | `false` | 去重（按 Method+URL，保留最新） |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--sort-by-time` | bool | `true` | Sort merged entries by startedDateTime |
+| `--deduplicate` | bool | `false` | Deduplicate (by Method+URL, keep newest) |
 
-::: tip 输出走 JSON
-`merge` 直接把合并后的 `*Har` 序列化为 JSON 写出（不经 `internal.WriteOutput` 的多格式分支），因此 `--format` 对它无效；用 `-o` 指定文件，或留空走 stdout。合并信息（条目数等）打到 stderr。
+::: tip Output is JSON
+`merge` serializes the merged `*Har` straight to JSON (it skips `internal.WriteOutput`'s multi-format branch), so `--format` has no effect on it; use `-o` for a file or leave it empty for stdout. Merge notices (entry counts, etc.) go to stderr.
 :::
 
-### 实现原理
+### How it works
 
-每个位置参数经 `internal.LoadHarFromArg` 加载成 `[]*har.Har`；选项包成 `har.MergeOptions{SortByTime, Deduplicate}`；调用 `har.MergeWithOptions(options, hars...)` 得到合并后的 `*Har`，再 `json.MarshalIndent` 写出。`--deduplicate` 以 Method+URL 为键去重，保留时间最新的那条。
+Each positional arg is loaded by `internal.LoadHarFromArg` into `[]*har.Har`; options are packed into `har.MergeOptions{SortByTime, Deduplicate}`; `har.MergeWithOptions(options, hars...)` returns the merged `*Har`, which is then `json.MarshalIndent`'d and written. `--deduplicate` keys on Method+URL, keeping the entry with the latest timestamp.
 
-## split — 拆分 HAR
+## split — Split a HAR File
 
-按页面引用、域名、时间间隔、条目数、状态码范围或 HTTP 方法把一个大 HAR 拆成多个小文件。`--by` 是**必需** flag。
+Break a large HAR into smaller files by page reference, domain, time interval, entry count, status code range, or HTTP method. `--by` is **required**.
 
-按域名拆分，文件名前缀 `by-domain`：
+Split by domain, filename prefix `by-domain`:
 
 ```bash
 har -f testdata/full.har split --by domain -o by-domain
 ```
 
-按时间间隔拆分，每 30 分钟一个文件：
+Split by time interval, one file per 30 minutes:
 
 ```bash
 har -f testdata/full.har split --by time --interval 30m
 ```
 
-按条目数拆分，每 50 条一个文件：
+Split by entry count, one file per 50 entries:
 
 ```bash
 har -f testdata/full.har split --by size --max-entries 50
 ```
 
-按状态码范围拆分：
+Split by status code range:
 
 ```bash
 har -f testdata/full.har split --by status
@@ -112,42 +112,42 @@ har -f testdata/full.har split --by status
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--by` | string | `""` | 拆分方式（`page`/`domain`/`time`/`size`/`status`/`method`），必需 |
-| `--interval` | duration | `1h` | 时间间隔（配合 `--by time`） |
-| `--max-entries` | int | `100` | 每组最大条目数（配合 `--by size`） |
-| `--output`/`-o` | string | `split` | 输出文件名前缀（本地 flag） |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--by` | string | `""` | Split mode (`page`/`domain`/`time`/`size`/`status`/`method`), required |
+| `--interval` | duration | `1h` | Time interval (with `--by time`) |
+| `--max-entries` | int | `100` | Max entries per group (with `--by size`) |
+| `--output`/`-o` | string | `split` | Output filename prefix (local flag) |
 
-::: tip 文件命名规则
-`split` 的 `-o` 是命令本地 flag（默认 `split`），与全局 `--output` 不同：它作**文件名前缀**，不指单个输出文件。生成的文件按 `<prefix>_<kind>_<key>.har` 命名——例如 `by-domain_domain_api.example.com.har`；`time`/`size` 这类有序拆分用三位序号：`split_time_001.har`。`key` 里的特殊字符（`/ \ : * ? " < > |` 与空格）会被替换为 `_`，避免非法文件名。每个文件写入后会在 stderr 打印路径与条目数。
+::: tip Filename rules
+`split`'s `-o` is a command-local flag (default `split`), distinct from the global `--output`: it is a **filename prefix**, not a single output file. Generated files are named `<prefix>_<kind>_<key>.har` — e.g. `by-domain_domain_api.example.com.har`; ordered splits (`time`/`size`) use a three-digit sequence: `split_time_001.har`. Special characters in `key` (`/ \ : * ? " < > |` and space) are replaced with `_` to avoid invalid filenames. After each file is written, its path and entry count are printed to stderr.
 :::
 
-### 实现原理
+### How it works
 
-`--by` 为空直接报错退出；否则 `internal.LoadHar` 加载，按 `--by` 分派到 `splitByPage` / `splitByDomain` / `splitByTime` / `splitBySize` / `splitByStatus` / `splitByMethod`，分别调 `(*Har).SplitByPage()` / `SplitByDomain()` / `SplitByTimeRange(interval)` / `SplitBySize(maxEntries)` / `SplitByStatusCode()` / `SplitByMethod()`。map 形结果（page/domain/status/method）走 `writeSplitMap`（按 key 命名），slice 形结果（time/size）走 `writeSplitSlice`（按序号命名），统一 `json.MarshalIndent` 写盘。
+Empty `--by` errors out immediately; otherwise `internal.LoadHar` loads the file and `--by` dispatches to `splitByPage` / `splitByDomain` / `splitByTime` / `splitBySize` / `splitByStatus` / `splitByMethod`, each calling the matching `(*Har).SplitByPage()` / `SplitByDomain()` / `SplitByTimeRange(interval)` / `SplitBySize(maxEntries)` / `SplitByStatusCode()` / `SplitByMethod()`. Map-shaped results (page/domain/status/method) go through `writeSplitMap` (named by key); slice-shaped results (time/size) go through `writeSplitSlice` (named by sequence); all are `json.MarshalIndent`'d to disk.
 
-## validate — 验证 HAR 规范
+## validate — Validate HAR Spec Compliance
 
-检查 HAR 文件是否符合规范：标准模式查基本结构与必填字段；严格模式额外查交叉引用、HTTP 方法、状态码范围；时间一致性校验查 `Time` 字段与 `Timings` 各阶段之和是否吻合。
+Check a HAR file against the spec: standard mode checks basic structure and required fields; strict mode additionally checks cross-references, HTTP methods, and status-code ranges; a timing-consistency check verifies that the `Time` field matches the sum of the `Timings` phases.
 
 ```bash
 har -f testdata/full.har validate
 ```
 
-严格模式：
+Strict mode:
 
 ```bash
 har -f testdata/full.har validate --strict
 ```
 
-自定义时间容差 5 毫秒：
+Custom timing tolerance of 5 ms:
 
 ```bash
 har -f testdata/full.har validate --timings-tolerance 5
 ```
 
-最严格（容差 0，要求 timings 之和与 Time 完全一致）：
+Strictest (tolerance 0, requiring the timings sum to equal Time exactly):
 
 ```bash
 har -f testdata/full.har validate --strict --timings-tolerance 0
@@ -155,26 +155,26 @@ har -f testdata/full.har validate --strict --timings-tolerance 0
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--strict` | bool | `false` | 启用严格验证（交叉引用 / 方法 / 状态码范围） |
-| `--timings-tolerance` | float64 | `10` | 时间一致性容差（毫秒），`0` 表示严格一致 |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--strict` | bool | `false` | Enable strict validation (cross-references / methods / status-code ranges) |
+| `--timings-tolerance` | float64 | `10` | Timing consistency tolerance (ms); `0` means exact |
 
-::: tip 容差为 0
-`--timings-tolerance` 是 float64，默认 10 毫秒。设为 `0` 表示要求 `Timings` 各阶段之和与 `entry.Time` **严格相等**——抓包工具的浮点误差通常会让该检查报错，故默认留了 10 毫秒缓冲。需要绝对严格时再传 `0`。
+::: tip Tolerance of 0
+`--timings-tolerance` is a float64 defaulting to 10 ms. Setting it to `0` requires the sum of the `Timings` phases to **exactly equal** `entry.Time` — capture-tool floating-point error usually trips this check, which is why 10 ms of slack is the default. Only pass `0` when you want absolute strictness.
 :::
 
-### 实现原理
+### How it works
 
-`internal.LoadHar` 加载后，`--strict` 为 true 走 `har.ValidateStrict(h)`，否则走 `har.ValidateHarFile(h)`；二者返回的 `*HarError` 经 `collectErrors` 拆成 `[]*ValidationError`。时间一致性始终跑 `har.ValidateTimingsConsistency(h, tolerance)`（容差 ≥ 0 时启用），结果与上面的错误合并。文本输出由 `formatValidateText` 渲染：无错打印 `✓ Valid`，有错则逐条列出 `[Rule] Field: Message`。
+After `internal.LoadHar` loads the file, `--strict` true calls `har.ValidateStrict(h)`, otherwise `har.ValidateHarFile(h)`; the returned `*HarError` is split into `[]*ValidationError` by `collectErrors`. Timing consistency always runs `har.ValidateTimingsConsistency(h, tolerance)` (enabled when tolerance ≥ 0), and its results are merged with the above. Text output is rendered by `formatValidateText`: no errors prints `✓ Valid`; with errors, each is listed as `[Rule] Field: Message`.
 
-## 小结
+## Summary
 
-| 命令 | 输入方式 | 是否产出新 HAR |
-|------|----------|----------------|
-| `diff` | 位置参数 ×2 | 否（报告） |
-| `merge` | 位置参数 ≥1 | 是（合并 HAR） |
-| `split` | `--file` | 是（多个 HAR） |
-| `validate` | `--file` | 否（报告） |
+| Command | Input style | Produces new HAR? |
+|---------|-------------|-------------------|
+| `diff` | Positional ×2 | No (report) |
+| `merge` | Positional ≥1 | Yes (merged HAR) |
+| `split` | `--file` | Yes (multiple HARs) |
+| `validate` | `--file` | No (report) |
 
-`diff`/`merge` 走位置参数、不走 `-f`；`split`/`validate` 走 `--file`，也支持 stdin。需要安全审计或脱敏时进 [安全与隐私](./security.md)。
+`diff`/`merge` take positional args and bypass `-f`; `split`/`validate` use `--file` and also accept stdin. For security audits or redaction, move on to [Security & Privacy](./security.md).

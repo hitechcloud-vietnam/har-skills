@@ -1,33 +1,34 @@
 ---
-title: API 迁移测试
+title: API Migration Testing
 ---
 
-# API 迁移测试工作流
+# API Migration Testing Workflow
 
-把 staging 环境的抓包改写成指向 prod 的请求，先 dry-run 预览，再真实重放并把结果存成
-HAR，最后与原始抓包 diff，自动发现迁移前后的行为差异。本工作流适合 API 版本升级、
-域名切换、协议从 HTTP 升 HTTPS 等迁移场景。
+Rewrite a staging capture to point at prod, dry-run the replay, then execute it
+for real and save the results as a HAR — finally diffing against the original to
+automatically surface behavioral differences. Suited to API version upgrades,
+domain changes, and HTTP→HTTPS migrations.
 
-## 工作流总览
+## Workflow Overview
 
 ```mermaid
 flowchart LR
-    STG["staging.har<br/>（staging 抓包）"]:::input
-    I["① info<br/>看请求数/域名/状态"]:::step
-    T["② transform<br/>--rewrite-url 改 URL"]:::step
-    PR["prod-ready.har<br/>（指向 prod）"]:::art
-    DR["③ replay --dry-run<br/>预览不发请求"]:::step
-    RP["④ replay --save-har<br/>真实重放"]:::step
-    RES["results.har<br/>（真实响应）"]:::art
-    DF["⑤ diff<br/>原始 vs 重放"]:::step
-    REP["行为一致性报告<br/>added/removed/modified"]:::done
+    STG["staging.har<br/>(staging capture)"]:::input
+    I["1. info<br/>inspect counts/domains/status"]:::step
+    T["2. transform<br/>--rewrite-url to prod"]:::step
+    PR["prod-ready.har<br/>(points at prod)"]:::art
+    DR["3. replay --dry-run<br/>preview, no send"]:::step
+    RP["4. replay --save-har<br/>real replay"]:::step
+    RES["results.har<br/>(real responses)"]:::art
+    DF["5. diff<br/>original vs replay"]:::step
+    REP["behavioral diff report<br/>added/removed/modified"]:::done
 
     STG --> I --> T --> PR
     PR --> DR
     PR --> RP --> RES
-    DR -. "核对通过" .-> RP
+    DR -. "verified" .-> RP
     RES --> DF
-    PR -. "对照" .-> DF
+    PR -. "compare" .-> DF
     DF --> REP
 
     classDef input fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
@@ -36,24 +37,24 @@ flowchart LR
     classDef done fill:#e6f4ea,stroke:#1e8e3e,color:#0d652d
 ```
 
-::: warning 迁移工作流会发真实请求
-③ 的 `--dry-run` 不发流量；但 ④ 的 `replay`（无 `--dry-run`）会向 prod 真实发请求。务必先 dry-run 核对 URL/数量，确认无误再实跑。
+::: warning This workflow sends real requests
+Step 3's `--dry-run` sends no traffic, but step 4's `replay` (without `--dry-run`) issues real requests against prod. Always dry-run first to verify URLs and counts before firing for real.
 :::
 
-| 步骤 | CLI 命令                                                       | SDK 方法                          |
+| Step | CLI command                                                    | SDK method                        |
 |------|----------------------------------------------------------------|-----------------------------------|
 | 1    | `har -f staging.har info`                                      | `h.Statistics()` / `h.Summary()`  |
 | 2    | `har -f staging.har transform --rewrite-url "a->b" -o ...`     | `h.RewriteURL(from, to)`          |
-| 3    | `har -f prod-ready.har replay --dry-run`                       | `e.Replay(opts)`（不发请求）      |
+| 3    | `har -f prod-ready.har replay --dry-run`                       | `e.Replay(opts)` (no send)        |
 | 4    | `har -f prod-ready.har replay --timeout 10s --save-har ...`    | `e.Replay(opts)`                  |
 | 5    | `har diff staging.har results.har --compare-by-url`           | `har.Diff(h1, h2, opts)`          |
 
-## 第 1 步：摸清 staging 抓包
+## Step 1: Inspect the Staging Capture
 
 ### CLI
 
 ```bash
-har -f staging.har info              # 概览：请求数、域名、状态码、计时分位
+har -f staging.har info              # overview: counts, domains, statuses, timing pct
 har -f staging.har info --format json
 ```
 
@@ -61,14 +62,14 @@ har -f staging.har info --format json
 
 ```go
 h, _ := har.ParseHarFile("staging.har")
-fmt.Println(h.Summary())             // 文本摘要
-stats := h.Statistics()              // 结构化统计
-fmt.Printf("请求数=%d 域名数=%d\n", stats.RequestCount, len(stats.Domains))
+fmt.Println(h.Summary())             // text summary
+stats := h.Statistics()
+fmt.Printf("requests=%d domains=%d\n", stats.RequestCount, len(stats.Domains))
 ```
 
-目的：确认抓包完整、请求覆盖了要迁移的 API 路径。
+Goal: confirm the capture is complete and covers the API paths you are migrating.
 
-## 第 2 步：改写 URL 指向 prod
+## Step 2: Rewrite URLs to prod
 
 ### CLI
 
@@ -78,28 +79,29 @@ har -f staging.har transform \
     -o prod-ready.har
 ```
 
-`--rewrite-url` 格式为 `from->to`，对每条 entry 的 URL 做子串替换。可叠加多个
-`--rewrite-url`、配合 `--change-scheme "http->https"`、`--remove-header`、
-`--add-header "X-Env:prod"` 等。
+`--rewrite-url` takes `from->to` and does a substring replace on every entry's
+URL. Stack multiple `--rewrite-url`, plus `--change-scheme "http->https"`,
+`--remove-header`, `--add-header "X-Env:prod"`, etc.
 
 ### SDK
 
 ```go
-// Rewrites every URL, returns a new *Har (original untouched)
+// Rewrites every URL; returns a new *Har (original untouched)
 prodReady := h.RewriteURL(
     "http://staging.example.com",
     "https://api.example.com",
 )
-// 也可叠加其他变换
+// layer more transforms
 prodReady = prodReady.RemoveHeaders([]string{"Authorization"})
 prodReady = prodReady.AddHeaders(map[string]string{"X-Env": "prod"}, "request")
 ```
 
-`RewriteURL` 返回**克隆后的新 `*Har`**，原 staging 抓包不被修改——这是 har-skills
-"返回新实例"约定的体现。更复杂的批量变换用 `h.Transform(rules)`，传入
-`[]TransformRule`（`TransformURLRewrite`/`TransformHeaderRemove`/...）。
+`RewriteURL` returns a **cloned `*Har`** — the staging capture is not mutated
+(har-skills' "return a new instance" convention). For complex batch transforms use
+`h.Transform(rules)` with `[]TransformRule`
+(`TransformURLRewrite`/`TransformHeaderRemove`/...).
 
-## 第 3 步：dry-run 预览（不发请求）
+## Step 3: Dry-Run Preview (no requests sent)
 
 ### CLI
 
@@ -107,15 +109,15 @@ prodReady = prodReady.AddHeaders(map[string]string{"X-Env": "prod"}, "request")
 har -f prod-ready.har replay --dry-run
 ```
 
-`--dry-run` 只把每条 entry 转成 `http.Request` 并打印，**不实际发请求**，用于在重放
-前核对 URL/Header/Body 改写是否正确。
+`--dry-run` converts each entry to an `http.Request` and prints it **without
+sending** — a final check that URL/Header/Body rewrites are correct.
 
-### SDK 等价
+### SDK equivalent
 
 ```go
 for i := range prodReady.Log.Entries {
     e := &prodReady.Log.Entries[i]
-    req, err := e.ToHTTPRequest()   // 只构造，不发送
+    req, err := e.ToHTTPRequest()   // build only, don't send
     if err != nil {
         log.Printf("[%d] %v", i, err)
         continue
@@ -124,10 +126,10 @@ for i := range prodReady.Log.Entries {
 }
 ```
 
-`ToHTTPRequest()` 是 `Entries` 的方法，把 HAR entry 还原成标准库
-`*http.Request`（方法、URL、Header、Cookie、PostData.Body、Content-Type）。
+`ToHTTPRequest()` is an `Entries` method that rebuilds a stdlib `*http.Request`
+(method, URL, Header, Cookie, PostData.Body, Content-Type).
 
-## 第 4 步：真实重放并保存为 HAR
+## Step 4: Real Replay, Save as HAR
 
 ### CLI
 
@@ -140,9 +142,10 @@ har -f prod-ready.har replay \
     --filter "api/"
 ```
 
-关键开关：`--timeout`、`--no-follow-redirects`、`--max-redirects`、`--skip-ssl`、
-`--header "K:V"`（覆盖请求头，可多次）、`--index N`（只重放某条）、`--filter pat`
-（URL 子串过滤）、`--save-har`（把重放结果写成新 HAR）。
+Key flags: `--timeout`, `--no-follow-redirects`, `--max-redirects`, `--skip-ssl`,
+`--header "K:V"` (override request headers, repeatable), `--index N` (single
+entry), `--filter pat` (URL substring filter), `--save-har` (write replay results
+to a new HAR).
 
 ### SDK
 
@@ -156,7 +159,7 @@ opts.OverrideHeaders = map[string]string{
 
 for i := range prodReady.Log.Entries {
     e := &prodReady.Log.Entries[i]
-    result, err := e.Replay(opts)   // 真实发送
+    result, err := e.Replay(opts)   // actually send
     if err != nil {
         log.Printf("[%d] %v", i, err)
         continue
@@ -166,22 +169,22 @@ for i := range prodReady.Log.Entries {
 }
 ```
 
-`Replay` 是 `Entries` 方法，返回 `*ReplayResult`：
+`Replay` is an `Entries` method returning `*ReplayResult`:
 
 ```go
 type ReplayResult struct {
-    Entry    *Entries       // 原始 entry
-    Response *http.Response // HTTP 响应
-    Duration time.Duration  // 实际耗时
+    Entry    *Entries       // original entry
+    Response *http.Response // HTTP response
+    Duration time.Duration  // actual elapsed
     Error    error
     Index    int
 }
 ```
 
-CLI 的 `--save-har` 会把每条 `ReplayResult` 的响应回填成新的 `Entries`，再序列化成
-HAR——这正是第 5 步 diff 的输入。
+CLI's `--save-har` back-fills each `ReplayResult`'s response into a new `Entries`
+and serializes it as a HAR — which is the input to step 5's diff.
 
-## 第 5 步：diff 原始 vs 重放结果
+## Step 5: Diff Original vs Replay Results
 
 ### CLI
 
@@ -189,8 +192,9 @@ HAR——这正是第 5 步 diff 的输入。
 har diff staging.har results.har --compare-by-url
 ```
 
-常用开关：`--compare-by-url`（按 URL 匹配而非下标）、`--include-body`（比较响应
-体）、`--ignore-headers Cookie,Date`、`--ignore-timings`、`--ignore-dates`。
+Common flags: `--compare-by-url` (match by URL rather than index),
+`--include-body` (compare response bodies), `--ignore-headers Cookie,Date`,
+`--ignore-timings`, `--ignore-dates`.
 
 ### SDK
 
@@ -203,46 +207,46 @@ diffOpts.CompareByURL = true
 diffOpts.IgnoreHeaders = []string{"Cookie", "Date", "Set-Cookie"}
 
 d := har.Diff(orig, repl, diffOpts)
-fmt.Println(d.Report("text"))   // 也可 "json" / "csv" / "markdown"
-fmt.Printf("总变更数: %d\n", d.TotalChanges())
+fmt.Println(d.Report("text"))   // or "json" / "csv" / "markdown"
+fmt.Printf("total changes: %d\n", d.TotalChanges())
 ```
 
-`Diff` 返回 `*HarDiff`，分类给出 `Added`/`Removed`/`Modified` 三类变更；
-`Report(format)` 输出文本/JSON/CSV/Markdown 报告；`HasChanges()` 可直接当 CI
-门禁布尔值。
+`Diff` returns `*HarDiff`, classifying changes into `Added`/`Removed`/`Modified`;
+`Report(format)` outputs text/JSON/CSV/Markdown; `HasChanges()` is a clean CI-gate
+boolean.
 
-### diff 分类
+### Diff categories
 
 ```mermaid
 flowchart LR
-    subgraph O["orig（staging）"]
+    subgraph O["orig (staging)"]
         A["entry A"]:::e
         B["entry B"]:::e
         C["entry C"]:::e
     end
-    subgraph R["repl（prod 重放）"]
+    subgraph R["repl (prod replay)"]
         A2["entry A'"]:::e
         B2["entry B'"]:::e
         D["entry D"]:::e
     end
-    A -- "字段不同" --> A2
-    B -- "相同" --> B2
-    C -. "repl 无" .-> REM["Removed<br/>（prod 没有）"]:::chg
-    D -. "orig 无" .-> ADD["Added<br/>（prod 新增）"]:::chg
-    A -- 字段不同 --> MOD["Modified"]:::chg
+    A -- "fields differ" --> A2
+    B -- "identical" --> B2
+    C -. "absent in repl" .-> REM["Removed<br/>(prod lacks it)"]:::chg
+    D -. "absent in orig" .-> ADD["Added<br/>(prod adds it)"]:::chg
+    A -- fields differ --> MOD["Modified"]:::chg
 
     classDef e fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
     classDef chg fill:#fef7e0,stroke:#f9ab00,color:#7c4a03
 ```
 
-## 完整端到端脚本
+## End-to-End Script
 
 ```bash
 #!/usr/bin/env bash
-# api-migration.sh — staging→prod URL 改写 + dry-run + 重放 + diff
+# api-migration.sh — staging→prod URL rewrite + dry-run + replay + diff
 set -euo pipefail
 
-STAGING="${1:?staging.har 路径}"
+STAGING="${1:?staging.har path}"
 PROD_BASE="${2:-https://api.example.com}"
 STAGING_BASE="${3:-http://staging.example.com}"
 WORKDIR="$(mktemp -d)"
@@ -252,26 +256,26 @@ PROD_READY="$WORKDIR/prod-ready.har"
 RESULTS="$WORKDIR/results.har"
 DIFF_REPORT="$WORKDIR/diff.txt"
 
-echo "==> 1/5 staging 概览"
+echo "==> 1/5 staging overview"
 har -f "$STAGING" info
 
-echo "==> 2/5 改写 URL: $STAGING_BASE -> $PROD_BASE"
+echo "==> 2/5 rewrite URL: $STAGING_BASE -> $PROD_BASE"
 har -f "$STAGING" transform \
     --rewrite-url "${STAGING_BASE}->${PROD_BASE}" \
     --change-scheme "http->https" \
     -o "$PROD_READY"
 
-echo "==> 3/5 dry-run 预览（不发送请求）"
+echo "==> 3/5 dry-run preview (no requests sent)"
 har -f "$PROD_READY" replay --dry-run | head -20
 
-echo "==> 4/5 真实重放并保存为 HAR"
+echo "==> 4/5 real replay, save as HAR"
 har -f "$PROD_READY" replay \
     --timeout 10s \
     --skip-ssl \
     --header "Authorization:Bearer ${PROD_TOKEN:-CHANGEME}" \
     --save-har "$RESULTS"
 
-echo "==> 5/5 diff 原始 vs 重放结果（按 URL 匹配）"
+echo "==> 5/5 diff original vs replay (match by URL)"
 har diff "$STAGING" "$RESULTS" \
     --compare-by-url \
     --ignore-headers Cookie,Date,Set-Cookie \
@@ -280,43 +284,33 @@ har diff "$STAGING" "$RESULTS" \
 
 cp "$RESULTS" ./results.har 2>/dev/null || true
 cp "$DIFF_REPORT" ./diff.txt 2>/dev/null || true
-echo "完成: results.har + diff.txt"
-
-# CI 门禁：有变更则报警
-if har diff "$STAGING" "$RESULTS" --compare-by-url >/dev/null 2>&1; then
-    :
-fi
+echo "done: results.har + diff.txt"
 ```
 
-运行：
+Run it:
 
 ```bash
 export PROD_TOKEN="eyJhbGciOi..."
 ./api-migration.sh staging.har https://api.example.com http://staging.example.com
 ```
 
-## CI 门禁示例
+## CI Gate Example
 
-把"迁移不能引入行为变更"做成 CI 检查：
+Turn "migration must not introduce behavioral changes" into a CI check.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-STAGING="$1"; RESULTS="$2"
-
-d=$(har diff "$STAGING" "$RESULTS" --compare-by-url --ignore-timings)
-echo "$d"
-if echo "$d" | har diff "$STAGING" "$RESULTS" --compare-by-url >/dev/null; then
-    : # diff 命令成功退出不代表无变更
-fi
-# 用 SDK 侧 HasChanges() 更可靠；CLI 侧可通过报告非空判断
-```
-
-::: warning CLI diff 退出码不可靠
-CLI `diff` 不论有无变更都返回 0，不能直接当门禁。要严格门禁，推荐用 SDK 的 `HasChanges()`，见下方 SDK 等价端到端。
+::: warning CLI diff exit code is unreliable
+The CLI `diff` exits 0 regardless of whether there are changes, so it cannot be used directly as a gate. For a strict gate, use the SDK's `HasChanges()`:
 :::
 
-## SDK 等价端到端
+```go
+d := har.Diff(orig, repl, diffOpts)
+if d.HasChanges() {
+    fmt.Println(d.Report("text"))
+    log.Fatalf("migration introduced %d changes", d.TotalChanges())
+}
+```
+
+## SDK End-to-End Equivalent
 
 ```go
 package main
@@ -330,19 +324,19 @@ import (
 )
 
 func main() {
-    // 1. 解析 staging
+    // 1. Parse staging
     staging, err := har.ParseHarFile("staging.har")
     if err != nil {
         log.Fatal(err)
     }
 
-    // 2. 改写 URL（克隆，不改原对象）
+    // 2. Rewrite URLs (cloned; original untouched)
     prodReady := staging.RewriteURL(
         "http://staging.example.com",
         "https://api.example.com",
     )
 
-    // 3 & 4. 重放
+    // 3 & 4. Replay
     opts := har.DefaultReplayOptions()
     opts.Timeout = 10 * time.Second
     opts.OverrideHeaders = map[string]string{
@@ -359,36 +353,35 @@ func main() {
         res.Response.Body.Close()
     }
 
-    // 5. diff（这里用原始 staging 与 prodReady 的概念差异；
-    //    真实重放结果需先用 --save-har 产物）
+    // 5. diff (real replay results come from the --save-har product)
     repl, _ := har.ParseHarFile("results.har")
     diffOpts := har.DefaultDiffOptions()
     diffOpts.CompareByURL = true
     d := har.Diff(staging, repl, diffOpts)
     fmt.Println(d.Report("text"))
     if d.HasChanges() {
-        fmt.Printf("迁移引入 %d 处变更\n", d.TotalChanges())
+        fmt.Printf("migration introduced %d changes\n", d.TotalChanges())
     }
 }
 ```
 
-## 输出物清单
+## Output Artifacts
 
-| 文件             | 来源                          | 用途                      |
-|------------------|-------------------------------|---------------------------|
-| `prod-ready.har` | `transform --rewrite-url`     | 指向 prod 的可重放抓包    |
-| `results.har`    | `replay --save-har`           | prod 真实响应记录         |
-| `diff.txt`       | `har diff`                    | 迁移前后行为差异报告      |
+| File             | Source                        | Use                           |
+|------------------|-------------------------------|-------------------------------|
+| `prod-ready.har` | `transform --rewrite-url`     | Replayable capture aimed at prod |
+| `results.har`    | `replay --save-har`           | Real prod response record     |
+| `diff.txt`       | `har diff`                    | Behavioral diff report        |
 
-## 小结
+## Summary
 
 ```mermaid
 flowchart LR
-    T["transform<br/>改写 URL"]:::step --> RD["replay(dry)<br/>预览核对"]:::step
-    RD --> RR["replay(real, --save-har)<br/>真实重放 → HAR"]:::step
-    RR --> DF["diff<br/>自动找差异"]:::step
+    T["transform<br/>rewrite URL"]:::step --> RD["replay(dry)<br/>preview check"]:::step
+    RD --> RR["replay(real, --save-har)<br/>real replay → HAR"]:::step
+    RR --> DF["diff<br/>auto-diff"]:::step
     T -.-> O1["prod-ready"]:::out
-    RD -.-> O2["安全预览"]:::out
+    RD -.-> O2["safe preview"]:::out
     RR -.-> O3["results.har"]:::out
     DF -.-> O4["added/removed/modified"]:::out
 
@@ -396,11 +389,11 @@ flowchart LR
     classDef out fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
 ```
 
-::: tip 四步自动化
-- **transform** 把抓包从 staging 域改写到 prod 域，全程克隆不改原件；
-- **replay --dry-run** 是"扣扳机前的最后一道核对"；
-- **replay --save-har** 把真实 prod 响应固化为可 diff 的 HAR；
-- **diff** 用 URL 匹配自动比对，让"迁移有没有改变行为"可量化。
+::: tip Four-step pipeline
+- **transform** moves the capture from the staging domain to prod, fully cloned.
+- **replay --dry-run** is the last check before pulling the trigger.
+- **replay --save-har** freezes real prod responses into a diffable HAR.
+- **diff** matches by URL to quantify "did migration change behavior?".
 
-四步组合，把"迁移"从人工核对变成可重复、可门禁的自动化流水线。
+Together they turn migration from manual eyeballing into a repeatable, gated pipeline.
 :::

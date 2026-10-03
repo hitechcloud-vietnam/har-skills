@@ -10,13 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// extractCmd 提取响应内容
+// extractCmd extracts response content.
 var extractCmd = &cobra.Command{
 	Use:   "extract [url-pattern]",
-	Short: "提取响应内容",
-	Long: `提取匹配条目的响应内容。支持按URL模式匹配或按条目索引提取，
-支持自动解码base64编码和gzip/deflate压缩的内容。
-提取的内容默认输出到stdout，也可使用--output写入文件。`,
+	Short: "Extract response content",
+	Long: `Extract response content from matching entries. Entries can be selected by URL pattern or index.
+Base64-encoded and gzip/deflate-compressed content can be decoded automatically.
+Content is written to stdout by default, or to a file with --output.`,
 	Example: `  har -f capture.har extract
   har -f capture.har extract "api/users"
   har -f capture.har extract --index 0
@@ -26,7 +26,7 @@ var extractCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		h := internal.LoadHar(cmd, args)
 
-		// 获取参数
+		// Read the arguments.
 		urlPattern := ""
 		if len(args) > 0 {
 			urlPattern = args[0]
@@ -35,12 +35,12 @@ var extractCmd = &cobra.Command{
 		decode, _ := cmd.Flags().GetBool("decode")
 		extractAll, _ := cmd.Flags().GetBool("all")
 
-		// 按索引提取
+		// Extract by index.
 		if entryIndex >= 0 && entryIndex < len(h.Log.Entries) {
 			return extractSingleEntry(cmd, &h.Log.Entries[entryIndex], decode)
 		}
 
-		// 过滤匹配条目
+		// Filter matching entries.
 		var entries []har.Entries
 		for _, entry := range h.Log.Entries {
 			if urlPattern != "" && !strings.Contains(entry.Request.URL, urlPattern) {
@@ -49,13 +49,13 @@ var extractCmd = &cobra.Command{
 			entries = append(entries, entry)
 		}
 
-		// 提取所有匹配或仅第一个
+		// Extract all matches or only the first.
 		if extractAll {
 			return extractMultipleEntries(cmd, entries, decode)
 		}
 
 		if len(entries) == 0 {
-			fmt.Fprintln(os.Stderr, "未找到匹配的条目")
+			fmt.Fprintln(os.Stderr, "No matching entries found.")
 			return nil
 		}
 
@@ -66,61 +66,61 @@ var extractCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(extractCmd)
 
-	extractCmd.Flags().Int("index", -1, "按索引提取指定条目")
-	extractCmd.Flags().Bool("decode", true, "自动解码base64/压缩内容")
-	extractCmd.Flags().Bool("all", false, "提取所有匹配条目")
+	extractCmd.Flags().Int("index", -1, "Extract the entry at the specified index")
+	extractCmd.Flags().Bool("decode", true, "Automatically decode base64/compressed content")
+	extractCmd.Flags().Bool("all", false, "Extract all matching entries")
 }
 
-// extractSingleEntry 提取单个条目的响应内容
+// extractSingleEntry extracts response content from a single entry.
 func extractSingleEntry(cmd *cobra.Command, entry *har.Entries, decode bool) error {
 	if decode {
 		data, err := entry.DecodeContent()
 		if err != nil {
-			return fmt.Errorf("解码内容失败: %w", err)
+			return fmt.Errorf("failed to decode content: %w", err)
 		}
 		if data == nil {
-			fmt.Fprintln(os.Stderr, "该条目无响应内容")
+			fmt.Fprintln(os.Stderr, "This entry has no response content.")
 			return nil
 		}
 		return internal.WriteStringOutput(cmd, string(data))
 	}
 
-	// 不解码，直接输出原始文本
+	// Output the raw text without decoding.
 	if entry.Response.Content.Text == "" {
-		fmt.Fprintln(os.Stderr, "该条目无响应内容")
+		fmt.Fprintln(os.Stderr, "This entry has no response content.")
 		return nil
 	}
 	return internal.WriteStringOutput(cmd, entry.Response.Content.Text)
 }
 
-// extractMultipleEntries 提取多个条目的响应内容
+// extractMultipleEntries extracts response content from multiple entries.
 func extractMultipleEntries(cmd *cobra.Command, entries []har.Entries, decode bool) error {
 	var sb strings.Builder
 
 	for i, entry := range entries {
 		if i > 0 {
-			sb.WriteString("\n--- 分隔线 ---\n\n")
+			sb.WriteString("\n---\n\n")
 		}
-		sb.WriteString(fmt.Sprintf("# 条目 #%d: %s %s\n", i, entry.Request.Method, entry.Request.URL))
-		sb.WriteString(fmt.Sprintf("# 状态: %d %s\n", entry.Response.Status, entry.Response.StatusText))
-		sb.WriteString(fmt.Sprintf("# MIME类型: %s\n\n", entry.Response.Content.MimeType))
+		sb.WriteString(fmt.Sprintf("# Entry #%d: %s %s\n", i, entry.Request.Method, entry.Request.URL))
+		sb.WriteString(fmt.Sprintf("# Status: %d %s\n", entry.Response.Status, entry.Response.StatusText))
+		sb.WriteString(fmt.Sprintf("# MIME type: %s\n\n", entry.Response.Content.MimeType))
 
 		if decode {
 			data, err := entry.DecodeContent()
 			if err != nil {
-				sb.WriteString(fmt.Sprintf("# 解码失败: %v\n", err))
+				sb.WriteString(fmt.Sprintf("# Decode failed: %v\n", err))
 				continue
 			}
 			if data != nil {
 				sb.WriteString(string(data))
 			} else {
-				sb.WriteString("# 无内容\n")
+				sb.WriteString("# No content\n")
 			}
 		} else {
 			if entry.Response.Content.Text != "" {
 				sb.WriteString(entry.Response.Content.Text)
 			} else {
-				sb.WriteString("# 无内容\n")
+				sb.WriteString("# No content\n")
 			}
 		}
 	}

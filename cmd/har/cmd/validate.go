@@ -8,21 +8,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// validateCmd 验证HAR文件是否符合规范
+// validateCmd checks whether a HAR file conforms to the specification.
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "验证HAR文件",
-	Long: `验证HAR文件是否符合HAR规范。
+	Short: "Validate a HAR file",
+	Long: `Validate a HAR file against the HAR specification.
 
-支持标准验证和严格验证模式：
-  - 标准验证：检查基本结构和必填字段
-  - 严格验证：额外检查交叉引用、HTTP方法、状态码范围等
-  - 时间一致性验证：检查Time字段与Timings各字段之和的一致性
+Standard and strict validation modes are available:
+  - Standard validation: check basic structure and required fields
+  - Strict validation: additionally check cross-references, HTTP methods, status code ranges, and more
+  - Timing consistency validation: compare the Time field with the sum of the Timings fields
 
-示例:
-  har validate -f capture.har                      # 标准验证
-  har validate -f capture.har --strict             # 严格验证
-  har validate -f capture.har --timings-tolerance 5  # 时间一致性容差5ms
+Examples:
+  har validate -f capture.har                      # Standard validation
+  har validate -f capture.har --strict             # Strict validation
+  har validate -f capture.har --timings-tolerance 5  # Allow 5 ms timing tolerance
   har validate -f capture.har --strict --timings-tolerance 0`,
 	RunE: runValidate,
 }
@@ -30,22 +30,22 @@ var validateCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(validateCmd)
 
-	validateCmd.Flags().Bool("strict", false, "启用严格验证模式")
-	validateCmd.Flags().Float64("timings-tolerance", 10, "时间一致性容差（毫秒），0表示严格一致")
+	validateCmd.Flags().Bool("strict", false, "Enable strict validation")
+	validateCmd.Flags().Float64("timings-tolerance", 10, "Timing consistency tolerance in milliseconds (0 requires an exact match)")
 }
 
-// runValidate 执行验证命令
+// runValidate executes the validate command.
 func runValidate(cmd *cobra.Command, args []string) error {
-	// 加载HAR文件
+	// Load the HAR file.
 	h := internal.LoadHar(cmd, args)
 
 	strict, _ := cmd.Flags().GetBool("strict")
 	timingsTolerance, _ := cmd.Flags().GetFloat64("timings-tolerance")
 
-	// 收集所有验证错误
+	// Collect all validation errors.
 	var allErrors []*har.ValidationError
 
-	// 执行标准或严格验证
+	// Run standard or strict validation.
 	if strict {
 		if err := har.ValidateStrict(h); err != nil {
 			collectErrors(err, &allErrors)
@@ -56,29 +56,29 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 执行时间一致性验证（容差>=0时启用）
+	// Run timing consistency validation when the tolerance is non-negative.
 	if timingsTolerance >= 0 {
 		timingErrors := har.ValidateTimingsConsistency(h, timingsTolerance)
 		allErrors = append(allErrors, timingErrors...)
 	}
 
-	// 根据输出格式输出结果
+	// Write the result in the requested format.
 	return internal.WriteOutput(cmd, allErrors,
 		func() string { return formatValidateText(allErrors) },
 		nil,
 	)
 }
 
-// collectErrors 从HarError中提取ValidationError列表
+// collectErrors extracts ValidationErrors from a HarError.
 func collectErrors(err error, errors *[]*har.ValidationError) {
 	if err == nil {
 		return
 	}
 
-	// 尝试作为HarError处理
+	// Try to handle the error as a HarError.
 	if harErr, ok := err.(*har.HarError); ok {
 		for _, pe := range harErr.GetPartialErrors() {
-			// HarError包含Field和Message，转换为ValidationError
+			// Convert the HarError's Field and Message to a ValidationError.
 			ve := &har.ValidationError{
 				Field:   pe.Field,
 				Message: pe.Message,
@@ -88,20 +88,20 @@ func collectErrors(err error, errors *[]*har.ValidationError) {
 		return
 	}
 
-	// 其他错误类型
+	// Handle other error types.
 	*errors = append(*errors, &har.ValidationError{
 		Field:   "",
 		Message: err.Error(),
 	})
 }
 
-// formatValidateText 格式化验证结果的文本输出
+// formatValidateText formats validation results as text.
 func formatValidateText(errors []*har.ValidationError) string {
 	if len(errors) == 0 {
 		return "✓ Valid\n"
 	}
 
-	result := fmt.Sprintf("✗ 发现 %d 个验证错误:\n\n", len(errors))
+	result := fmt.Sprintf("✗ Found %d validation error(s):\n\n", len(errors))
 	for i, e := range errors {
 		if e.Field != "" {
 			result += fmt.Sprintf("  %d. [%s] %s: %s\n", i+1, e.Rule, e.Field, e.Message)

@@ -9,18 +9,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// mergeCmd 合并多个HAR文件
+// mergeCmd merges multiple HAR files.
 var mergeCmd = &cobra.Command{
 	Use:   "merge <file1> [file2] ...",
-	Short: "合并多个HAR文件",
-	Long: `将多个HAR文件的条目合并到一个HAR文件中。
-合并后的HAR文件使用第一个文件的版本和创建者信息。
+	Short: "Merge multiple HAR files",
+	Long: `Merge entries from multiple HAR files into one HAR file.
+The merged file uses the version and creator information from the first file.
 
-示例:
-  har merge capture1.har capture2.har               # 合并两个HAR文件
-  har merge a.har b.har c.har --deduplicate         # 合并并去重
-  har merge a.har b.har --sort-by-time=false        # 不按时间排序
-  har merge a.har b.har -o merged.har               # 输出到文件`,
+Examples:
+  har merge capture1.har capture2.har               # Merge two HAR files
+  har merge a.har b.har c.har --deduplicate         # Merge and deduplicate
+  har merge a.har b.har --sort-by-time=false        # Do not sort by time
+  har merge a.har b.har -o merged.har               # Write to a file`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runMerge,
 }
@@ -28,20 +28,20 @@ var mergeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(mergeCmd)
 
-	mergeCmd.Flags().Bool("sort-by-time", true, "按时间排序合并后的条目")
-	mergeCmd.Flags().Bool("deduplicate", false, "去重（按Method+URL去重，保留最新的）")
+	mergeCmd.Flags().Bool("sort-by-time", true, "Sort merged entries by time")
+	mergeCmd.Flags().Bool("deduplicate", false, "Deduplicate by method and URL, keeping the latest entry")
 }
 
-// runMerge 执行合并命令
+// runMerge executes the merge command.
 func runMerge(cmd *cobra.Command, args []string) error {
-	// 加载所有HAR文件
+	// Load all HAR files.
 	hars := make([]*har.Har, 0, len(args))
 	for _, path := range args {
 		h := internal.LoadHarFromArg(path)
 		hars = append(hars, h)
 	}
 
-	// 读取合并选项
+	// Read merge options.
 	sortByTime, _ := cmd.Flags().GetBool("sort-by-time")
 	deduplicate, _ := cmd.Flags().GetBool("deduplicate")
 
@@ -50,17 +50,17 @@ func runMerge(cmd *cobra.Command, args []string) error {
 		Deduplicate: deduplicate,
 	}
 
-	// 执行合并
+	// Merge the files.
 	merged := har.MergeWithOptions(options, hars...)
 
-	// 序列化为JSON
+	// Serialize as JSON.
 	output, err := json.MarshalIndent(merged, "", "  ")
 	if err != nil {
-		return fmt.Errorf("JSON序列化失败: %w", err)
+		return fmt.Errorf("JSON serialization failed: %w", err)
 	}
 	output = append(output, '\n')
 
-	// 写入输出
+	// Write the output.
 	outputPath := internal.GetOutputPath(cmd)
 	return internal.WriteToFileOrStdout(outputPath, output)
 }

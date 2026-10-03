@@ -11,12 +11,12 @@ import (
 	"time"
 )
 
-// HarBuilder 提供流式API构建HAR文件
+// HarBuilder provides a fluent API for building HAR files.
 type HarBuilder struct {
 	har *Har
 }
 
-// EntryBuilder 提供流式API构建HAR条目
+// EntryBuilder provides a fluent API for building HAR entries.
 type EntryBuilder struct {
 	entry  *Entries
 	parent *HarBuilder
@@ -42,14 +42,14 @@ func (r *Recorder) ensureBuilder() *HarBuilder {
 	return r.builder
 }
 
-// NewHarBuilder 创建一个新的HAR Builder
+// NewHarBuilder creates a new HAR builder.
 func NewHarBuilder() *HarBuilder {
 	return &HarBuilder{
 		har: NewHar(),
 	}
 }
 
-// SetVersion 设置HAR规范版本
+// SetVersion sets the HAR specification version.
 func (b *HarBuilder) SetVersion(version string) *HarBuilder {
 	if har := b.ensureHar(); har != nil {
 		har.Log.Version = version
@@ -57,7 +57,7 @@ func (b *HarBuilder) SetVersion(version string) *HarBuilder {
 	return b
 }
 
-// SetCreator 设置创建者信息
+// SetCreator sets creator information.
 func (b *HarBuilder) SetCreator(name, version string) *HarBuilder {
 	if har := b.ensureHar(); har != nil {
 		har.Log.Creator = Creator{
@@ -68,7 +68,7 @@ func (b *HarBuilder) SetCreator(name, version string) *HarBuilder {
 	return b
 }
 
-// SetBrowser 设置浏览器信息
+// SetBrowser sets browser information.
 func (b *HarBuilder) SetBrowser(name, version string) *HarBuilder {
 	if har := b.ensureHar(); har != nil {
 		har.Log.Browser = Browser{
@@ -79,7 +79,7 @@ func (b *HarBuilder) SetBrowser(name, version string) *HarBuilder {
 	return b
 }
 
-// SetComment 设置注释
+// SetComment sets a comment.
 func (b *HarBuilder) SetComment(comment string) *HarBuilder {
 	if har := b.ensureHar(); har != nil {
 		har.Log.Comment = comment
@@ -87,7 +87,7 @@ func (b *HarBuilder) SetComment(comment string) *HarBuilder {
 	return b
 }
 
-// AddPage 添加页面信息
+// AddPage adds page information.
 func (b *HarBuilder) AddPage(id, title string) *HarBuilder {
 	if har := b.ensureHar(); har != nil {
 		har.AddPage(id, title)
@@ -95,7 +95,7 @@ func (b *HarBuilder) AddPage(id, title string) *HarBuilder {
 	return b
 }
 
-// AddEntry 添加一个条目并返回EntryBuilder用于进一步配置
+// AddEntry adds an entry and returns an EntryBuilder for further configuration.
 func (b *HarBuilder) AddEntry(method, url string) *EntryBuilder {
 	har := b.ensureHar()
 	if har == nil {
@@ -108,7 +108,7 @@ func (b *HarBuilder) AddEntry(method, url string) *EntryBuilder {
 	}
 }
 
-// AddEntryWithHTTPVersion 添加一个条目（指定HTTP版本）
+// AddEntryWithHTTPVersion adds an entry with the specified HTTP version.
 func (b *HarBuilder) AddEntryWithHTTPVersion(method, url, httpVersion string) *EntryBuilder {
 	har := b.ensureHar()
 	if har == nil {
@@ -121,7 +121,7 @@ func (b *HarBuilder) AddEntryWithHTTPVersion(method, url, httpVersion string) *E
 	}
 }
 
-// AddEntryForPage 添加一个条目并关联到指定页面
+// AddEntryForPage adds an entry and associates it with the specified page.
 func (b *HarBuilder) AddEntryForPage(method, url, pageref string) *EntryBuilder {
 	har := b.ensureHar()
 	if har == nil {
@@ -134,43 +134,47 @@ func (b *HarBuilder) AddEntryForPage(method, url, pageref string) *EntryBuilder 
 	}
 }
 
-// AddEntryFromHTTP 从HTTP请求/响应创建条目。
+// AddEntryFromHTTP creates an entry from an HTTP request/response.
 //
-// 兼容入口：startedDateTime 取当下时间、不带元数据。
-// 如需传入真实请求发起时间或服务器 IP/连接 ID 等元数据，请用 AddEntryFromHTTPWithMeta。
+// Compatibility wrapper: startedDateTime is set to the current time, with no metadata.
+// To provide the actual request start time or metadata such as server IP or connection ID, use AddEntryFromHTTPWithMeta.
 //
-// 注意：本方法会消费并关闭 req.Body 与 resp.Body。若调用方仍需响应体，
-// 请先自行缓存副本（如 io.ReadAll 后用 io.NopCloser(bytes.NewReader(...)) 回填）。
+// Note: this method consumes and closes req.Body and resp.Body. If the caller still
+// needs the response body, cache a copy first (for example, with io.ReadAll, then
+// restore it with io.NopCloser(bytes.NewReader(...))).
 func (b *HarBuilder) AddEntryFromHTTP(req *http.Request, resp *http.Response, duration time.Duration) *HarBuilder {
 	return b.addEntryFromHTTPImpl(req, resp, time.Now(), duration, EntryMeta{})
 }
 
-// AddEntryFromHTTPWithMeta 从HTTP请求/响应创建条目，并携带真实开始时间与可选元数据。
+// AddEntryFromHTTPWithMeta creates an entry from an HTTP request/response with the actual start time and optional metadata.
 //
-// 适用于被上层网络安全/网络空间测绘系统作为底层库封装的场景：
-//   - startedAt 为请求真正发起的时刻（写入 HAR 的 startedDateTime），
-//     解决旧入口写死 time.Now() 导致时序错乱的问题；
-//   - meta 携带 serverIP / connection / pageref / initiator / priority / resourceType 等
-//     无法从 req/resp 推断的元数据；
-//   - 二进制响应体（图片/字体/视频等）自动 base64 编码，保证 JSON 往返无损；
-//   - HeadersSize 自动估算填充。
+// This is useful when wrapping the builder as a low-level library for network security
+// or network-mapping systems:
+//   - startedAt is the actual request start time, stored as HAR startedDateTime,
+//     avoiding timing inconsistencies caused by the old wrapper's fixed time.Now().
+//   - meta carries metadata that cannot be inferred from req/resp, such as serverIP,
+//     connection, pageref, initiator, priority, and resourceType.
+//   - Binary response bodies (images, fonts, video, etc.) are base64-encoded automatically
+//     to preserve them in JSON round trips.
+//   - HeadersSize is estimated automatically.
 //
-// 返回 *EntryBuilder 以便对生成的条目做后置定制（追加头、Cookie 等），调用 EndEntry() 回到 HarBuilder。
-// 与 AddEntryFromHTTP 一样，会消费并关闭 req.Body / resp.Body。
+// It returns an *EntryBuilder for additional customization of the generated entry
+// (such as adding headers or cookies); call EndEntry() to return to HarBuilder.
+// Like AddEntryFromHTTP, it consumes and closes req.Body and resp.Body.
 func (b *HarBuilder) AddEntryFromHTTPWithMeta(req *http.Request, resp *http.Response, startedAt time.Time, duration time.Duration, meta EntryMeta) *EntryBuilder {
 	b.addEntryFromHTTPImpl(req, resp, startedAt, duration, meta)
 	har := b.ensureHar()
 	if har == nil || len(har.Log.Entries) == 0 {
 		return nil
 	}
-	// 返回指向刚追加的 entry 的 EntryBuilder，便于后置定制
+	// Return an EntryBuilder for the appended entry so it can be customized.
 	return &EntryBuilder{
 		entry:  &har.Log.Entries[len(har.Log.Entries)-1],
 		parent: b,
 	}
 }
 
-// addEntryFromHTTPImpl 是 AddEntryFromHTTP / AddEntryFromHTTPWithMeta 的共享实现。
+// addEntryFromHTTPImpl is shared by AddEntryFromHTTP and AddEntryFromHTTPWithMeta.
 func (b *HarBuilder) addEntryFromHTTPImpl(req *http.Request, resp *http.Response, startedAt time.Time, duration time.Duration, meta EntryMeta) *HarBuilder {
 	har := b.ensureHar()
 	if har == nil {
@@ -213,14 +217,14 @@ func (b *HarBuilder) addEntryFromHTTPImpl(req *http.Request, resp *http.Response
 		},
 	}
 
-	// 读取请求体（会消费 req.Body）
+	// Read the request body (consumes req.Body).
 	postData, bodySize := PostDataFromRequest(req)
 	if postData != nil {
 		entry.Request.PostData = postData
 		entry.Request.BodySize = bodySize
 	}
 
-	// 转换响应
+	// Convert the response.
 	if resp != nil {
 		entry.Response.Status = resp.StatusCode
 		entry.Response.StatusText = resp.Status
@@ -241,7 +245,7 @@ func (b *HarBuilder) addEntryFromHTTPImpl(req *http.Request, resp *http.Response
 					Size:     len(bodyBytes),
 					MimeType: mimeType,
 				}
-				// 非文本 body 走 base64 编码，保证 JSON 往返无损
+				// Base64-encode non-text bodies to preserve them in JSON round trips.
 				if isTextContentType(mimeType) {
 					content.Text = string(bodyBytes)
 				} else {
@@ -254,14 +258,14 @@ func (b *HarBuilder) addEntryFromHTTPImpl(req *http.Request, resp *http.Response
 		}
 	}
 
-	// 应用可选元数据
+	// Apply optional metadata.
 	applyEntryMeta(&entry, meta)
 
 	har.Log.Entries = append(har.Log.Entries, entry)
 	return b
 }
 
-// applyEntryMeta 把 EntryMeta 中的非零字段写入 entry。
+// applyEntryMeta writes non-zero fields from EntryMeta to the entry.
 func applyEntryMeta(entry *Entries, meta EntryMeta) {
 	if entry == nil {
 		return
@@ -295,32 +299,32 @@ func applyEntryMeta(entry *Entries, meta EntryMeta) {
 	}
 }
 
-// Build 构建并返回HAR对象
+// Build constructs and returns the HAR object.
 func (b *HarBuilder) Build() *Har {
 	return b.ensureHar()
 }
 
-// BuildJSON 构建HAR并返回JSON
+// BuildJSON builds the HAR file and returns its JSON representation.
 func (b *HarBuilder) BuildJSON(indent bool) ([]byte, error) {
 	har := b.ensureHar()
 	if har == nil {
-		return nil, NewInvalidFormatError("HAR Builder为空")
+		return nil, NewInvalidFormatError("HAR builder is nil")
 	}
 	return har.ToJSON(indent)
 }
 
-// BuildAndSave 构建HAR并保存到文件
+// BuildAndSave builds the HAR file and saves it to a file.
 func (b *HarBuilder) BuildAndSave(filePath string, indent bool) error {
 	har := b.ensureHar()
 	if har == nil {
-		return NewInvalidFormatError("HAR Builder为空")
+		return NewInvalidFormatError("HAR builder is nil")
 	}
 	return har.SaveToFile(filePath, indent)
 }
 
-// Entry Builder 方法
+// EntryBuilder methods.
 
-// WithHTTPVersion 设置HTTP版本
+// WithHTTPVersion sets the HTTP version.
 func (eb *EntryBuilder) WithHTTPVersion(version string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -330,7 +334,7 @@ func (eb *EntryBuilder) WithHTTPVersion(version string) *EntryBuilder {
 	return eb
 }
 
-// WithStartedDateTime 设置请求开始时间
+// WithStartedDateTime sets the request start time.
 func (eb *EntryBuilder) WithStartedDateTime(t time.Time) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -339,7 +343,7 @@ func (eb *EntryBuilder) WithStartedDateTime(t time.Time) *EntryBuilder {
 	return eb
 }
 
-// WithPageref 设置页面引用
+// WithPageref sets the page reference.
 func (eb *EntryBuilder) WithPageref(ref string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -348,7 +352,7 @@ func (eb *EntryBuilder) WithPageref(ref string) *EntryBuilder {
 	return eb
 }
 
-// WithServerIP 设置服务器IP
+// WithServerIP sets the server IP address.
 func (eb *EntryBuilder) WithServerIP(ip string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -357,7 +361,7 @@ func (eb *EntryBuilder) WithServerIP(ip string) *EntryBuilder {
 	return eb
 }
 
-// WithConnection 设置连接ID
+// WithConnection sets the connection ID.
 func (eb *EntryBuilder) WithConnection(id string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -366,7 +370,7 @@ func (eb *EntryBuilder) WithConnection(id string) *EntryBuilder {
 	return eb
 }
 
-// WithComment 设置注释
+// WithComment sets a comment.
 func (eb *EntryBuilder) WithComment(comment string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -375,7 +379,7 @@ func (eb *EntryBuilder) WithComment(comment string) *EntryBuilder {
 	return eb
 }
 
-// AddRequestHeader 添加请求头
+// AddRequestHeader adds a request header.
 func (eb *EntryBuilder) AddRequestHeader(name, value string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -384,7 +388,7 @@ func (eb *EntryBuilder) AddRequestHeader(name, value string) *EntryBuilder {
 	return eb
 }
 
-// AddResponseHeader 添加响应头
+// AddResponseHeader adds a response header.
 func (eb *EntryBuilder) AddResponseHeader(name, value string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -393,7 +397,7 @@ func (eb *EntryBuilder) AddResponseHeader(name, value string) *EntryBuilder {
 	return eb
 }
 
-// AddCookie 添加请求Cookie
+// AddCookie adds a request cookie.
 func (eb *EntryBuilder) AddCookie(name, value string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -402,7 +406,7 @@ func (eb *EntryBuilder) AddCookie(name, value string) *EntryBuilder {
 	return eb
 }
 
-// AddResponseCookie 添加响应Cookie
+// AddResponseCookie adds a response cookie.
 func (eb *EntryBuilder) AddResponseCookie(name, value string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -411,7 +415,7 @@ func (eb *EntryBuilder) AddResponseCookie(name, value string) *EntryBuilder {
 	return eb
 }
 
-// AddQueryParam 添加查询参数
+// AddQueryParam adds a query parameter.
 func (eb *EntryBuilder) AddQueryParam(name, value string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -420,7 +424,7 @@ func (eb *EntryBuilder) AddQueryParam(name, value string) *EntryBuilder {
 	return eb
 }
 
-// WithPostData 设置POST数据
+// WithPostData sets POST data.
 func (eb *EntryBuilder) WithPostData(mimeType, text string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -429,7 +433,7 @@ func (eb *EntryBuilder) WithPostData(mimeType, text string) *EntryBuilder {
 	return eb
 }
 
-// WithPostDataParams 设置POST表单参数
+// WithPostDataParams sets POST form parameters.
 func (eb *EntryBuilder) WithPostDataParams(mimeType string, params []Param) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -438,7 +442,7 @@ func (eb *EntryBuilder) WithPostDataParams(mimeType string, params []Param) *Ent
 	return eb
 }
 
-// WithResponseStatus 设置响应状态
+// WithResponseStatus sets the response status.
 func (eb *EntryBuilder) WithResponseStatus(status int, statusText string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -447,7 +451,7 @@ func (eb *EntryBuilder) WithResponseStatus(status int, statusText string) *Entry
 	return eb
 }
 
-// WithResponseContent 设置响应内容
+// WithResponseContent sets the response content.
 func (eb *EntryBuilder) WithResponseContent(size int, mimeType string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -456,7 +460,7 @@ func (eb *EntryBuilder) WithResponseContent(size int, mimeType string) *EntryBui
 	return eb
 }
 
-// WithResponseContentText 设置响应内容（含文本）
+// WithResponseContentText sets the response content, including its text.
 func (eb *EntryBuilder) WithResponseContentText(size int, mimeType, text string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -466,7 +470,7 @@ func (eb *EntryBuilder) WithResponseContentText(size int, mimeType, text string)
 	return eb
 }
 
-// WithTimings 设置时间数据
+// WithTimings sets timing data.
 func (eb *EntryBuilder) WithTimings(blocked, dns, connect, send, wait, receive, ssl float64) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -475,7 +479,7 @@ func (eb *EntryBuilder) WithTimings(blocked, dns, connect, send, wait, receive, 
 	return eb
 }
 
-// WithCache 设置缓存数据
+// WithCache sets cache data.
 func (eb *EntryBuilder) WithCache(cache Cache) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -484,7 +488,7 @@ func (eb *EntryBuilder) WithCache(cache Cache) *EntryBuilder {
 	return eb
 }
 
-// WithInitiator 设置请求发起者
+// WithInitiator sets the request initiator.
 func (eb *EntryBuilder) WithInitiator(initiatorType, initiatorURL string, lineNumber int) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -497,7 +501,7 @@ func (eb *EntryBuilder) WithInitiator(initiatorType, initiatorURL string, lineNu
 	return eb
 }
 
-// WithPriority 设置请求优先级
+// WithPriority sets the request priority.
 func (eb *EntryBuilder) WithPriority(priority string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -506,7 +510,7 @@ func (eb *EntryBuilder) WithPriority(priority string) *EntryBuilder {
 	return eb
 }
 
-// WithResourceType 设置资源类型
+// WithResourceType sets the resource type.
 func (eb *EntryBuilder) WithResourceType(resourceType string) *EntryBuilder {
 	if eb == nil || eb.entry == nil {
 		return eb
@@ -515,7 +519,7 @@ func (eb *EntryBuilder) WithResourceType(resourceType string) *EntryBuilder {
 	return eb
 }
 
-// EndEntry 结束条目构建，返回HarBuilder
+// EndEntry finishes building the entry and returns the HarBuilder.
 func (eb *EntryBuilder) EndEntry() *HarBuilder {
 	if eb == nil {
 		return nil
@@ -523,19 +527,19 @@ func (eb *EntryBuilder) EndEntry() *HarBuilder {
 	return eb.parent
 }
 
-// Recorder 用于录制HTTP交互并生成HAR文件
+// Recorder records HTTP interactions and generates HAR files.
 type Recorder struct {
 	builder *HarBuilder
 }
 
-// NewRecorder 创建一个新的Recorder
+// NewRecorder creates a Recorder.
 func NewRecorder() *Recorder {
 	return &Recorder{
 		builder: NewHarBuilder().SetCreator("go-har-recorder", "1.0"),
 	}
 }
 
-// SetCreator 设置录制器的创建者信息
+// SetCreator sets creator information for the recorder.
 func (r *Recorder) SetCreator(name, version string) *Recorder {
 	if builder := r.ensureBuilder(); builder != nil {
 		builder.SetCreator(name, version)
@@ -543,7 +547,7 @@ func (r *Recorder) SetCreator(name, version string) *Recorder {
 	return r
 }
 
-// SetBrowser 设置浏览器信息
+// SetBrowser sets browser information.
 func (r *Recorder) SetBrowser(name, version string) *Recorder {
 	if builder := r.ensureBuilder(); builder != nil {
 		builder.SetBrowser(name, version)
@@ -551,7 +555,7 @@ func (r *Recorder) SetBrowser(name, version string) *Recorder {
 	return r
 }
 
-// Capture 捕获一个HTTP请求/响应
+// Capture records an HTTP request/response.
 func (r *Recorder) Capture(req *http.Request, resp *http.Response, duration time.Duration) *Recorder {
 	if builder := r.ensureBuilder(); builder != nil {
 		builder.AddEntryFromHTTP(req, resp, duration)
@@ -559,7 +563,7 @@ func (r *Recorder) Capture(req *http.Request, resp *http.Response, duration time
 	return r
 }
 
-// CaptureEntry 捕获一个预构建的HAR条目
+// CaptureEntry records a prebuilt HAR entry.
 func (r *Recorder) CaptureEntry(entry Entries) *Recorder {
 	if builder := r.ensureBuilder(); builder != nil {
 		builder.ensureHar().Log.Entries = append(builder.ensureHar().Log.Entries, entry)
@@ -567,18 +571,18 @@ func (r *Recorder) CaptureEntry(entry Entries) *Recorder {
 	return r
 }
 
-// EntryCount 返回已录制的条目数
+// EntryCount returns the number of recorded entries.
 func (r *Recorder) EntryCount() int {
 	builder := r.ensureBuilder()
 	if builder == nil {
 		return 0
 	}
-	// builder 非 nil 时 ensureHar 必返回非 nil 的 Har (NewHarBuilder
-	// 已初始化 b.har)。
+	// When builder is non-nil, ensureHar must return a non-nil Har because
+	// NewHarBuilder initializes b.har.
 	return len(builder.ensureHar().Log.Entries)
 }
 
-// ToHar 生成HAR对象
+// ToHar generates a HAR object.
 func (r *Recorder) ToHar() *Har {
 	builder := r.ensureBuilder()
 	if builder == nil {
@@ -587,28 +591,28 @@ func (r *Recorder) ToHar() *Har {
 	return builder.Build()
 }
 
-// SaveToFile 保存录制结果到文件
+// SaveToFile saves the recording to a file.
 func (r *Recorder) SaveToFile(path string) error {
 	builder := r.ensureBuilder()
 	if builder == nil {
-		return NewInvalidFormatError("Recorder为空")
+		return NewInvalidFormatError("Recorder is nil")
 	}
 	return builder.BuildAndSave(path, true)
 }
 
-// ToJSON 生成JSON格式
+// ToJSON generates JSON output.
 func (r *Recorder) ToJSON(indent bool) ([]byte, error) {
 	builder := r.ensureBuilder()
 	if builder == nil {
-		return nil, NewInvalidFormatError("Recorder为空")
+		return nil, NewInvalidFormatError("Recorder is nil")
 	}
 	return builder.BuildJSON(indent)
 }
 
-// WriteToWriter 将HAR写入指定的Writer
+// WriteToWriter writes the HAR file to the specified Writer.
 func WriteToWriter(har *Har, w io.Writer, indent bool) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -622,11 +626,11 @@ func WriteToWriter(har *Har, w io.Writer, indent bool) error {
 	return writeAllToWriter(w, data, "failed to write HAR data")
 }
 
-// WriteEntriesToWriter 将HAR条目以JSON Lines格式写入Writer
-// 每行一个条目的JSON对象，适用于流式处理
+// WriteEntriesToWriter writes HAR entries to a Writer in JSON Lines format.
+// Each line contains one entry as a JSON object, suitable for streaming.
 func WriteEntriesToWriter(har *Har, w io.Writer) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -646,7 +650,7 @@ func WriteEntriesToWriter(har *Har, w io.Writer) error {
 	return nil
 }
 
-// ReadEntriesFromReader 从Reader中读取JSON Lines格式的条目
+// ReadEntriesFromReader reads entries in JSON Lines format from a Reader.
 func ReadEntriesFromReader(r io.Reader) ([]Entries, error) {
 	if isNilReader(r) {
 		return nil, NewInvalidFormatError("reader is nil")
@@ -669,10 +673,10 @@ func ReadEntriesFromReader(r io.Reader) ([]Entries, error) {
 	return entries, nil
 }
 
-// ToJSONLines 将HAR条目转换为JSON Lines格式字符串
+// ToJSONLines converts HAR entries to a JSON Lines string.
 func (h *Har) ToJSONLines() (string, error) {
 	if h == nil {
-		return "", NewInvalidFormatError("HAR对象为空")
+		return "", NewInvalidFormatError("HAR object is nil")
 	}
 
 	var buf bytes.Buffer
@@ -680,9 +684,9 @@ func (h *Har) ToJSONLines() (string, error) {
 	return buf.String(), err
 }
 
-// WriteEntryToWriter 将单条 HAR 条目以 JSON Lines 格式写入 Writer（一行一个 JSON 对象）。
-// 适用于"抓一条写一条"的低内存长期归档场景：无需在内存中攒成完整 *Har，
-// 上层测绘系统每抓到一个请求即可立即落盘。
+// WriteEntryToWriter writes a single HAR entry to a Writer in JSON Lines format
+// (one JSON object per line). It supports low-memory, long-term archiving by
+// writing each captured request immediately instead of buffering a complete *Har.
 func WriteEntryToWriter(w io.Writer, entry Entries) error {
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -695,10 +699,11 @@ func WriteEntryToWriter(w io.Writer, entry Entries) error {
 	return writeAllToWriter(w, buf.Bytes(), "failed to write HAR entry")
 }
 
-// AppendEntryToJSONLFile 将单条 HAR 条目以 JSON Lines 形式追加到文件。
-// 文件不存在时自动创建；存在时 O_APPEND 追加，不会读入既有内容，内存占用恒定。
-// 适合长期持续归档：每条请求一行，文件可后续用 ForEachEntryFromReader 或
-// ReadEntriesFromReader 读回，也可用 split --by 等命令分片。
+// AppendEntryToJSONLFile appends a single HAR entry to a file in JSON Lines format.
+// The file is created if it does not exist; otherwise, O_APPEND writes to it without
+// reading existing content, keeping memory usage constant. This is suitable for
+// long-term archiving: each request occupies one line and can later be read with
+// ForEachEntryFromReader or ReadEntriesFromReader, or split with commands such as split --by.
 func AppendEntryToJSONLFile(path string, entry Entries) error {
 	if path == "" {
 		return NewInvalidFormatError("path is empty")
@@ -711,10 +716,10 @@ func AppendEntryToJSONLFile(path string, entry Entries) error {
 	return WriteEntryToWriter(f, entry)
 }
 
-// ForEachEntryFromReader 流式读取 JSON Lines 格式的条目，对每条条目调用 fn。
-// 与 ReadEntriesFromReader 不同，本函数不会把所有条目一次性读入内存，
-// 而是逐条 Decode 后立即交给回调，适合处理超大归档文件。
-// fn 返回非 nil error 时立即停止迭代并返回该错误。
+// ForEachEntryFromReader streams entries in JSON Lines format and calls fn for each entry.
+// Unlike ReadEntriesFromReader, it does not load all entries into memory at once;
+// it decodes each entry and immediately passes it to the callback, making it suitable
+// for very large archives. Iteration stops and returns the error if fn returns a non-nil error.
 func ForEachEntryFromReader(r io.Reader, fn func(entry Entries) error) error {
 	if isNilReader(r) {
 		return NewInvalidFormatError("reader is nil")
@@ -737,20 +742,21 @@ func ForEachEntryFromReader(r io.Reader, fn func(entry Entries) error) error {
 	}
 }
 
-// SafeRecorder 是并发安全的 Recorder，适合上层测绘系统多协程并发抓包归档。
-// 内部用 sync.Mutex 保护所有读写操作。对于"持续累积 + 一次性导出"或
-// "并发 Capture 后定期 SaveToFile"的场景，直接使用即可，无需调用方自行加锁。
+// SafeRecorder is a concurrency-safe Recorder suitable for concurrent capture and
+// archiving by network-mapping systems. It uses sync.Mutex to protect all reads and writes.
+// Use it directly for continuous accumulation with one-time export, or concurrent Capture
+// calls followed by periodic SaveToFile calls; callers do not need to add their own locks.
 type SafeRecorder struct {
 	mu       sync.Mutex
 	recorder *Recorder
 }
 
-// NewSafeRecorder 创建一个新的并发安全 Recorder。
+// NewSafeRecorder creates a concurrency-safe Recorder.
 func NewSafeRecorder() *SafeRecorder {
 	return &SafeRecorder{recorder: NewRecorder()}
 }
 
-// SetCreator 设置录制器的创建者信息。
+// SetCreator sets creator information for the recorder.
 func (s *SafeRecorder) SetCreator(name, version string) *SafeRecorder {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -758,7 +764,7 @@ func (s *SafeRecorder) SetCreator(name, version string) *SafeRecorder {
 	return s
 }
 
-// SetBrowser 设置浏览器信息。
+// SetBrowser sets browser information.
 func (s *SafeRecorder) SetBrowser(name, version string) *SafeRecorder {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -766,8 +772,8 @@ func (s *SafeRecorder) SetBrowser(name, version string) *SafeRecorder {
 	return s
 }
 
-// Capture 并发安全地捕获一个 HTTP 请求/响应。
-// 注意：会消费并关闭 req.Body / resp.Body，调用方若仍需响应体请先缓存副本。
+// Capture safely records an HTTP request/response concurrently.
+// Note: it consumes and closes req.Body and resp.Body. Cache a copy first if the caller still needs the response body.
 func (s *SafeRecorder) Capture(req *http.Request, resp *http.Response, duration time.Duration) *SafeRecorder {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -775,8 +781,8 @@ func (s *SafeRecorder) Capture(req *http.Request, resp *http.Response, duration 
 	return s
 }
 
-// CaptureWithMeta 并发安全地捕获一个 HTTP 请求/响应，携带真实开始时间与元数据。
-// 详见 HarBuilder.AddEntryFromHTTPWithMeta。
+// CaptureWithMeta safely records an HTTP request/response concurrently, with the actual start time and metadata.
+// See HarBuilder.AddEntryFromHTTPWithMeta.
 func (s *SafeRecorder) CaptureWithMeta(req *http.Request, resp *http.Response, startedAt time.Time, duration time.Duration, meta EntryMeta) *SafeRecorder {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -787,7 +793,7 @@ func (s *SafeRecorder) CaptureWithMeta(req *http.Request, resp *http.Response, s
 	return s
 }
 
-// CaptureEntry 并发安全地捕获一个预构建的 HAR 条目（不碰任何 body）。
+// CaptureEntry safely records a prebuilt HAR entry without touching any body.
 func (s *SafeRecorder) CaptureEntry(entry Entries) *SafeRecorder {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -795,15 +801,16 @@ func (s *SafeRecorder) CaptureEntry(entry Entries) *SafeRecorder {
 	return s
 }
 
-// EntryCount 返回已录制的条目数。
+// EntryCount returns the number of recorded entries.
 func (s *SafeRecorder) EntryCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.recorder.EntryCount()
 }
 
-// ToHarCopy 返回内部 HAR 的深拷贝，调用方持有的副本不会因后续 Capture 而变化。
-// 适合在并发归档过程中定期导出快照。
+// ToHarCopy returns a deep copy of the internal HAR, so subsequent Capture calls
+// do not change the copy held by the caller. Use it to periodically export snapshots
+// during concurrent archiving.
 func (s *SafeRecorder) ToHarCopy() *Har {
 	if s == nil {
 		return nil
@@ -817,8 +824,8 @@ func (s *SafeRecorder) ToHarCopy() *Har {
 	return h.Clone()
 }
 
-// ToHar 返回内部 HAR 指针（在锁内取，但返回的指针指向的内存可能被后续 Capture 修改）。
-// 如需稳定快照请用 ToHarCopy。
+// ToHar returns a pointer to the internal HAR (retrieved under lock, but its underlying
+// memory may be modified by subsequent Capture calls). Use ToHarCopy for a stable snapshot.
 func (s *SafeRecorder) ToHar() *Har {
 	if s == nil {
 		return nil
@@ -828,20 +835,20 @@ func (s *SafeRecorder) ToHar() *Har {
 	return s.recorder.ToHar()
 }
 
-// SaveToFile 并发安全地保存录制结果到文件（缩进 JSON）。
+// SaveToFile safely saves the recording to a file as indented JSON.
 func (s *SafeRecorder) SaveToFile(path string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.recorder.SaveToFile(path)
 }
 
-// SaveToFileWithOptions 保存录制结果，可选择是否缩进及是否 gzip 压缩。
+// SaveToFileWithOptions saves the recording with optional indentation and gzip compression.
 func (s *SafeRecorder) SaveToFileWithOptions(path string, indent, gzip bool) error {
 	s.mu.Lock()
 	h := s.recorder.ToHar()
 	s.mu.Unlock()
 	if h == nil {
-		return NewInvalidFormatError("Recorder为空")
+		return NewInvalidFormatError("Recorder is nil")
 	}
 	if gzip {
 		return SaveToFileGzipped(h, path, indent)

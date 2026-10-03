@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// exportCmd 导出HAR文件为其他格式
+// exportCmd exports a HAR file in another format.
 var exportCmd = &cobra.Command{
 	Use:   "export [format]",
 	Short: "Export HAR file to another format",
@@ -49,7 +49,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	h := internal.LoadHar(cmd, args)
 	format := args[0]
 
-	// 如果指定了过滤，先过滤
+	// Apply the filter first, if specified.
 	filterPattern, _ := cmd.Flags().GetString("filter")
 	if filterPattern != "" {
 		opts := har.NewFilterOptions(har.WithFilterURL(filterPattern))
@@ -58,7 +58,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		h = harResult
 	}
 
-	// 如果指定了索引，截取单个条目
+	// Select a single entry if an index was specified.
 	idx, _ := cmd.Flags().GetInt("index")
 	if idx >= 0 {
 		if idx >= len(h.Log.Entries) {

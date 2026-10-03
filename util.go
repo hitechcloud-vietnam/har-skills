@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-// ========== Har 方法 ==========
+// ========== Har methods ==========
 
-// Clone 深拷贝整个Har对象
-// 对所有切片（Pages、Entries、Headers、Cookies、QueryString、PostData.Params）进行深拷贝，
-// 确保修改克隆对象不会影响原始对象。
+// Clone makes a deep copy of the entire Har object.
+// It deep-copies all slices (Pages, Entries, Headers, Cookies, QueryString, and PostData.Params)
+// so that changes to the clone do not affect the original.
 func (h *Har) Clone() *Har {
 	if h == nil {
 		return nil
@@ -28,13 +28,13 @@ func (h *Har) Clone() *Har {
 		return nil
 	}
 
-	// data 来自成功的 json.Marshal(h)，对同一类型 Unmarshal 必成功。
+	// data came from a successful json.Marshal(h), so unmarshaling it into the same type must succeed.
 	clone := &Har{}
 	_ = json.Unmarshal(data, clone)
 	return clone
 }
 
-// GetEntryCount 返回HAR中的条目数量
+// GetEntryCount returns the number of entries in the HAR file.
 func (h *Har) GetEntryCount() int {
 	if h == nil {
 		return 0
@@ -42,8 +42,8 @@ func (h *Har) GetEntryCount() int {
 	return len(h.Log.Entries)
 }
 
-// Walk 遍历所有条目，对每个条目调用访问函数
-// 如果访问函数返回错误，则停止遍历并返回该错误。
+// Walk visits each entry and calls the visitor function.
+// If the visitor returns an error, iteration stops and that error is returned.
 func (h *Har) Walk(fn func(*Entries) error) error {
 	if h == nil {
 		return nil
@@ -59,7 +59,7 @@ func (h *Har) Walk(fn func(*Entries) error) error {
 	return nil
 }
 
-// GetUniqueDomains 返回所有条目URL中唯一域名的排序列表
+// GetUniqueDomains returns a sorted list of unique domains from entry URLs.
 func (h *Har) GetUniqueDomains() []string {
 	if h == nil {
 		return nil
@@ -81,8 +81,8 @@ func (h *Har) GetUniqueDomains() []string {
 	return domains
 }
 
-// Equals 比较两个HAR对象是否相等
-// 比较版本、创建者、浏览器、条目数量以及每个条目的方法+URL+状态码。
+// Equals reports whether two HAR objects are equal.
+// It compares versions, creators, browsers, entry counts, and each entry's method, URL, and status.
 func (h *Har) Equals(other *Har) bool {
 	if h == nil && other == nil {
 		return true
@@ -91,27 +91,27 @@ func (h *Har) Equals(other *Har) bool {
 		return false
 	}
 
-	// 比较版本
+	// Compare versions.
 	if h.Log.Version != other.Log.Version {
 		return false
 	}
 
-	// 比较创建者
+	// Compare creators.
 	if h.Log.Creator.Name != other.Log.Creator.Name || h.Log.Creator.Version != other.Log.Creator.Version {
 		return false
 	}
 
-	// 比较浏览器
+	// Compare browsers.
 	if h.Log.Browser.Name != other.Log.Browser.Name || h.Log.Browser.Version != other.Log.Browser.Version {
 		return false
 	}
 
-	// 比较条目数量
+	// Compare entry counts.
 	if len(h.Log.Entries) != len(other.Log.Entries) {
 		return false
 	}
 
-	// 比较每个条目的方法、URL和状态码
+	// Compare each entry's method, URL, and status code.
 	for i := range h.Log.Entries {
 		if h.Log.Entries[i].Request.Method != other.Log.Entries[i].Request.Method {
 			return false
@@ -127,10 +127,10 @@ func (h *Har) Equals(other *Har) bool {
 	return true
 }
 
-// SaveToFileGzipped 将HAR保存为gzip压缩文件
+// SaveToFileGzipped saves the HAR file using gzip compression.
 func (h *Har) SaveToFileGzipped(filePath string, indent bool) error {
 	if h == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	data, err := h.ToJSON(indent)
@@ -140,15 +140,15 @@ func (h *Har) SaveToFileGzipped(filePath string, indent bool) error {
 
 	f, err := os.Create(filePath)
 	if err != nil {
-		return NewFileSystemError(fmt.Sprintf("无法创建文件 '%s'", filePath), err)
+		return NewFileSystemError(fmt.Sprintf("unable to create file '%s'", filePath), err)
 	}
 	return writeGzippedDataToFile(f, filePath, data)
 }
 
-// SaveToWriter 将HAR JSON写入io.Writer
+// SaveToWriter writes HAR JSON to an io.Writer.
 func (h *Har) SaveToWriter(w io.Writer, indent bool) error {
 	if h == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -187,9 +187,9 @@ func writeAllToWriter(w io.Writer, data []byte, message string) error {
 	return nil
 }
 
-// ========== Entries 方法 ==========
+// ========== Entries methods ==========
 
-// IsError 判断响应是否为错误（状态码 >= 400）
+// IsError reports whether the response is an error (status code >= 400).
 func (e *Entries) IsError() bool {
 	if e == nil {
 		return false
@@ -197,7 +197,7 @@ func (e *Entries) IsError() bool {
 	return e.Response.Status >= 400
 }
 
-// IsRedirect 判断响应是否为重定向（状态码为3xx）
+// IsRedirect reports whether the response is a redirect (3xx status code).
 func (e *Entries) IsRedirect() bool {
 	if e == nil {
 		return false
@@ -205,7 +205,7 @@ func (e *Entries) IsRedirect() bool {
 	return e.Response.Status >= 300 && e.Response.Status < 400
 }
 
-// IsSuccess 判断响应是否为成功（状态码为2xx）
+// IsSuccess reports whether the response is successful (2xx status code).
 func (e *Entries) IsSuccess() bool {
 	if e == nil {
 		return false
@@ -213,7 +213,7 @@ func (e *Entries) IsSuccess() bool {
 	return e.Response.Status >= 200 && e.Response.Status < 300
 }
 
-// GetElapsedTime 将Time字段（毫秒）转换为time.Duration
+// GetElapsedTime converts the Time field from milliseconds to time.Duration.
 func (e *Entries) GetElapsedTime() time.Duration {
 	if e == nil {
 		return 0
@@ -221,7 +221,7 @@ func (e *Entries) GetElapsedTime() time.Duration {
 	return time.Duration(e.Time * float64(time.Millisecond))
 }
 
-// GetURL 解析并返回请求URL
+// GetURL parses and returns the request URL.
 func (e *Entries) GetURL() *url.URL {
 	if e == nil {
 		return nil
@@ -233,7 +233,7 @@ func (e *Entries) GetURL() *url.URL {
 	return u
 }
 
-// GetDomain 从请求URL中提取域名
+// GetDomain extracts the domain from the request URL.
 func (e *Entries) GetDomain() string {
 	if e == nil {
 		return ""
@@ -241,8 +241,8 @@ func (e *Entries) GetDomain() string {
 	return extractDomain(e.Request.URL)
 }
 
-// GetSize 计算条目的总大小（请求头 + 请求体 + 响应头 + 响应体）
-// 对于大小为-1的字段（表示未知），按0计算。
+// GetSize returns the total entry size (request headers, request body, response headers, and response body).
+// Fields with a size of -1 (unknown) are treated as 0.
 func (e *Entries) GetSize() int {
 	if e == nil {
 		return 0
@@ -268,7 +268,7 @@ func (e *Entries) GetSize() int {
 	return reqHeadersSize + reqBodySize + respHeadersSize + respBodySize
 }
 
-// GetRequestBody 获取请求体字节数据（从PostData.Text获取）
+// GetRequestBody returns the request body bytes from PostData.Text.
 func (e *Entries) GetRequestBody() []byte {
 	if e == nil || e.Request.PostData == nil {
 		return nil
@@ -276,8 +276,8 @@ func (e *Entries) GetRequestBody() []byte {
 	return []byte(e.Request.PostData.Text)
 }
 
-// GetResponseBody 获取解码后的响应体
-// 如果内容使用base64编码，则自动解码；否则直接返回文本字节数据。
+// GetResponseBody returns the decoded response body.
+// Base64-encoded content is decoded automatically; otherwise, the text bytes are returned.
 func (e *Entries) GetResponseBody() ([]byte, error) {
 	if e == nil {
 		return nil, nil
@@ -288,12 +288,12 @@ func (e *Entries) GetResponseBody() ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	// 如果编码为base64，进行解码
+	// Decode base64-encoded content.
 	if strings.EqualFold(e.Response.Content.Encoding, "base64") {
 		data, err := base64.StdEncoding.DecodeString(text)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("base64解码响应体失败: %v", err), err)
+				fmt.Sprintf("failed to decode base64 response body: %v", err), err)
 		}
 		return data, nil
 	}
@@ -301,9 +301,9 @@ func (e *Entries) GetResponseBody() ([]byte, error) {
 	return []byte(text), nil
 }
 
-// ========== Request 方法 ==========
+// ========== Request methods ==========
 
-// GetHeader 获取指定名称的第一个请求头值（不区分大小写）
+// GetHeader returns the first request header value with the specified name (case-insensitive).
 func (r *Request) GetHeader(name string) string {
 	if r == nil {
 		return ""
@@ -316,7 +316,7 @@ func (r *Request) GetHeader(name string) string {
 	return ""
 }
 
-// GetHeaderValues 获取指定名称的所有请求头值（不区分大小写）
+// GetHeaderValues returns all request header values with the specified name (case-insensitive).
 func (r *Request) GetHeaderValues(name string) []string {
 	if r == nil {
 		return nil
@@ -330,7 +330,7 @@ func (r *Request) GetHeaderValues(name string) []string {
 	return values
 }
 
-// GetCookie 根据名称获取请求Cookie（区分大小写）
+// GetCookie returns the request cookie with the specified name (case-sensitive).
 func (r *Request) GetCookie(name string) *Cookie {
 	if r == nil {
 		return nil
@@ -343,7 +343,7 @@ func (r *Request) GetCookie(name string) *Cookie {
 	return nil
 }
 
-// HasHeader 检查指定名称的请求头是否存在（不区分大小写）
+// HasHeader reports whether a request header with the specified name exists (case-insensitive).
 func (r *Request) HasHeader(name string) bool {
 	if r == nil {
 		return false
@@ -356,9 +356,9 @@ func (r *Request) HasHeader(name string) bool {
 	return false
 }
 
-// ========== Response 方法 ==========
+// ========== Response methods ==========
 
-// GetHeader 获取指定名称的第一个响应头值（不区分大小写）
+// GetHeader returns the first response header value with the specified name (case-insensitive).
 func (r *Response) GetHeader(name string) string {
 	if r == nil {
 		return ""
@@ -371,7 +371,7 @@ func (r *Response) GetHeader(name string) string {
 	return ""
 }
 
-// GetHeaderValues 获取指定名称的所有响应头值（不区分大小写）
+// GetHeaderValues returns all response header values with the specified name (case-insensitive).
 func (r *Response) GetHeaderValues(name string) []string {
 	if r == nil {
 		return nil
@@ -385,7 +385,7 @@ func (r *Response) GetHeaderValues(name string) []string {
 	return values
 }
 
-// GetCookie 根据名称获取响应Cookie（区分大小写）
+// GetCookie returns the response cookie with the specified name (case-sensitive).
 func (r *Response) GetCookie(name string) *Cookie {
 	if r == nil {
 		return nil
@@ -398,7 +398,7 @@ func (r *Response) GetCookie(name string) *Cookie {
 	return nil
 }
 
-// HasHeader 检查指定名称的响应头是否存在（不区分大小写）
+// HasHeader reports whether a response header with the specified name exists (case-insensitive).
 func (r *Response) HasHeader(name string) bool {
 	if r == nil {
 		return false
@@ -411,14 +411,14 @@ func (r *Response) HasHeader(name string) bool {
 	return false
 }
 
-// GetContentType 获取Content-Type响应头（不区分大小写）
+// GetContentType returns the Content-Type response header (case-insensitive).
 func (r *Response) GetContentType() string {
 	return r.GetHeader("Content-Type")
 }
 
-// ========== Content 方法 ==========
+// ========== Content methods ==========
 
-// EncodeContent 使用base64编码二进制数据并设置相应字段
+// EncodeContent base64-encodes binary data and sets the corresponding fields.
 func (c *Content) EncodeContent(data []byte, mimeType string) {
 	if c == nil {
 		return
@@ -429,7 +429,7 @@ func (c *Content) EncodeContent(data []byte, mimeType string) {
 	c.Size = len(data)
 }
 
-// SetText 设置文本内容并更新大小
+// SetText sets the text content and updates its size.
 func (c *Content) SetText(text string) {
 	if c == nil {
 		return

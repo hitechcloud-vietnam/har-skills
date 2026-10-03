@@ -1,35 +1,35 @@
 ---
-title: API 速查
+title: API Reference
 titleTemplate: false
 ---
 
-# API 速查
+# API Reference
 
-按功能分类列出根包 `har`（`github.com/hitechcloud-vietnam/har-skills`）的主要导出函数与方法。所有签名均与源码对齐；标记为「包级」的是包函数，其余是 `*Har`（或对应类型）的方法。`HARProvider` 是解析函数的统一返回接口，调用 `.ToStandard()` 即可拿到 `*Har` 使用全套 API。
+A categorized quick-reference for the exported functions and methods of the root package `har` (`github.com/hitechcloud-vietnam/har-skills`). All signatures mirror the source. Items marked "package-level" are package functions; the rest are methods on `*Har` (or the relevant type). `HARProvider` is the unified return interface of the parse functions — call `.ToStandard()` to obtain a `*Har` and access the full API.
 
-## 解析
+## Parsing
 
-| 函数 / 方法 | 签名要点 | 返回值 |
+| Function / Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `ParseHarFile` | `ParseHarFile(path string)` · 包级 | `(*Har, error)` |
-| `ParseHar` | `ParseHar(data []byte)` · 包级 | `(*Har, error)` |
-| `ParseHarFromReader` | `ParseHarFromReader(r io.Reader)` · 包级 | `(*Har, error)` |
-| `ParseHarFileAuto` | `ParseHarFileAuto(path)` 自动检测 gzip · 包级 | `(*Har, error)` |
-| `Parse` | `Parse(data []byte, opts ...Option)` 函数选项 · 包级 | `(HARProvider, error)` |
-| `ParseFile` | `ParseFile(path string, opts ...Option)` · 包级 | `(HARProvider, error)` |
+| `ParseHarFile` | `ParseHarFile(path string)` · package | `(*Har, error)` |
+| `ParseHar` | `ParseHar(data []byte)` · package | `(*Har, error)` |
+| `ParseHarFromReader` | `ParseHarFromReader(r io.Reader)` · package | `(*Har, error)` |
+| `ParseHarFileAuto` | `ParseHarFileAuto(path)` auto-detects gzip · package | `(*Har, error)` |
+| `Parse` | `Parse(data []byte, opts ...Option)` functional · package | `(HARProvider, error)` |
+| `ParseFile` | `ParseFile(path string, opts ...Option)` · package | `(HARProvider, error)` |
 | `ParseHarWithOptions` | `ParseHarWithOptions(data, options ParseOptions)` | `(*Har, error)` |
-| `ParseHarLenient` | `ParseHarLenient(data)` 宽松模式 · 包级 | `(*Har, error)` |
-| `ParseHarWithWarnings` | `ParseHarWithWarnings(data)` 返回警告 · 包级 | `(*Result, error)` |
-| `ParseHarFileOptimized` | `ParseHarFileOptimized(path)` 内存优化 · 包级 | `(*OptimizedHar, error)` |
-| `ParseHarWithLazyLoading` | `ParseHarWithLazyLoading(data)` 懒加载 · 包级 | `(*LazyHar, error)` |
-| `NewStreamingParser` | `NewStreamingParser(data, opts...)` · 包级 | `(EntryIterator, error)` |
-| `NewStreamingParserFromFile` | `NewStreamingParserFromFile(path, opts...)` · 包级 | `(EntryIterator, error)` |
+| `ParseHarLenient` | `ParseHarLenient(data)` lenient mode · package | `(*Har, error)` |
+| `ParseHarWithWarnings` | `ParseHarWithWarnings(data)` returns warnings · package | `(*Result, error)` |
+| `ParseHarFileOptimized` | `ParseHarFileOptimized(path)` memory-optimized · package | `(*OptimizedHar, error)` |
+| `ParseHarWithLazyLoading` | `ParseHarWithLazyLoading(data)` lazy · package | `(*LazyHar, error)` |
+| `NewStreamingParser` | `NewStreamingParser(data, opts...)` · package | `(EntryIterator, error)` |
+| `NewStreamingParserFromFile` | `NewStreamingParserFromFile(path, opts...)` · package | `(EntryIterator, error)` |
 
-函数选项（`Option`）：`WithLenient`、`WithSkipValidation`、`WithCollectWarnings`、`WithMemoryOptimized`、`WithLazyLoading`、`WithStreaming`、`WithHarVersion`、`WithAutoDetectVersion`。
+Functional options (`Option`): `WithLenient`, `WithSkipValidation`, `WithCollectWarnings`, `WithMemoryOptimized`, `WithLazyLoading`, `WithStreaming`, `WithHarVersion`, `WithAutoDetectVersion`.
 
-## 统计
+## Statistics
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `Statistics` | `h.Statistics()` | `*HarStatistics` |
 | `Summary` | `h.Summary()` | `string` |
@@ -42,29 +42,29 @@ titleTemplate: false
 | `FastestRequests` | `h.FastestRequests(n int)` | `[]Entries` |
 | `LargestResponses` | `h.LargestResponses(n int)` | `[]Entries` |
 
-## 安全
+## Security
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `SecurityAudit` | `h.SecurityAudit()` | `*SecurityReport` |
 | `SecurityAuditWithOptions` | `h.SecurityAuditWithOptions(opts SecurityAuditOptions)` | `*SecurityReport` |
 | `CookieAudit` | `h.CookieAudit()` | `*CookieAuditReport` |
 | `CookieEvolution` | `h.CookieEvolution()` | `map[string][]CookieEvolutionEntry` |
 | `CacheAnalysis` | `h.CacheAnalysis()` | `*CacheReport` |
-| `ParseCacheControl` | `ParseCacheControl(value string)` · 包级 | `*CacheControlDirectives` |
-| `PerformanceScore` | `h.PerformanceScore()` | `*PerformanceReport`（含 `Grade()`） |
+| `ParseCacheControl` | `ParseCacheControl(value string)` · package | `*CacheControlDirectives` |
+| `PerformanceScore` | `h.PerformanceScore()` | `*PerformanceReport` (has `Grade()`) |
 
-`SecurityReport` 辅助：`HasHighSeverity()`、`HasMediumSeverity()`、`FindByCategory(cat)`、`FindBySeverity(sev)`、`Summary()`。
+`SecurityReport` helpers: `HasHighSeverity()`, `HasMediumSeverity()`, `FindByCategory(cat)`, `FindBySeverity(sev)`, `Summary()`.
 
-## 过滤
+## Filtering
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `Filter` | `h.Filter(options FilterOptions)` | `*FilterResult` |
-| `FilterWith` | `h.FilterWith(opts ...FilterOption)` 函数选项 | `*FilterResult` |
+| `FilterWith` | `h.FilterWith(opts ...FilterOption)` functional | `*FilterResult` |
 | `FindErrors` | `h.FindErrors()` 4xx/5xx | `*FilterResult` |
 | `FindRedirects` | `h.FindRedirects()` 3xx | `*FilterResult` |
-| `FindSlowRequests` | `h.FindSlowRequests(minDuration float64)` 单位 ms | `*FilterResult` |
+| `FindSlowRequests` | `h.FindSlowRequests(minDuration float64)` in ms | `*FilterResult` |
 | `FindCacheHits` | `h.FindCacheHits()` | `*FilterResult` |
 | `FindByURL` | `h.FindByURL(urlStr string, useRegex bool)` | `*FilterResult` |
 | `FindByMethod` | `h.FindByMethod(method string)` | `*FilterResult` |
@@ -73,37 +73,37 @@ titleTemplate: false
 | `FindByDomain` | `h.FindByDomain(domain string)` | `*FilterResult` |
 | `FindByContentType` | `h.FindByContentType(contentType string)` | `*FilterResult` |
 | `FindByResourceType` | `h.FindByResourceType(resourceType string)` | `*FilterResult` |
-| `FindByHeader` | `h.FindByHeader(name, value string)` 请求头 | `*FilterResult` |
+| `FindByHeader` | `h.FindByHeader(name, value string)` request header | `*FilterResult` |
 | `FindByResponseHeader` | `h.FindByResponseHeader(name, value string)` | `*FilterResult` |
 | `FindByCookie` | `h.FindByCookie(name string)` | `*FilterResult` |
 | `FindByTimeRange` | `h.FindByTimeRange(start, end time.Time)` | `*FilterResult` |
 | `FindByServerIP` | `h.FindByServerIP(ip string)` | `*FilterResult` |
 | `FindByConnection` | `h.FindByConnection(connectionID string)` | `*FilterResult` |
 
-`FilterResult` 链式方法：`Count()`、`First()`、`Last()`、`At(i)`、`SortByTime()`、`SortByDuration()`、`SortByDurationDesc()`、`SortBySize()`、`SortBySizeDesc()`、`Limit(n)`、`Offset(n)`、`Chain(opts)`、`ToHar()`、`GetAll()`。
+`FilterResult` chaining: `Count()`, `First()`, `Last()`, `At(i)`, `SortByTime()`, `SortByDuration()`, `SortByDurationDesc()`, `SortBySize()`, `SortBySizeDesc()`, `Limit(n)`, `Offset(n)`, `Chain(opts)`, `ToHar()`, `GetAll()`.
 
-## 转换与脱敏
+## Transform & Redact
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `Transform` | `h.Transform(rules []TransformRule)` 克隆+转换 | `*Har` |
-| `TransformInPlace` | `h.TransformInPlace(rules)` 原地 | 无 |
+| `Transform` | `h.Transform(rules []TransformRule)` clone + transform | `*Har` |
+| `TransformInPlace` | `h.TransformInPlace(rules)` in place | none |
 | `RewriteURL` | `h.RewriteURL(from, to string)` | `*Har` |
 | `RemoveHeaders` | `h.RemoveHeaders(names []string)` | `*Har` |
 | `AddHeaders` | `h.AddHeaders(headers map[string]string, target string)` | `*Har` |
-| `Redact` | `h.Redact(opts RedactOptions)` 克隆+脱敏 | `*Har` |
-| `RedactInPlace` | `h.RedactInPlace(opts)` 原地 | 无 |
-| `DefaultRedactOptions` | `DefaultRedactOptions()` · 包级 | `RedactOptions` |
+| `Redact` | `h.Redact(opts RedactOptions)` clone + redact | `*Har` |
+| `RedactInPlace` | `h.RedactInPlace(opts)` in place | none |
+| `DefaultRedactOptions` | `DefaultRedactOptions()` · package | `RedactOptions` |
 
-`TransformType` 十种：`TransformURLRewrite`、`TransformHostReplace`、`TransformSchemeChange`、`TransformHeaderAdd`、`TransformHeaderRemove`、`TransformHeaderReplace`、`TransformQueryParamRemove`、`TransformQueryParamAdd`、`TransformCookieDomainRewrite`、`TransformBodyReplace`。
+The ten `TransformType` values: `TransformURLRewrite`, `TransformHostReplace`, `TransformSchemeChange`, `TransformHeaderAdd`, `TransformHeaderRemove`, `TransformHeaderReplace`, `TransformQueryParamRemove`, `TransformQueryParamAdd`, `TransformCookieDomainRewrite`, `TransformBodyReplace`.
 
-## 导出
+## Export
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `Convert` | `h.Convert(format ConvertFormat, options ConvertOptions)` | `(string, error)` |
-| `ConvertWith` | `h.ConvertWith(format, opts ...ConvertOption)` 函数选项 | `(string, error)` |
-| `ConvertTo` | `h.ConvertTo(format, w io.Writer, options)` 流式 | `error` |
+| `ConvertWith` | `h.ConvertWith(format, opts ...ConvertOption)` functional | `(string, error)` |
+| `ConvertTo` | `h.ConvertTo(format, w io.Writer, options)` streaming | `error` |
 | `ToCurl` | `h.ToCurl()` / `e.ToCurl()` | `string` |
 | `ToWget` | `h.ToWget()` / `e.ToWget()` | `string` |
 | `ToPythonRequests` | `h.ToPythonRequests()` / `e.ToPythonRequests()` | `string` |
@@ -112,17 +112,17 @@ titleTemplate: false
 | `ToYAML` | `h.ToYAML()` | `(string, error)` |
 | `ToJSON` | `h.ToJSON(indent bool)` | `([]byte, error)` |
 
-`ConvertFormat` 常量：`FormatCSV`、`FormatMarkdown`、`FormatHTML`、`FormatText`、`FormatYAML`、`FormatJSON`。写文件便捷方法：`SaveToFile`、`SaveToFileGzipped`、`SaveToWriter`、`SaveAsPostmanCollection`、`SaveAsXML`、`SaveAsYAML`。
+`ConvertFormat` constants: `FormatCSV`, `FormatMarkdown`, `FormatHTML`, `FormatText`, `FormatYAML`, `FormatJSON`. File-writing conveniences: `SaveToFile`, `SaveToFileGzipped`, `SaveToWriter`, `SaveAsPostmanCollection`, `SaveAsXML`, `SaveAsYAML`.
 
-## 比对·合并·拆分
+## Diff · Merge · Split
 
-| 函数 / 方法 | 签名要点 | 返回值 |
+| Function / Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `Diff` | `Diff(har1, har2 *Har, options DiffOptions)` · 包级 | `*HarDiff` |
-| `DiffWith` | `DiffWith(har1, har2, opts ...DiffOption)` 函数选项 · 包级 | `*HarDiff` |
-| `Merge` | `Merge(hars ...*Har)` · 包级 | `*Har` |
-| `MergeWithOptions` | `MergeWithOptions(options MergeOptions, hars ...*Har)` · 包级 | `*Har` |
-| `MergeWith` | `MergeWith(opts ...MergeOption) func(hars ...*Har) *Har` · 包级 | 合并函数 |
+| `Diff` | `Diff(har1, har2 *Har, options DiffOptions)` · package | `*HarDiff` |
+| `DiffWith` | `DiffWith(har1, har2, opts ...DiffOption)` functional · package | `*HarDiff` |
+| `Merge` | `Merge(hars ...*Har)` · package | `*Har` |
+| `MergeWithOptions` | `MergeWithOptions(options MergeOptions, hars ...*Har)` · package | `*Har` |
+| `MergeWith` | `MergeWith(opts ...MergeOption) func(hars ...*Har) *Har` · package | merge func |
 | `SplitByPage` | `h.SplitByPage()` | `map[string]*Har` |
 | `SplitByDomain` | `h.SplitByDomain()` | `map[string]*Har` |
 | `SplitByTimeRange` | `h.SplitByTimeRange(interval time.Duration)` | `[]*Har` |
@@ -130,15 +130,15 @@ titleTemplate: false
 | `SplitByStatusCode` | `h.SplitByStatusCode()` | `map[string]*Har` |
 | `SplitByMethod` | `h.SplitByMethod()` | `map[string]*Har` |
 
-`HarDiff` 方法：`HasChanges()`、`TotalChanges()`、`Report(format ConvertFormat)`。字段：`Added`/`Removed` `[]DiffEntry`、`Modified` `[]ModifiedEntry`、`Unchanged int`。
+`HarDiff` methods: `HasChanges()`, `TotalChanges()`, `Report(format ConvertFormat)`. Fields: `Added`/`Removed` `[]DiffEntry`, `Modified` `[]ModifiedEntry`, `Unchanged int`.
 
-## 建造者与录制
+## Builder & Recorder
 
-| 函数 / 方法 | 签名要点 | 返回值 |
+| Function / Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `NewHar` | `NewHar()` · 包级 | `*Har` |
-| `NewHarBuilder` | `NewHarBuilder()` · 包级 | `*HarBuilder` |
-| `NewRecorder` | `NewRecorder()` · 包级 | `*Recorder` |
+| `NewHar` | `NewHar()` · package | `*Har` |
+| `NewHarBuilder` | `NewHarBuilder()` · package | `*HarBuilder` |
+| `NewRecorder` | `NewRecorder()` · package | `*Recorder` |
 | `HarBuilder.AddEntry` | `b.AddEntry(method, url string)` | `*EntryBuilder` |
 | `HarBuilder.AddEntryFromHTTP` | `b.AddEntryFromHTTP(req *http.Request, resp *http.Response, duration time.Duration)` | `*HarBuilder` |
 | `HarBuilder.Build` | `b.Build()` | `*Har` |
@@ -149,116 +149,116 @@ titleTemplate: false
 | `Recorder.SaveToFile` | `r.SaveToFile(path string)` | `error` |
 | `Recorder.ToJSON` | `r.ToJSON(indent bool)` | `([]byte, error)` |
 
-`EntryBuilder` 链式方法：`WithHTTPVersion`、`WithStartedDateTime`、`WithPageref`、`WithServerIP`、`WithConnection`、`WithComment`、`AddRequestHeader`、`AddResponseHeader`、`AddCookie`、`AddResponseCookie`、`AddQueryParam`、`WithPostData`、`WithPostDataParams`、`WithResponseStatus`、`WithResponseContent`。
+`EntryBuilder` chain: `WithHTTPVersion`, `WithStartedDateTime`, `WithPageref`, `WithServerIP`, `WithConnection`, `WithComment`, `AddRequestHeader`, `AddResponseHeader`, `AddCookie`, `AddResponseCookie`, `AddQueryParam`, `WithPostData`, `WithPostDataParams`, `WithResponseStatus`, `WithResponseContent`.
 
-## 验证
+## Validation
 
-| 函数 / 方法 | 签名要点 | 返回值 |
+| Function / Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `ValidateHarFile` | `ValidateHarFile(h *Har)` · 包级 | `error` |
-| `ValidateStrict` | `ValidateStrict(h *Har)` · 包级 | `error` |
-| `ValidateTimingsConsistency` | `ValidateTimingsConsistency(h *Har, tolerance float64)` · 包级 | `error` |
-| `IsValidHarVersion` | `IsValidHarVersion(version string)` · 包级 | `bool` |
-| `DetectHarVersion` | `DetectHarVersion(h *Har)` · 包级 | `string` |
+| `ValidateHarFile` | `ValidateHarFile(h *Har)` · package | `error` |
+| `ValidateStrict` | `ValidateStrict(h *Har)` · package | `error` |
+| `ValidateTimingsConsistency` | `ValidateTimingsConsistency(h *Har, tolerance float64)` · package | `error` |
+| `IsValidHarVersion` | `IsValidHarVersion(version string)` · package | `bool` |
+| `DetectHarVersion` | `DetectHarVersion(h *Har)` · package | `string` |
 
-## 解码与压缩
+## Decode & Compression
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `DecodeAllContent` | `h.DecodeAllContent()` 解码所有响应体 | `([][]byte, error)` |
-| `DecodeContent` | `e.DecodeContent()` 单条目 / `c.DecodeContent()` Content | `([]byte, error)` |
-| `DecodeEntryText` | `e.DecodeEntryText()` 解码为文本 | `(string, error)` |
-| `DecompressByEncoding` | `DecompressByEncoding(data, encoding)` · 包级 | `([]byte, error)` |
-| `DecompressWithEncoding` | `DecompressWithEncoding(data, contentEncoding)` · 包级 | `([]byte, error)` |
-| `CompressContent` | `CompressContent(data, encoding)` · 包级 | `([]byte, error)` |
+| `DecodeAllContent` | `h.DecodeAllContent()` decode all response bodies | `([][]byte, error)` |
+| `DecodeContent` | `e.DecodeContent()` entry / `c.DecodeContent()` Content | `([]byte, error)` |
+| `DecodeEntryText` | `e.DecodeEntryText()` decode to text | `(string, error)` |
+| `DecompressByEncoding` | `DecompressByEncoding(data, encoding)` · package | `([]byte, error)` |
+| `DecompressWithEncoding` | `DecompressWithEncoding(data, contentEncoding)` · package | `([]byte, error)` |
+| `CompressContent` | `CompressContent(data, encoding)` · package | `([]byte, error)` |
 | `IsCompressed` | `e.IsCompressed()` | `bool` |
 | `GetContentEncoding` | `e.GetContentEncoding()` | `string` |
 | `IsBase64Encoded` | `c.IsBase64Encoded()` | `bool` |
 
-## 索引
+## Index
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `BuildIndex` | `h.BuildIndex()` 构建内存索引 | `*HarIndex` |
-| `HarIndex.ByURL` | `idx.ByURL(urlStr string)` 精确匹配 | `[]*Entries` |
+| `BuildIndex` | `h.BuildIndex()` build in-memory index | `*HarIndex` |
+| `HarIndex.ByURL` | `idx.ByURL(urlStr string)` exact match | `[]*Entries` |
 | `HarIndex.ByMethod` | `idx.ByMethod(method string)` | `[]*Entries` |
 | `HarIndex.ByStatus` | `idx.ByStatus(code int)` | `[]*Entries` |
 | `HarIndex.ByDomain` | `idx.ByDomain(domain string)` | `[]*Entries` |
 | `HarIndex.ByMimeType` | `idx.ByMimeType(mime string)` | `[]*Entries` |
-| `HarIndex.ByURLPattern` | `idx.ByURLPattern(pattern string)` 正则 | `[]*Entries` |
+| `HarIndex.ByURLPattern` | `idx.ByURLPattern(pattern string)` regex | `[]*Entries` |
 | `HarIndex.ByTimeRange` | `idx.ByTimeRange(start, end time.Time)` | `[]*Entries` |
 | `HarIndex.Size` | `idx.Size()` | `int` |
 | `HarIndex.Stats` | `idx.Stats()` | `IndexStats` |
 
-## 时间线
+## Timeline
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `Waterfall` | `h.Waterfall()` 瀑布流 | `[]WaterfallEntry` |
-| `CriticalPath` | `h.CriticalPath()` 关键渲染路径 | `[]WaterfallEntry` |
+| `Waterfall` | `h.Waterfall()` | `[]WaterfallEntry` |
+| `CriticalPath` | `h.CriticalPath()` critical rendering path | `[]WaterfallEntry` |
 | `SLACheck` | `h.SLACheck(rules []SLARule)` | `[]SLAResult` |
 | `ConcurrencyTimeline` | `h.ConcurrencyTimeline()` | `[]ConcurrencyPoint` |
 | `PageTimingMetrics` | `h.PageTimingMetrics()` | `*PageTimingMetrics` |
-| `ConnectionReuse` | `h.ConnectionReuse()` 连接复用 | `map[string][]int` |
+| `ConnectionReuse` | `h.ConnectionReuse()` | `map[string][]int` |
 
-## 去重
+## Deduplication
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `FindDuplicates` | `h.FindDuplicates(opts DeduplicateOptions)` | `[]DuplicateGroup` |
-| `Deduplicate` | `h.Deduplicate(opts DeduplicateOptions)` 返回新 `*Har` | `*Har` |
-| `IsCacheBusterParam` | `IsCacheBusterParam(name string)` · 包级 | `bool` |
-| `IsCacheBusterParamWithValue` | `IsCacheBusterParamWithValue(name, value string)` · 包级 | `bool` |
-| `DefaultDeduplicateOptions` | `DefaultDeduplicateOptions()` · 包级 | `DeduplicateOptions` |
+| `Deduplicate` | `h.Deduplicate(opts DeduplicateOptions)` returns new `*Har` | `*Har` |
+| `IsCacheBusterParam` | `IsCacheBusterParam(name string)` · package | `bool` |
+| `IsCacheBusterParamWithValue` | `IsCacheBusterParamWithValue(name, value string)` · package | `bool` |
+| `DefaultDeduplicateOptions` | `DefaultDeduplicateOptions()` · package | `DeduplicateOptions` |
 
-`DeduplicateOptions.Strategy` 取值：`exact`、`pattern`、`content-hash`；可配 `IgnoreParams`、`CompareHeaders`、`CompareBody`。
+`DeduplicateOptions.Strategy` values: `exact`, `pattern`, `content-hash`; configurable via `IgnoreParams`, `CompareHeaders`, `CompareBody`.
 
-## 内容
+## Content
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
 | `ContentSummary` | `h.ContentSummary()` | `*ContentSummary` |
-| `ParseJSON` | `c.ParseJSON()` 解析响应体为 `interface{}` | `(interface{}, error)` |
+| `ParseJSON` | `c.ParseJSON()` parse response body as `interface{}` | `(interface{}, error)` |
 | `ParseAsMap` | `c.ParseAsMap()` | `(map[string]interface{}, error)` |
-| `SaveToFile` | `c.SaveToFile(path string)` 保存响应体 | `error` |
+| `SaveToFile` | `c.SaveToFile(path string)` save response body | `error` |
 | `DetectMIMEType` | `c.DetectMIMEType()` | `string` |
-| `Hash` | `c.Hash()` 内容哈希 | `(string, error)` |
+| `Hash` | `c.Hash()` content hash | `(string, error)` |
 | `MIMECategory` | `c.MIMECategory()` | `MIMECategory` |
 | `IsBinary` / `IsText` | `c.IsBinary()` / `c.IsText()` | `bool` |
 
-## 重放
+## Replay
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `ToHTTPRequest` | `e.ToHTTPRequest()` 转回 `*http.Request` | `(*http.Request, error)` |
-| `Replay` | `e.Replay(options ReplayOptions)` 单条重放 | `(*ReplayResult, error)` |
-| `ReplayAll` | `h.ReplayAll(options)` 全量重放 | `([]*ReplayResult, error)` |
+| `ToHTTPRequest` | `e.ToHTTPRequest()` convert back to `*http.Request` | `(*http.Request, error)` |
+| `Replay` | `e.Replay(options ReplayOptions)` single replay | `(*ReplayResult, error)` |
+| `ReplayAll` | `h.ReplayAll(options)` full replay | `([]*ReplayResult, error)` |
 | `ReplaySelective` | `h.ReplaySelective(options, filterOptions)` | `([]*ReplayResult, error)` |
-| `ReplayResultsToHar` | `ReplayResultsToHar(results)` · 包级 | `*Har` |
-| `HTTPResponseToEntries` | `HTTPResponseToEntries(req, resp, duration)` · 包级 | `*Entries` |
+| `ReplayResultsToHar` | `ReplayResultsToHar(results)` · package | `*Har` |
+| `HTTPResponseToEntries` | `HTTPResponseToEntries(req, resp, duration)` · package | `*Entries` |
 
-## 工具方法
+## Utility methods
 
-| 方法 | 签名要点 | 返回值 |
+| Method | Signature essentials | Returns |
 | --- | --- | --- |
-| `Clone` | `h.Clone()` 深拷贝 | `*Har` |
-| `Walk` | `h.Walk(fn func(*Entries) error)` 遍历 | `error` |
+| `Clone` | `h.Clone()` deep copy | `*Har` |
+| `Walk` | `h.Walk(fn func(*Entries) error)` iterate | `error` |
 | `GetEntryCount` | `h.GetEntryCount()` | `int` |
-| `GetUniqueDomains` | `h.GetUniqueDomains()` 已排序 | `[]string` |
+| `GetUniqueDomains` | `h.GetUniqueDomains()` sorted | `[]string` |
 | `Equals` | `h.Equals(other *Har)` | `bool` |
 | `GetHeader` | `r.GetHeader(name)` / `resp.GetHeader(name)` | `string` |
 | `HasHeader` | `r.HasHeader(name)` / `resp.HasHeader(name)` | `bool` |
 | `GetCookie` | `r.GetCookie(name)` / `resp.GetCookie(name)` | `*Cookie` |
-| `GetResponseBody` | `e.GetResponseBody()` 自动 base64 解码 | `([]byte, error)` |
+| `GetResponseBody` | `e.GetResponseBody()` auto base64-decodes | `([]byte, error)` |
 | `GetRequestBody` | `e.GetRequestBody()` | `[]byte` |
-| `GetSize` | `e.GetSize()` 总大小 | `int` |
+| `GetSize` | `e.GetSize()` total size | `int` |
 | `GetDomain` | `e.GetDomain()` | `string` |
 | `GetURL` | `e.GetURL()` | `*url.URL` |
 | `GetElapsedTime` | `e.GetElapsedTime()` | `time.Duration` |
-| `IsError` / `IsRedirect` / `IsSuccess` | `e.IsError()` 等 | `bool` |
-| `BuildQueryStringFromURL` | `BuildQueryStringFromURL(rawURL)` · 包级 | `[]QueryString` |
-| `ParseResponseHeaders` | `ParseResponseHeaders(headerStr)` · 包级 | `[]Headers` |
-| `EstimateHeaderSize` | `EstimateHeaderSize(headers)` · 包级 | `int` |
-| `FormatBytes` | `FormatBytes(size)` · 包级 | `string` |
-| `ReadBody` | `ReadBody(entry *Entries)` · 包级 | `([]byte, error)` |
-| `CloneEntry` | `CloneEntry(entry *Entries)` · 包级 | `*Entries` |
+| `IsError` / `IsRedirect` / `IsSuccess` | `e.IsError()` etc. | `bool` |
+| `BuildQueryStringFromURL` | `BuildQueryStringFromURL(rawURL)` · package | `[]QueryString` |
+| `ParseResponseHeaders` | `ParseResponseHeaders(headerStr)` · package | `[]Headers` |
+| `EstimateHeaderSize` | `EstimateHeaderSize(headers)` · package | `int` |
+| `FormatBytes` | `FormatBytes(size)` · package | `string` |
+| `ReadBody` | `ReadBody(entry *Entries)` · package | `([]byte, error)` |
+| `CloneEntry` | `CloneEntry(entry *Entries)` · package | `*Entries` |

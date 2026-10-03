@@ -56,7 +56,7 @@ func TestConvertUnsupportedFormat(t *testing.T) {
 
 	_, err := h.Convert("xml", opts)
 	assertHarErrorCode(t, err, ErrCodeUnsupported)
-	if !strings.Contains(err.Error(), "不支持") && !strings.Contains(err.Error(), "unsupported") {
+	if !strings.Contains(err.Error(), "unsupported") {
 		t.Errorf("Error should mention unsupported format, got: %s", err.Error())
 	}
 }
@@ -104,7 +104,7 @@ func TestConvertCSVEmptyEntries(t *testing.T) {
 	}
 
 	// Should have header but no data rows
-	if !strings.Contains(result, "方法") && !strings.Contains(result, "URL") {
+	if !strings.Contains(result, "Method") && !strings.Contains(result, "URL") {
 		t.Error("CSV should contain header row")
 	}
 	// Count lines - should be just header
@@ -269,7 +269,7 @@ func TestGetHeadersDefaultHeaders(t *testing.T) {
 	}
 
 	// Default options include: URL, Method, Status, ContentType, Size, Time, DateTime
-	expectedHeaders := []string{"日期时间", "方法", "URL", "状态码", "内容类型", "大小(字节)", "时间(ms)"}
+	expectedHeaders := []string{"Date/Time", "Method", "URL", "Status Code", "Content Type", "Size (bytes)", "Time (ms)"}
 	for i, expected := range expectedHeaders {
 		if i < len(headers) && headers[i] != expected {
 			t.Errorf("Header[%d]: expected '%s', got '%s'", i, expected, headers[i])
@@ -284,7 +284,7 @@ func TestGetHeadersWithTimings(t *testing.T) {
 	}
 
 	headers := getHeaders(opts)
-	timingHeaders := []string{"阻塞(ms)", "DNS(ms)", "连接(ms)", "发送(ms)", "等待(ms)", "接收(ms)"}
+	timingHeaders := []string{"Blocked (ms)", "DNS (ms)", "Connect (ms)", "Send (ms)", "Wait (ms)", "Receive (ms)"}
 	for _, th := range timingHeaders {
 		found := false
 		for _, h := range headers {
@@ -306,7 +306,7 @@ func TestGetHeadersWithPostData(t *testing.T) {
 	}
 
 	headers := getHeaders(opts)
-	postHeaders := []string{"POST数据类型", "POST数据"}
+	postHeaders := []string{"POST Data Type", "POST Data"}
 	for _, ph := range postHeaders {
 		found := false
 		for _, h := range headers {
@@ -330,13 +330,13 @@ func TestGetHeadersWithQueryString(t *testing.T) {
 	headers := getHeaders(opts)
 	found := false
 	for _, h := range headers {
-		if h == "查询参数" {
+		if h == "Query Parameters" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("Expected '查询参数' header not found in %v", headers)
+		t.Errorf("Expected 'Query Parameters' header not found in %v", headers)
 	}
 }
 
@@ -347,7 +347,7 @@ func TestGetHeadersWithHeaders(t *testing.T) {
 	}
 
 	headers := getHeaders(opts)
-	headerCols := []string{"请求头", "响应头"}
+	headerCols := []string{"Request Headers", "Response Headers"}
 	for _, hc := range headerCols {
 		found := false
 		for _, h := range headers {

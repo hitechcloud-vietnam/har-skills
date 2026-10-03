@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// CustomFields 存储 HAR 规范中允许的以 "_" 为前缀的自定义扩展字段。
-// HAR 规范允许任何以 "_" 开头的字段名作为自定义扩展数据。
-// 例如：Chrome 的 "_initiator", "_priority", "_resourceType" 等。
+// CustomFields stores custom extension fields allowed by the HAR specification that are prefixed with "_".
+// The HAR specification permits any field name beginning with "_" as custom extension data,
+// such as Chrome's "_initiator", "_priority", and "_resourceType".
 type CustomFields map[string]interface{}
 
-// GetCustomField 获取自定义扩展字段的值。
-// 如果字段不存在，返回 nil。
+// GetCustomField returns the value of a custom extension field.
+// It returns nil if the field does not exist.
 func (cf CustomFields) GetCustomField(name string) interface{} {
 	if cf == nil {
 		return nil
@@ -19,8 +19,8 @@ func (cf CustomFields) GetCustomField(name string) interface{} {
 	return cf[name]
 }
 
-// SetCustomField 设置自定义扩展字段的值。
-// 字段名应以 "_" 开头（符合 HAR 规范），但不会强制检查。
+// SetCustomField sets the value of a custom extension field.
+// Field names should begin with "_" per the HAR specification, but this is not enforced.
 func (cf CustomFields) SetCustomField(name string, value interface{}) {
 	if cf == nil {
 		return
@@ -28,7 +28,7 @@ func (cf CustomFields) SetCustomField(name string, value interface{}) {
 	cf[name] = value
 }
 
-// HasCustomField 检查是否存在指定的自定义扩展字段。
+// HasCustomField reports whether the specified custom extension field exists.
 func (cf CustomFields) HasCustomField(name string) bool {
 	if cf == nil {
 		return false
@@ -37,7 +37,7 @@ func (cf CustomFields) HasCustomField(name string) bool {
 	return ok
 }
 
-// DeleteCustomField 删除指定的自定义扩展字段。
+// DeleteCustomField deletes the specified custom extension field.
 func (cf CustomFields) DeleteCustomField(name string) {
 	if cf == nil {
 		return
@@ -45,7 +45,7 @@ func (cf CustomFields) DeleteCustomField(name string) {
 	delete(cf, name)
 }
 
-// CustomFieldsKeys 返回所有自定义扩展字段的名称。
+// CustomFieldsKeys returns the names of all custom extension fields.
 func (cf CustomFields) CustomFieldsKeys() []string {
 	if cf == nil {
 		return nil
@@ -65,8 +65,8 @@ var knownUnderscoreKeys = map[string]map[string]bool{
 	"Entries":  {"_initiator": true, "_priority": true, "_resourceType": true},
 }
 
-// extractCustomFields 从原始JSON数据中提取 "_" 前缀的自定义扩展字段，
-// 排除已由结构体字段处理的已知扩展字段。
+// extractCustomFields extracts custom extension fields prefixed with "_" from raw JSON,
+// excluding known extension fields handled by struct fields.
 func extractCustomFields(data []byte, typeName string) CustomFields {
 	if len(data) == 0 {
 		return nil
@@ -100,7 +100,7 @@ func extractCustomFields(data []byte, typeName string) CustomFields {
 	return cf
 }
 
-// mergeCustomFieldsIntoJSON 将自定义扩展字段合并到标准JSON输出中
+// mergeCustomFieldsIntoJSON merges custom extension fields into standard JSON output.
 func mergeCustomFieldsIntoJSON(stdData []byte, cf CustomFields) ([]byte, error) {
 	if len(cf) == 0 {
 		return stdData, nil
@@ -114,20 +114,20 @@ func mergeCustomFieldsIntoJSON(stdData []byte, cf CustomFields) ([]byte, error) 
 	for key, value := range cf {
 		v, err := json.Marshal(value)
 		if err != nil {
-			return nil, NewJSONParseError("JSON序列化失败", err)
+			return nil, NewJSONParseError("JSON serialization failed", err)
 		}
 		result[key] = v
 	}
 
-	// result 的 key 来自合法 JSON，value 均为成功的 json.Marshal 产物
-	// (json.RawMessage)，故最终 Marshal 不会失败。
+	// Keys in result come from valid JSON, and values are successful json.Marshal
+	// results (json.RawMessages), so the final Marshal cannot fail.
 	data, _ := json.Marshal(result)
 	return data, nil
 }
 
 // --- Har ---
 
-// GetCustomField 获取Har上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Har.
 func (h *Har) GetCustomField(name string) interface{} {
 	if h == nil {
 		return nil
@@ -135,7 +135,7 @@ func (h *Har) GetCustomField(name string) interface{} {
 	return h.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Har上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Har.
 func (h *Har) SetCustomField(name string, value interface{}) {
 	if h == nil {
 		return
@@ -146,10 +146,10 @@ func (h *Har) SetCustomField(name string, value interface{}) {
 	h.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (h *Har) UnmarshalJSON(data []byte) error {
 	if h == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	type Alias Har
@@ -166,20 +166,20 @@ func (h *Har) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中。
-// 使用值接收器以确保 json.Marshal(h) 在 h 为值类型或指针时均能调用此方法。
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
+// A value receiver ensures json.Marshal(h) can call this method for either a value or a pointer.
 func (h Har) MarshalJSON() ([]byte, error) {
 	type Alias Har
 	data, err := json.Marshal(Alias(h))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, h.CustomFields)
 }
 
 // --- Log ---
 
-// GetCustomField 获取Log上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Log.
 func (l *Log) GetCustomField(name string) interface{} {
 	if l == nil {
 		return nil
@@ -187,7 +187,7 @@ func (l *Log) GetCustomField(name string) interface{} {
 	return l.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Log上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Log.
 func (l *Log) SetCustomField(name string, value interface{}) {
 	if l == nil {
 		return
@@ -198,10 +198,10 @@ func (l *Log) SetCustomField(name string, value interface{}) {
 	l.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (l *Log) UnmarshalJSON(data []byte) error {
 	if l == nil {
-		return NewInvalidFormatError("Log对象为空")
+		return NewInvalidFormatError("Log object is nil")
 	}
 
 	type Alias Log
@@ -218,19 +218,19 @@ func (l *Log) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (l Log) MarshalJSON() ([]byte, error) {
 	type Alias Log
 	data, err := json.Marshal(Alias(l))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, l.CustomFields)
 }
 
 // --- Entries ---
 
-// GetCustomField 获取Entries上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Entries.
 func (e *Entries) GetCustomField(name string) interface{} {
 	if e == nil {
 		return nil
@@ -238,7 +238,7 @@ func (e *Entries) GetCustomField(name string) interface{} {
 	return e.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Entries上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Entries.
 func (e *Entries) SetCustomField(name string, value interface{}) {
 	if e == nil {
 		return
@@ -249,10 +249,10 @@ func (e *Entries) SetCustomField(name string, value interface{}) {
 	e.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (e *Entries) UnmarshalJSON(data []byte) error {
 	if e == nil {
-		return NewInvalidFormatError("Entries对象为空")
+		return NewInvalidFormatError("Entries object is nil")
 	}
 
 	type Alias Entries
@@ -269,19 +269,19 @@ func (e *Entries) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (e Entries) MarshalJSON() ([]byte, error) {
 	type Alias Entries
 	data, err := json.Marshal(Alias(e))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, e.CustomFields)
 }
 
 // --- Request ---
 
-// GetCustomField 获取Request上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Request.
 func (r *Request) GetCustomField(name string) interface{} {
 	if r == nil {
 		return nil
@@ -289,7 +289,7 @@ func (r *Request) GetCustomField(name string) interface{} {
 	return r.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Request上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Request.
 func (r *Request) SetCustomField(name string, value interface{}) {
 	if r == nil {
 		return
@@ -300,10 +300,10 @@ func (r *Request) SetCustomField(name string, value interface{}) {
 	r.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (r *Request) UnmarshalJSON(data []byte) error {
 	if r == nil {
-		return NewInvalidFormatError("Request对象为空")
+		return NewInvalidFormatError("Request object is nil")
 	}
 
 	type Alias Request
@@ -320,19 +320,19 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (r Request) MarshalJSON() ([]byte, error) {
 	type Alias Request
 	data, err := json.Marshal(Alias(r))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, r.CustomFields)
 }
 
 // --- Response ---
 
-// GetCustomField 获取Response上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Response.
 func (r *Response) GetCustomField(name string) interface{} {
 	if r == nil {
 		return nil
@@ -340,7 +340,7 @@ func (r *Response) GetCustomField(name string) interface{} {
 	return r.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Response上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Response.
 func (r *Response) SetCustomField(name string, value interface{}) {
 	if r == nil {
 		return
@@ -351,11 +351,11 @@ func (r *Response) SetCustomField(name string, value interface{}) {
 	r.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
-// 注意：Response已有_transferSize和_error的struct字段，CustomFields只存储其他扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
+// Response already has _transferSize and _error struct fields, so CustomFields stores only other extensions.
 func (r *Response) UnmarshalJSON(data []byte) error {
 	if r == nil {
-		return NewInvalidFormatError("Response对象为空")
+		return NewInvalidFormatError("Response object is nil")
 	}
 
 	type Alias Response
@@ -372,19 +372,19 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (r Response) MarshalJSON() ([]byte, error) {
 	type Alias Response
 	data, err := json.Marshal(Alias(r))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, r.CustomFields)
 }
 
 // --- Content ---
 
-// GetCustomField 获取Content上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Content.
 func (c *Content) GetCustomField(name string) interface{} {
 	if c == nil {
 		return nil
@@ -392,7 +392,7 @@ func (c *Content) GetCustomField(name string) interface{} {
 	return c.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Content上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Content.
 func (c *Content) SetCustomField(name string, value interface{}) {
 	if c == nil {
 		return
@@ -403,10 +403,10 @@ func (c *Content) SetCustomField(name string, value interface{}) {
 	c.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (c *Content) UnmarshalJSON(data []byte) error {
 	if c == nil {
-		return NewInvalidFormatError("Content对象为空")
+		return NewInvalidFormatError("Content object is nil")
 	}
 
 	type Alias Content
@@ -423,18 +423,18 @@ func (c *Content) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (c Content) MarshalJSON() ([]byte, error) {
 	type Alias Content
-	// Content 仅含 int/string 字段 (CustomFields 带 json:"-")，alias
-	// 序列化不会失败。
+	// Content contains only int/string fields (CustomFields has json:"-"), so
+	// serializing the alias cannot fail.
 	data, _ := json.Marshal(Alias(c))
 	return mergeCustomFieldsIntoJSON(data, c.CustomFields)
 }
 
 // --- Cookie ---
 
-// GetCustomField 获取Cookie上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Cookie.
 func (c *Cookie) GetCustomField(name string) interface{} {
 	if c == nil {
 		return nil
@@ -442,7 +442,7 @@ func (c *Cookie) GetCustomField(name string) interface{} {
 	return c.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Cookie上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Cookie.
 func (c *Cookie) SetCustomField(name string, value interface{}) {
 	if c == nil {
 		return
@@ -453,10 +453,10 @@ func (c *Cookie) SetCustomField(name string, value interface{}) {
 	c.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (c *Cookie) UnmarshalJSON(data []byte) error {
 	if c == nil {
-		return NewInvalidFormatError("Cookie对象为空")
+		return NewInvalidFormatError("Cookie object is nil")
 	}
 
 	type Alias Cookie
@@ -473,19 +473,19 @@ func (c *Cookie) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (c Cookie) MarshalJSON() ([]byte, error) {
 	type Alias Cookie
 	data, err := json.Marshal(Alias(c))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, c.CustomFields)
 }
 
 // --- Pages ---
 
-// GetCustomField 获取Pages上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Pages.
 func (p *Pages) GetCustomField(name string) interface{} {
 	if p == nil {
 		return nil
@@ -493,7 +493,7 @@ func (p *Pages) GetCustomField(name string) interface{} {
 	return p.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Pages上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Pages.
 func (p *Pages) SetCustomField(name string, value interface{}) {
 	if p == nil {
 		return
@@ -504,10 +504,10 @@ func (p *Pages) SetCustomField(name string, value interface{}) {
 	p.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (p *Pages) UnmarshalJSON(data []byte) error {
 	if p == nil {
-		return NewInvalidFormatError("Pages对象为空")
+		return NewInvalidFormatError("Pages object is nil")
 	}
 
 	type Alias Pages
@@ -524,19 +524,19 @@ func (p *Pages) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (p Pages) MarshalJSON() ([]byte, error) {
 	type Alias Pages
 	data, err := json.Marshal(Alias(p))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, p.CustomFields)
 }
 
 // --- Timings ---
 
-// GetCustomField 获取Timings上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Timings.
 func (t *Timings) GetCustomField(name string) interface{} {
 	if t == nil {
 		return nil
@@ -544,7 +544,7 @@ func (t *Timings) GetCustomField(name string) interface{} {
 	return t.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Timings上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Timings.
 func (t *Timings) SetCustomField(name string, value interface{}) {
 	if t == nil {
 		return
@@ -555,11 +555,11 @@ func (t *Timings) SetCustomField(name string, value interface{}) {
 	t.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
-// 注意：Timings已有_blocked_queueing和_blocked_proxy的struct字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
+// Timings already has _blocked_queueing and _blocked_proxy struct fields.
 func (t *Timings) UnmarshalJSON(data []byte) error {
 	if t == nil {
-		return NewInvalidFormatError("Timings对象为空")
+		return NewInvalidFormatError("Timings object is nil")
 	}
 
 	type Alias Timings
@@ -576,19 +576,19 @@ func (t *Timings) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (t Timings) MarshalJSON() ([]byte, error) {
 	type Alias Timings
 	data, err := json.Marshal(Alias(t))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, t.CustomFields)
 }
 
 // --- Cache ---
 
-// GetCustomField 获取Cache上的自定义扩展字段值
+// GetCustomField returns the custom extension field value for Cache.
 func (c *Cache) GetCustomField(name string) interface{} {
 	if c == nil {
 		return nil
@@ -596,7 +596,7 @@ func (c *Cache) GetCustomField(name string) interface{} {
 	return c.CustomFields.GetCustomField(name)
 }
 
-// SetCustomField 设置Cache上的自定义扩展字段值
+// SetCustomField sets a custom extension field value on Cache.
 func (c *Cache) SetCustomField(name string, value interface{}) {
 	if c == nil {
 		return
@@ -607,10 +607,10 @@ func (c *Cache) SetCustomField(name string, value interface{}) {
 	c.CustomFields.SetCustomField(name, value)
 }
 
-// UnmarshalJSON 自定义反序列化，提取 "_" 前缀的自定义扩展字段
+// UnmarshalJSON custom-unmarshals JSON and extracts custom extension fields prefixed with "_".
 func (c *Cache) UnmarshalJSON(data []byte) error {
 	if c == nil {
-		return NewInvalidFormatError("Cache对象为空")
+		return NewInvalidFormatError("Cache object is nil")
 	}
 
 	type Alias Cache
@@ -627,12 +627,12 @@ func (c *Cache) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON 自定义序列化，将自定义扩展字段合并到JSON输出中
+// MarshalJSON custom-marshals JSON and merges custom extension fields into the output.
 func (c Cache) MarshalJSON() ([]byte, error) {
 	type Alias Cache
 	data, err := json.Marshal(Alias(c))
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return mergeCustomFieldsIntoJSON(data, c.CustomFields)
 }

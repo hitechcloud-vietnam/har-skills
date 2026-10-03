@@ -1,21 +1,21 @@
 ---
-title: HAR 格式入门
+title: HAR Format Primer
 titleTemplate: false
 ---
 
-# HAR 格式入门
+# HAR Format Primer
 
-在用 HAR Skills 之前，先弄清楚 HAR 是什么、长什么样、字段含义与获取方式。这一页是后续所有命令与 SDK 调用的共同前置知识。
+Before driving HAR Skills, get clear on what a HAR file is, what it looks like, what its fields mean, and how to obtain one. This page is the shared prerequisite for every command and SDK call that follows.
 
-## HAR 是什么
+## What is HAR
 
-HAR（HTTP Archive）是一种 **JSON 格式的 HTTP 事务归档**，由 W3C 的 [HTTP Archive 规范](http://www.softwareishard.com/blog/har-12-spec/) 定义。浏览器与抓包工具把一次浏览会话里的全部 HTTP 请求/响应、时间、Cookie、头等记录下来，导出为一个 `.har` 文件，本质就是一段 JSON。
+HAR (HTTP Archive) is a **JSON-formatted archive of HTTP transactions**, defined by the [HTTP Archive spec](http://www.softwareishard.com/blog/har-12-spec/). Browsers and capture tools record every HTTP request/response, timing, cookie, and header from a browsing session and export it as a `.har` file — plain JSON underneath.
 
-它常用于：性能回放分析、安全审计、bug 复现、API 行为比对、数据脱敏后分享。
+Common uses: performance replay analysis, security audits, bug reproduction, API behavior comparison, and sharing redacted traffic.
 
-## 顶层结构
+## Top-level structure
 
-一个 HAR 文件只有一个顶层对象，其中 `log` 是根。下图把整棵结构树展开到关键字段层级：
+A HAR file is a single top-level object whose root is `log`. The tree below unfolds the structure down to its key fields:
 
 ```mermaid
 mindmap
@@ -59,38 +59,38 @@ mindmap
   "log": {
     "version": "1.2",
     "creator": { "name": "...", "version": "..." },
-    "browser":  { "name": "...", "version": "..." },   // 可选
-    "pages":    [ ... ],                                // 可选，页面分组
-    "entries":  [ ... ]                                 // 核心：每条 HTTP 事务
+    "browser":  { "name": "...", "version": "..." },   // optional
+    "pages":    [ ... ],                                // optional, page grouping
+    "entries":  [ ... ]                                 // core: one per HTTP transaction
   }
 }
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `version` | HAR 格式版本，1.1 / 1.2 / 1.3 |
-| `creator` | 导出本文件的程序名与版本 |
-| `browser` | 浏览器信息（可选） |
-| `pages` | 页面分组，每页含 `id`/`title`/`startedDateTime`/`pageTimings` |
-| `entries` | HTTP 事务数组，是分析的主体 |
+| `version` | HAR format version — 1.1 / 1.2 / 1.3 |
+| `creator` | Program name and version that exported this file |
+| `browser` | Browser info (optional) |
+| `pages` | Page groupings, each with `id`/`title`/`startedDateTime`/`pageTimings` |
+| `entries` | Array of HTTP transactions — the analysis subject |
 
-## entries：核心数组
+## entries: the core array
 
-每条 `entry` 描述一次完整的 HTTP 请求/响应事务：
+Each `entry` describes one complete HTTP request/response transaction:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `startedDateTime` | 请求发起时刻（ISO 8601，含时区） |
-| `time` | 总耗时（毫秒） |
-| `request` | 请求对象（见下） |
-| `response` | 响应对象（见下） |
-| `cache` | 缓存元数据（如 `beforeRequest`/`afterRequest`） |
-| `timings` | 各阶段耗时明细（见下） |
-| `pageref` | 引用 `pages` 里的页面 id，用于分组 |
-| `serverIPAddress` | 服务器 IP |
-| `connection` | 连接 ID，用于连接复用分析 |
+| `startedDateTime` | When the request started (ISO 8601, with timezone) |
+| `time` | Total duration (milliseconds) |
+| `request` | The request object (below) |
+| `response` | The response object (below) |
+| `cache` | Cache metadata (e.g. `beforeRequest`/`afterRequest`) |
+| `timings` | Per-phase timing breakdown (below) |
+| `pageref` | Reference to a page `id` in `pages`, for grouping |
+| `serverIPAddress` | Server IP |
+| `connection` | Connection ID, used for connection-reuse analysis |
 
-### request 结构
+### request structure
 
 ```json
 {
@@ -104,23 +104,23 @@ mindmap
   "queryString": [],
   "headersSize": 150,
   "bodySize": 0,
-  "postData": { "mimeType": "...", "text": "..." }   // 仅在有请求体时存在
+  "postData": { "mimeType": "...", "text": "..." }   // present only when there is a body
 }
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `method` | HTTP 方法 |
-| `url` | 完整请求 URL |
-| `httpVersion` | HTTP 协议版本 |
-| `cookies` | 请求携带的 Cookie 数组 |
-| `headers` | 请求头数组，每项 `{name, value}` |
-| `queryString` | 查询参数数组，每项 `{name, value}` |
-| `headersSize` | 请求头字节数 |
-| `bodySize` | 请求体字节数 |
-| `postData` | 请求体（mimeType + text 或 params） |
+| `method` | HTTP method |
+| `url` | Full request URL |
+| `httpVersion` | HTTP protocol version |
+| `cookies` | Cookies sent with the request |
+| `headers` | Request headers, each `{name, value}` |
+| `queryString` | Query parameters, each `{name, value}` |
+| `headersSize` | Request header size in bytes |
+| `bodySize` | Request body size in bytes |
+| `postData` | Request body (mimeType + text or params) |
 
-### response 结构
+### response structure
 
 ```json
 {
@@ -141,117 +141,117 @@ mindmap
 }
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `status` | HTTP 状态码 |
-| `statusText` | 状态原因短语 |
-| `httpVersion` | 响应的 HTTP 版本 |
-| `cookies` | 响应 Set-Cookie 解析后的数组 |
-| `headers` | 响应头数组 |
-| `content` | 响应体元数据：`size`、`mimeType`、`text`、`encoding`（如 base64） |
-| `redirectURL` | 重定向目标 URL |
-| `headersSize` | 响应头字节数 |
-| `bodySize` | 响应体字节数 |
+| `status` | HTTP status code |
+| `statusText` | Status reason phrase |
+| `httpVersion` | HTTP version of the response |
+| `cookies` | Parsed Set-Cookie array |
+| `headers` | Response headers |
+| `content` | Response body metadata: `size`, `mimeType`, `text`, `encoding` (e.g. base64) |
+| `redirectURL` | Redirect target URL |
+| `headersSize` | Response header size in bytes |
+| `bodySize` | Response body size in bytes |
 
-## timings：各阶段耗时
+## timings: per-phase durations
 
-`timings` 把一次请求的总耗时拆成网络各阶段，单位为毫秒。下图把七个阶段按典型顺序铺在时间轴上（数值仅为示意，真实值由网络决定）：
+`timings` splits a request's total time into network phases, in milliseconds. The chart below lays the seven phases out on a timeline in their typical order (values are illustrative — real values depend on the network):
 
 ```mermaid
 gantt
-  title 一次 HTTP 请求的各阶段（示意，单位 ms）
+  title Phases of an HTTP request (illustrative, ms)
   dateFormat X
   axisFormat %S
-  section 排队与建连
+  section Queue & connect
   blocked  :0, 5
   dns      :5, 12
   connect  :12, 27
   ssl      :27, 45
-  section 收发
+  section Send & receive
   send     :45, 46
   wait     :46, 120
   receive  :120, 145
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `blocked` | 等待网络连接（含队列） |
-| `dns` | DNS 解析 |
-| `connect` | TCP 连接建立 |
-| `ssl` | TLS 握手 |
-| `send` | 发送请求 |
-| `wait` | 等待首字节（TTFB） |
-| `receive` | 接收响应体 |
+| `blocked` | Waiting for a network connection (including queueing) |
+| `dns` | DNS resolution |
+| `connect` | TCP connection establishment |
+| `ssl` | TLS handshake |
+| `send` | Sending the request |
+| `wait` | Waiting for first byte (TTFB) |
+| `receive` | Receiving the response body |
 
-::: warning -1 表示未测量
-规范规定：**未测量的阶段值为 `-1`**。解析与统计时必须把 `-1` 当作"缺失"而非"0"，否则会拉低平均值。HAR Skills 在 `TimingStatistics()` 等方法中已处理该约定。
+::: warning -1 means "not measured"
+The spec says: **a phase that was not measured has value `-1`**. When parsing and aggregating, you must treat `-1` as "missing," not "0" — otherwise averages get dragged down. HAR Skills honors this convention in methods like `TimingStatistics()`.
 :::
 
-各阶段之和（忽略 `-1`）应近似等于 `entry.time`，HAR Skills 的 `validate` 命令可据此检查一致性（`--timings-tolerance` 控制容差，默认 10ms）。
+The sum of phases (ignoring `-1`) should approximate `entry.time`. HAR Skills' `validate` command checks this consistency (`--timings-tolerance` controls the tolerance, default 10ms).
 
-## 如何获取 HAR 文件
+## How to obtain a HAR file
 
-各工具的导出路径不同，但产物都是同一种 `.har` JSON：
+Each tool exports via a different path, but the product is always the same `.har` JSON:
 
 ```mermaid
 flowchart LR
-  subgraph 浏览器
-    C1["Chrome DevTools<br/>Network → 右键<br/>Save all as HAR"]
-    C2["Firefox<br/>Network → 齿轮<br/>Save All As HAR"]
+  subgraph Browsers
+    C1["Chrome DevTools<br/>Network → right-click<br/>Save all as HAR"]
+    C2["Firefox<br/>Network → gear<br/>Save All As HAR"]
   end
-  subgraph 抓包代理
+  subgraph Capture proxies
     P1["Charles<br/>File → Save Session"]
     P2["Fiddler<br/>File → Export Sessions<br/>→ HTTPArchive"]
     P3["mitmproxy<br/>mitmdump -w out.har"]
   end
-  C1 --> H[(".har 文件")]
+  C1 --> H[(".har file")]
   C2 --> H
   P1 --> H
   P2 --> H
   P3 --> H
-  H --> HS["交给 har-skills 分析"]
+  H --> HS["Feed to har-skills"]
 ```
 
 ### Chrome DevTools
 
-1. 打开 DevTools（F12）→ Network 面板。
-2. 确保勾选 "Preserve log"（保留跨页日志）。
-3. 复现操作后，在网络列表上**右键 → Save all as HAR with content**。
+1. Open DevTools (F12) → Network panel.
+2. Make sure "Preserve log" is checked (keeps logs across navigation).
+3. Reproduce your actions, then **right-click the network list → Save all as HAR with content**.
 
 ### Firefox
 
-Network 面板右上角齿轮 → **Save All As HAR**。
+Network panel → gear icon (top right) → **Save All As HAR**.
 
-### 抓包工具
+### Capture tools
 
-| 工具 | 导出方式 |
+| Tool | Export |
 | --- | --- |
-| Charles | File → Save Session → 选 HAR 格式 |
+| Charles | File → Save Session → choose HAR |
 | Fiddler | File → Export Sessions → HTTPArchive |
-| mitmproxy | `mitmdump -w out.har` 或 `mitmweb` 导出 |
+| mitmproxy | `mitmdump -w out.har`, or export from `mitmweb` |
 
-::: tip 录制建议
-为便于后续分析，录制前清理一次缓存（或在 DevTools 里勾选 "Disable cache"），否则大量 `304`/`disk cache` 条目会干扰性能与缓存分析。
+::: tip Recording advice
+For cleaner downstream analysis, clear the cache before recording (or check "Disable cache" in DevTools). Otherwise many `304`/`disk cache` entries will muddy performance and cache analysis.
 :::
 
-## 扩展字段：下划线前缀
+## Extension fields: underscore prefix
 
-::: details HAR 规范允许工具自定义扩展字段，约定以 `_` 开头
-HAR 规范允许工具自定义扩展字段，约定以 **下划线 `_` 开头**。Chrome DevTools 就大量使用这类字段：
+::: details The HAR spec lets tools add custom fields, prefixed with `_`
+The HAR spec lets tools add custom fields, conventionally prefixed with an **underscore `_`**. Chrome DevTools uses these heavily:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `_initiator` | 请求的发起来源（脚本/解析器等） |
-| `_resourceType` | 资源类型（xhr/script/stylesheet/...） |
-| `_priority` | 请求优先级 |
-| `_webSocketMessages` | WebSocket 消息 |
+| `_initiator` | What initiated the request (script/parser/etc.) |
+| `_resourceType` | Resource type (xhr/script/stylesheet/...) |
+| `_priority` | Request priority |
+| `_webSocketMessages` | WebSocket messages |
 
-HAR Skills 保留 `_` 前缀的扩展字段，不在解析时丢弃。`find` 命令的 `--resource-type` 即直接读取 Chrome 的 `_resourceType`。详见 [扩展字段保真原理](./internals/custom-fields.md)。
+HAR Skills preserves `_`-prefixed extension fields instead of dropping them during parsing. The `find` command's `--resource-type` reads Chrome's `_resourceType` directly. See [Custom Field Fidelity](./internals/custom-fields.md).
 :::
 
-## 一个最小 HAR 示例
+## A minimal HAR example
 
-以下来自仓库 `testdata/minimal_valid.har`，是一个能通过校验的最小 HAR：
+This is `testdata/minimal_valid.har` from the repo — a minimum HAR that passes validation:
 
 ```json
 {
@@ -266,10 +266,10 @@ HAR Skills 保留 `_` 前缀的扩展字段，不在解析时丢弃。`find` 命
 }
 ```
 
-它只有 `version`、`creator` 和一个空 `entries` 数组——这是规范要求的最低集合。真实 HAR 的 `entries` 里会填满上面描述的 request/response/timings 等字段。仓库里更完整的样例见 `testdata/example.har` 与 `testdata/full.har`。
+It has only `version`, `creator`, and an empty `entries` array — the minimum the spec requires. Real HARs fill `entries` with the request/response/timings fields described above. More complete samples ship in `testdata/example.har` and `testdata/full.har`.
 
-## 下一步
+## Next steps
 
-- 装好工具对真实文件跑一遍：[快速开始](./quick-start.md)
-- 用 `validate` 命令校验你的 HAR：[CLI 参考](./cli/files.md)
-- 深入字段语义与解析策略：[数据结构](./sdk/data-structures.md)、[四种解析策略](./sdk/parsing-strategies.md)
+- Install and run against a real file: [Quick Start](./quick-start.md)
+- Validate your HAR with `validate`: [CLI Reference](./cli/files.md)
+- Go deeper on field semantics and parsing strategies: [Data Structures](./sdk/data-structures.md), [Parsing Strategies](./sdk/parsing-strategies.md)

@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// timingCmd 分析请求计时分解
+// timingCmd analyzes request timing breakdowns.
 var timingCmd = &cobra.Command{
 	Use:   "timing",
-	Short: "分析请求计时分解",
-	Long: `分析HAR文件中请求的计时分解信息，包括阻塞、DNS解析、
-TCP连接、SSL握手、发送、等待和接收各阶段耗时。
-支持排序、限制条数和显示汇总统计。`,
+	Short: "Analyze request timing breakdowns",
+	Long: `Analyze request timing in a HAR file, including blocked, DNS lookup,
+TCP connection, SSL handshake, send, wait, and receive durations.
+Entries can be sorted or limited, and summary statistics are available.`,
 	Example: `  har -f capture.har timing
   har -f capture.har timing --sort wait --limit 10
   har -f capture.har timing --summary
@@ -25,13 +25,13 @@ TCP连接、SSL握手、发送、等待和接收各阶段耗时。
 	RunE: func(cmd *cobra.Command, args []string) error {
 		h := internal.LoadHar(cmd, args)
 
-		// 获取参数
+		// Read the arguments.
 		filter, _ := cmd.Flags().GetString("filter")
 		sortBy, _ := cmd.Flags().GetString("sort")
 		limit, _ := cmd.Flags().GetInt("limit")
 		showSummary, _ := cmd.Flags().GetBool("summary")
 
-		// 过滤条目
+		// Filter entries.
 		var entries []har.Entries
 		for _, entry := range h.Log.Entries {
 			if filter != "" && !strings.Contains(entry.Request.URL, filter) {
@@ -40,15 +40,15 @@ TCP连接、SSL握手、发送、等待和接收各阶段耗时。
 			entries = append(entries, entry)
 		}
 
-		// 排序
+		// Sort the entries.
 		sortEntries(entries, sortBy)
 
-		// 限制条数
+		// Limit the number of entries.
 		if limit > 0 && limit < len(entries) {
 			entries = entries[:limit]
 		}
 
-		// 汇总模式
+		// Summary mode.
 		if showSummary {
 			timingsSummary := h.TimingStatistics()
 			return internal.WriteOutput(cmd, timingsSummary, func() string {
@@ -65,13 +65,13 @@ TCP连接、SSL握手、发送、等待和接收各阶段耗时。
 func init() {
 	rootCmd.AddCommand(timingCmd)
 
-	timingCmd.Flags().String("filter", "", "URL过滤字符串")
-	timingCmd.Flags().String("sort", "time", "排序方式 (time, wait, dns, connect)")
-	timingCmd.Flags().IntP("limit", "n", 0, "限制输出条数 (0=全部)")
-	timingCmd.Flags().Bool("summary", false, "显示汇总统计")
+	timingCmd.Flags().String("filter", "", "URL filter string")
+	timingCmd.Flags().String("sort", "time", "Sort by (time, wait, dns, connect)")
+	timingCmd.Flags().IntP("limit", "n", 0, "Maximum number of entries (0 = all)")
+	timingCmd.Flags().Bool("summary", false, "Show summary statistics")
 }
 
-// timingEntry 用于JSON输出的计时信息
+// timingEntry contains timing information for JSON output.
 type timingEntry struct {
 	URL     string  `json:"url"`
 	Total   float64 `json:"total"`
@@ -84,7 +84,7 @@ type timingEntry struct {
 	Receive float64 `json:"receive"`
 }
 
-// sortEntries 按指定字段排序条目
+// sortEntries sorts entries by the specified field.
 func sortEntries(entries []har.Entries, sortBy string) {
 	switch sortBy {
 	case "wait":
@@ -106,7 +106,7 @@ func sortEntries(entries []har.Entries, sortBy string) {
 	}
 }
 
-// buildTimingJSON 构建JSON输出数据
+// buildTimingJSON builds the JSON output.
 func buildTimingJSON(entries []har.Entries) []timingEntry {
 	result := make([]timingEntry, len(entries))
 	for i, entry := range entries {
@@ -125,7 +125,7 @@ func buildTimingJSON(entries []har.Entries) []timingEntry {
 	return result
 }
 
-// formatTimingTable 格式化计时信息为tabwriter表格
+// formatTimingTable formats timing information as a tabwriter table.
 func formatTimingTable(entries []har.Entries) string {
 	var sb tabWriterBuf
 
@@ -134,7 +134,7 @@ func formatTimingTable(entries []har.Entries) string {
 
 	for _, entry := range entries {
 		url := entry.Request.URL
-		// 截断过长的URL
+		// Truncate long URLs.
 		if len(url) > 60 {
 			url = url[:57] + "..."
 		}
@@ -155,34 +155,34 @@ func formatTimingTable(entries []har.Entries) string {
 	return sb.String()
 }
 
-// formatTimingSummary 格式化计时汇总信息
+// formatTimingSummary formats timing summary information.
 func formatTimingSummary(summary *har.TimingsSummary) string {
 	var sb strings.Builder
 
-	sb.WriteString("计时汇总\n")
+	sb.WriteString("Timing Summary\n")
 	sb.WriteString("========\n")
-	sb.WriteString(fmt.Sprintf("平均阻塞时间:   %s\n", internal.FormatDuration(summary.AvgBlocked)))
-	sb.WriteString(fmt.Sprintf("平均DNS时间:    %s\n", internal.FormatDuration(summary.AvgDNS)))
-	sb.WriteString(fmt.Sprintf("平均连接时间:   %s\n", internal.FormatDuration(summary.AvgConnect)))
-	sb.WriteString(fmt.Sprintf("平均SSL时间:    %s\n", internal.FormatDuration(summary.AvgSSL)))
-	sb.WriteString(fmt.Sprintf("平均发送时间:   %s\n", internal.FormatDuration(summary.AvgSend)))
-	sb.WriteString(fmt.Sprintf("平均等待时间:   %s\n", internal.FormatDuration(summary.AvgWait)))
-	sb.WriteString(fmt.Sprintf("平均接收时间:   %s\n", internal.FormatDuration(summary.AvgReceive)))
+	sb.WriteString(fmt.Sprintf("Average blocked: %s\n", internal.FormatDuration(summary.AvgBlocked)))
+	sb.WriteString(fmt.Sprintf("Average DNS:     %s\n", internal.FormatDuration(summary.AvgDNS)))
+	sb.WriteString(fmt.Sprintf("Average connect: %s\n", internal.FormatDuration(summary.AvgConnect)))
+	sb.WriteString(fmt.Sprintf("Average SSL:     %s\n", internal.FormatDuration(summary.AvgSSL)))
+	sb.WriteString(fmt.Sprintf("Average send:    %s\n", internal.FormatDuration(summary.AvgSend)))
+	sb.WriteString(fmt.Sprintf("Average wait:    %s\n", internal.FormatDuration(summary.AvgWait)))
+	sb.WriteString(fmt.Sprintf("Average receive: %s\n", internal.FormatDuration(summary.AvgReceive)))
 
-	sb.WriteString("\n最大值\n")
+	sb.WriteString("\nMaximums\n")
 	sb.WriteString("------\n")
-	sb.WriteString(fmt.Sprintf("最大阻塞时间:   %s\n", internal.FormatDuration(summary.MaxBlocked)))
-	sb.WriteString(fmt.Sprintf("最大DNS时间:    %s\n", internal.FormatDuration(summary.MaxDNS)))
-	sb.WriteString(fmt.Sprintf("最大连接时间:   %s\n", internal.FormatDuration(summary.MaxConnect)))
-	sb.WriteString(fmt.Sprintf("最大SSL时间:    %s\n", internal.FormatDuration(summary.MaxSSL)))
-	sb.WriteString(fmt.Sprintf("最大发送时间:   %s\n", internal.FormatDuration(summary.MaxSend)))
-	sb.WriteString(fmt.Sprintf("最大等待时间:   %s\n", internal.FormatDuration(summary.MaxWait)))
-	sb.WriteString(fmt.Sprintf("最大接收时间:   %s\n", internal.FormatDuration(summary.MaxReceive)))
+	sb.WriteString(fmt.Sprintf("Maximum blocked: %s\n", internal.FormatDuration(summary.MaxBlocked)))
+	sb.WriteString(fmt.Sprintf("Maximum DNS:     %s\n", internal.FormatDuration(summary.MaxDNS)))
+	sb.WriteString(fmt.Sprintf("Maximum connect: %s\n", internal.FormatDuration(summary.MaxConnect)))
+	sb.WriteString(fmt.Sprintf("Maximum SSL:     %s\n", internal.FormatDuration(summary.MaxSSL)))
+	sb.WriteString(fmt.Sprintf("Maximum send:    %s\n", internal.FormatDuration(summary.MaxSend)))
+	sb.WriteString(fmt.Sprintf("Maximum wait:    %s\n", internal.FormatDuration(summary.MaxWait)))
+	sb.WriteString(fmt.Sprintf("Maximum receive: %s\n", internal.FormatDuration(summary.MaxReceive)))
 
 	return sb.String()
 }
 
-// formatTimingValue 格式化计时值，负值显示为"-"
+// formatTimingValue formats a timing value, displaying negative values as "-".
 func formatTimingValue(v float64) string {
 	if v < 0 {
 		return "-"

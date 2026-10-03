@@ -5,51 +5,51 @@ import (
 	"strings"
 )
 
-// HarDiff 表示两个HAR文件的差异
+// HarDiff represents the differences between two HAR files.
 type HarDiff struct {
-	Added     []DiffEntry     // 新增的请求
-	Removed   []DiffEntry     // 删除的请求
-	Modified  []ModifiedEntry // 修改的请求
-	Unchanged int             // 未变更的请求数
+	Added     []DiffEntry     // Added requests.
+	Removed   []DiffEntry     // Removed requests.
+	Modified  []ModifiedEntry // Modified requests.
+	Unchanged int             // Number of unchanged requests.
 }
 
-// DiffEntry 表示差异中的单个条目
+// DiffEntry represents a single entry in a diff.
 type DiffEntry struct {
-	Method string // HTTP方法
-	URL    string // 请求URL
-	Status int    // 响应状态码
-	Index  int    // 在原HAR中的索引
+	Method string // HTTP method.
+	URL    string // Request URL.
+	Status int    // Response status code.
+	Index  int    // Index in the original HAR file.
 }
 
-// ModifiedEntry 表示修改的条目
+// ModifiedEntry represents a modified entry.
 type ModifiedEntry struct {
-	Method  string        // HTTP方法
-	URL     string        // 请求URL
-	Changes []FieldChange // 字段变更列表
-	Old     *Entries      // 旧条目
-	New     *Entries      // 新条目
+	Method  string        // HTTP method.
+	URL     string        // Request URL.
+	Changes []FieldChange // List of field changes.
+	Old     *Entries      // Old entry.
+	New     *Entries      // New entry.
 }
 
-// FieldChange 表示单个字段的变更
+// FieldChange represents a change to a single field.
 type FieldChange struct {
-	Field    string      // 字段名
-	OldValue interface{} // 旧值
-	NewValue interface{} // 新值
+	Field    string      // Field name.
+	OldValue interface{} // Old value.
+	NewValue interface{} // New value.
 }
 
-// DiffOptions 差异比较选项
+// DiffOptions configures diff comparisons.
 type DiffOptions struct {
-	IgnoreHeaders []string // 忽略的头部字段名
-	IgnoreTimings bool     // 忽略时间差异
-	IgnoreDates   bool     // 忽略日期差异
-	IgnoreCache   bool     // 忽略缓存差异
-	IgnoreComment bool     // 忽略注释差异
-	NormalizeURL  bool     // URL归一化（排序查询参数）
-	CompareByURL  bool     // 按URL匹配（默认按索引+URL）
-	IncludeBody   bool     // 比较响应体内容
+	IgnoreHeaders []string // Header names to ignore.
+	IgnoreTimings bool     // Ignore timing differences.
+	IgnoreDates   bool     // Ignore date differences.
+	IgnoreCache   bool     // Ignore cache differences.
+	IgnoreComment bool     // Ignore comment differences.
+	NormalizeURL  bool     // Normalize URLs by sorting query parameters.
+	CompareByURL  bool     // Match by URL (default: index and URL).
+	IncludeBody   bool     // Compare response bodies.
 }
 
-// DefaultDiffOptions 返回默认的差异比较选项
+// DefaultDiffOptions returns the default diff options.
 func DefaultDiffOptions() DiffOptions {
 	return DiffOptions{
 		IgnoreTimings: true,
@@ -58,7 +58,7 @@ func DefaultDiffOptions() DiffOptions {
 	}
 }
 
-// Diff 比较两个HAR文件的差异
+// Diff compares two HAR files.
 func Diff(har1, har2 *Har, options DiffOptions) *HarDiff {
 	result := &HarDiff{}
 
@@ -88,14 +88,14 @@ func Diff(har1, har2 *Har, options DiffOptions) *HarDiff {
 		return result
 	}
 
-	// 构建键值映射
+	// Build maps of entries.
 	entries1 := buildEntryMap(har1, options)
 	entries2 := buildEntryMap(har2, options)
 
-	// 查找新增和修改
+	// Find added and modified entries.
 	for key, entry2 := range entries2 {
 		if entry1, ok := entries1[key]; ok {
-			// 比较条目差异
+			// Compare entry differences.
 			changes := compareEntries(entry1, entry2, options)
 			if len(changes) > 0 {
 				result.Modified = append(result.Modified, ModifiedEntry{
@@ -117,7 +117,7 @@ func Diff(har1, har2 *Har, options DiffOptions) *HarDiff {
 		}
 	}
 
-	// 查找删除
+	// Find removed entries.
 	for key, entry1 := range entries1 {
 		if _, ok := entries2[key]; !ok {
 			result.Removed = append(result.Removed, DiffEntry{
@@ -131,7 +131,7 @@ func Diff(har1, har2 *Har, options DiffOptions) *HarDiff {
 	return result
 }
 
-// entryKey 生成条目的唯一键
+// entryKey generates a unique key for an entry.
 func entryKey(entry *Entries, options DiffOptions) string {
 	method := entry.Request.Method
 	u := entry.Request.URL
@@ -143,13 +143,13 @@ func entryKey(entry *Entries, options DiffOptions) string {
 	return method + " " + u
 }
 
-// buildEntryMap 构建条目映射
+// buildEntryMap builds a map of entries.
 func buildEntryMap(har *Har, options DiffOptions) map[string]*Entries {
 	result := make(map[string]*Entries)
 
 	for i := range har.Log.Entries {
 		key := entryKey(&har.Log.Entries[i], options)
-		// 处理重复键
+		// Handle duplicate keys.
 		if _, exists := result[key]; exists {
 			key = fmt.Sprintf("%s_%d", key, i)
 		}
@@ -159,11 +159,11 @@ func buildEntryMap(har *Har, options DiffOptions) map[string]*Entries {
 	return result
 }
 
-// compareEntries 比较两个条目的差异
+// compareEntries compares two entries.
 func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange {
 	var changes []FieldChange
 
-	// 比较响应状态码
+	// Compare response status codes.
 	if entry1.Response.Status != entry2.Response.Status {
 		changes = append(changes, FieldChange{
 			Field:    "response.status",
@@ -172,7 +172,7 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较响应状态文本
+	// Compare response status text.
 	if entry1.Response.StatusText != entry2.Response.StatusText {
 		changes = append(changes, FieldChange{
 			Field:    "response.statusText",
@@ -181,7 +181,7 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较总时间
+	// Compare total duration.
 	if !options.IgnoreTimings && entry1.Time != entry2.Time {
 		changes = append(changes, FieldChange{
 			Field:    "time",
@@ -190,7 +190,7 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较响应内容类型
+	// Compare response content types.
 	if entry1.Response.Content.MimeType != entry2.Response.Content.MimeType {
 		changes = append(changes, FieldChange{
 			Field:    "response.content.mimeType",
@@ -199,7 +199,7 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较响应内容大小
+	// Compare response content sizes.
 	if entry1.Response.Content.Size != entry2.Response.Content.Size {
 		changes = append(changes, FieldChange{
 			Field:    "response.content.size",
@@ -208,7 +208,7 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较响应体内容
+	// Compare response body content.
 	if options.IncludeBody && entry1.Response.Content.Text != entry2.Response.Content.Text {
 		changes = append(changes, FieldChange{
 			Field:    "response.content.text",
@@ -217,30 +217,30 @@ func compareEntries(entry1, entry2 *Entries, options DiffOptions) []FieldChange 
 		})
 	}
 
-	// 比较请求头
+	// Compare request headers.
 	changes = append(changes, compareHeaders(entry1.Request.Headers, entry2.Request.Headers, "request.headers", options)...)
 
-	// 比较响应头
+	// Compare response headers.
 	changes = append(changes, compareHeaders(entry1.Response.Headers, entry2.Response.Headers, "response.headers", options)...)
 
 	return changes
 }
 
-// compareHeaders 比较头部差异
+// compareHeaders compares header differences.
 func compareHeaders(headers1, headers2 []Headers, prefix string, options DiffOptions) []FieldChange {
 	var changes []FieldChange
 
-	// 构建忽略头部的集合
+	// Build a set of headers to ignore.
 	ignoreSet := make(map[string]bool)
 	for _, h := range options.IgnoreHeaders {
 		ignoreSet[strings.ToLower(h)] = true
 	}
 
-	// 转为map便于查找
+	// Convert headers to maps for easier lookup.
 	map1 := headersToMap(headers1, ignoreSet)
 	map2 := headersToMap(headers2, ignoreSet)
 
-	// 查找新增和修改的头部
+	// Find added and modified headers.
 	for name, value2 := range map2 {
 		if value1, ok := map1[name]; ok {
 			if value1 != value2 {
@@ -259,7 +259,7 @@ func compareHeaders(headers1, headers2 []Headers, prefix string, options DiffOpt
 		}
 	}
 
-	// 查找删除的头部
+	// Find removed headers.
 	for name, value1 := range map1 {
 		if _, ok := map2[name]; !ok {
 			changes = append(changes, FieldChange{
@@ -273,7 +273,7 @@ func compareHeaders(headers1, headers2 []Headers, prefix string, options DiffOpt
 	return changes
 }
 
-// headersToMap 将头部列表转为map，并过滤忽略的头部
+// headersToMap converts headers to a map and filters out ignored headers.
 func headersToMap(headers []Headers, ignoreSet map[string]bool) map[string]string {
 	result := make(map[string]string)
 	for _, h := range headers {
@@ -285,7 +285,7 @@ func headersToMap(headers []Headers, ignoreSet map[string]bool) map[string]strin
 	return result
 }
 
-// HasChanges 检查是否存在差异
+// HasChanges reports whether the diff contains any changes.
 func (d *HarDiff) HasChanges() bool {
 	if d == nil {
 		return false
@@ -293,7 +293,7 @@ func (d *HarDiff) HasChanges() bool {
 	return len(d.Added) > 0 || len(d.Removed) > 0 || len(d.Modified) > 0
 }
 
-// TotalChanges 返回总变更数
+// TotalChanges returns the total number of changes.
 func (d *HarDiff) TotalChanges() int {
 	if d == nil {
 		return 0
@@ -301,7 +301,7 @@ func (d *HarDiff) TotalChanges() int {
 	return len(d.Added) + len(d.Removed) + len(d.Modified)
 }
 
-// Report 生成差异报告
+// Report generates a diff report.
 func (d *HarDiff) Report(format ConvertFormat) string {
 	if d == nil {
 		d = &HarDiff{}
@@ -323,32 +323,32 @@ func (d *HarDiff) Report(format ConvertFormat) string {
 	return sb.String()
 }
 
-// writeTextReport 写入文本格式报告
+// writeTextReport writes a text-format report.
 func (d *HarDiff) writeTextReport(sb *strings.Builder) {
-	sb.WriteString("HAR 差异报告\n")
+	sb.WriteString("HAR Diff Report\n")
 	sb.WriteString(strings.Repeat("=", 60) + "\n\n")
 
-	sb.WriteString(fmt.Sprintf("总变更: %d (新增: %d, 删除: %d, 修改: %d, 未变: %d)\n\n",
+	sb.WriteString(fmt.Sprintf("Total changes: %d (added: %d, removed: %d, modified: %d, unchanged: %d)\n\n",
 		d.TotalChanges(), len(d.Added), len(d.Removed), len(d.Modified), d.Unchanged))
 
 	if len(d.Added) > 0 {
-		sb.WriteString("新增请求:\n")
+		sb.WriteString("Added Requests:\n")
 		for _, a := range d.Added {
-			sb.WriteString(fmt.Sprintf("  + [%d] %s %s (状态: %d)\n", a.Index, a.Method, a.URL, a.Status))
+			sb.WriteString(fmt.Sprintf("  + [%d] %s %s (status: %d)\n", a.Index, a.Method, a.URL, a.Status))
 		}
 		sb.WriteString("\n")
 	}
 
 	if len(d.Removed) > 0 {
-		sb.WriteString("删除请求:\n")
+		sb.WriteString("Removed Requests:\n")
 		for _, r := range d.Removed {
-			sb.WriteString(fmt.Sprintf("  - [%d] %s %s (状态: %d)\n", r.Index, r.Method, r.URL, r.Status))
+			sb.WriteString(fmt.Sprintf("  - [%d] %s %s (status: %d)\n", r.Index, r.Method, r.URL, r.Status))
 		}
 		sb.WriteString("\n")
 	}
 
 	if len(d.Modified) > 0 {
-		sb.WriteString("修改请求:\n")
+		sb.WriteString("Modified Requests:\n")
 		for _, m := range d.Modified {
 			sb.WriteString(fmt.Sprintf("  ~ %s %s\n", m.Method, m.URL))
 			for _, c := range m.Changes {
@@ -358,15 +358,15 @@ func (d *HarDiff) writeTextReport(sb *strings.Builder) {
 	}
 }
 
-// writeMarkdownReport 写入Markdown格式报告
+// writeMarkdownReport writes a Markdown-format report.
 func (d *HarDiff) writeMarkdownReport(sb *strings.Builder) {
-	sb.WriteString("# HAR 差异报告\n\n")
-	sb.WriteString(fmt.Sprintf("**总变更**: %d | **新增**: %d | **删除**: %d | **修改**: %d | **未变**: %d\n\n",
+	sb.WriteString("# HAR Diff Report\n\n")
+	sb.WriteString(fmt.Sprintf("**Total changes**: %d | **Added**: %d | **Removed**: %d | **Modified**: %d | **Unchanged**: %d\n\n",
 		d.TotalChanges(), len(d.Added), len(d.Removed), len(d.Modified), d.Unchanged))
 
 	if len(d.Added) > 0 {
-		sb.WriteString("## 新增请求\n\n")
-		sb.WriteString("| 方法 | URL | 状态码 |\n")
+		sb.WriteString("## Added Requests\n\n")
+		sb.WriteString("| Method | URL | Status Code |\n")
 		sb.WriteString("| --- | --- | --- |\n")
 		for _, a := range d.Added {
 			sb.WriteString(fmt.Sprintf("| %s | %s | %d |\n", a.Method, a.URL, a.Status))
@@ -375,8 +375,8 @@ func (d *HarDiff) writeMarkdownReport(sb *strings.Builder) {
 	}
 
 	if len(d.Removed) > 0 {
-		sb.WriteString("## 删除请求\n\n")
-		sb.WriteString("| 方法 | URL | 状态码 |\n")
+		sb.WriteString("## Removed Requests\n\n")
+		sb.WriteString("| Method | URL | Status Code |\n")
 		sb.WriteString("| --- | --- | --- |\n")
 		for _, r := range d.Removed {
 			sb.WriteString(fmt.Sprintf("| %s | %s | %d |\n", r.Method, r.URL, r.Status))
@@ -385,10 +385,10 @@ func (d *HarDiff) writeMarkdownReport(sb *strings.Builder) {
 	}
 
 	if len(d.Modified) > 0 {
-		sb.WriteString("## 修改请求\n\n")
+		sb.WriteString("## Modified Requests\n\n")
 		for _, m := range d.Modified {
 			sb.WriteString(fmt.Sprintf("### %s %s\n\n", m.Method, m.URL))
-			sb.WriteString("| 字段 | 旧值 | 新值 |\n")
+			sb.WriteString("| Field | Old Value | New Value |\n")
 			sb.WriteString("| --- | --- | --- |\n")
 			for _, c := range m.Changes {
 				sb.WriteString(fmt.Sprintf("| %s | %v | %v |\n", c.Field, c.OldValue, c.NewValue))
@@ -398,7 +398,7 @@ func (d *HarDiff) writeMarkdownReport(sb *strings.Builder) {
 	}
 }
 
-// writeCSVReport 写入CSV格式报告
+// writeCSVReport writes a CSV-format report.
 func (d *HarDiff) writeCSVReport(sb *strings.Builder) {
 	sb.WriteString("type,method,url,field,old_value,new_value\n")
 

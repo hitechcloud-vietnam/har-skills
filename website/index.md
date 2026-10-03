@@ -1,6 +1,6 @@
 ---
 layout: home
-title: HAR Skills — AI 原生的 HAR 分析工具箱
+title: HAR Skills — AI-native HAR analysis toolkit
 ---
 
 <script setup>

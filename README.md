@@ -245,35 +245,35 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 
 ---
 
-## 简体中文
+## Simplified Chinese
 
-**HAR Skills 是一个 AI 原生的 HAR（HTTP Archive）分析工具集。**
+**HAR Skills is an AI-native toolkit for analyzing HAR (HTTP Archive) files.**
 
-它优先面向 AI Agent 设计，同时提供 CLI 和 Go SDK。Agent 可以通过一个 `har` 命令完成 HAR 文件的解析、搜索、安全审计、性能评分、脱敏、重放、转换、对比、合并拆分和多格式导出。
+It is designed for AI agents first, with a CLI and Go SDK. Using the `har` command, an agent can parse and search HAR files, audit security, score performance, redact sensitive data, replay and transform requests, compare captures, merge and split files, and export to multiple formats.
 
-### AI Agent 接入方式
+### AI Agent Access Methods
 
-| 接入方式 | 状态 | 适用场景 | 入口 |
+| Access Method | Status | Best For | Entry Point |
 |----------|------|----------|------|
-| **AI Agent Skill** | 可用 | Claude、ChatGPT、编码 Agent、本地自动化 | [CLAUDE.md](./CLAUDE.md) + `har` CLI |
-| **CLI** | 可用 | 终端、脚本、CI、Agent 工具调用 | `go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest` |
-| **Go SDK** | 可用 | Go 应用、自定义 Agent 工具服务 | `go get github.com/hitechcloud-vietnam/har-skills` |
-| **MCP** | 规划中 | MCP 兼容的桌面端和 IDE Agent | 当前可先包装 CLI/SDK |
+| **AI Agent Skill** | Available | Claude, ChatGPT, coding agents, local automation | [CLAUDE.md](./CLAUDE.md) + `har` CLI |
+| **CLI** | Available | Terminals, scripts, CI, agent tool calls | `go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest` |
+| **Go SDK** | Available | Go applications, custom agent tool servers | `go get github.com/hitechcloud-vietnam/har-skills` |
+| **MCP** | Planned | MCP-compatible desktop and IDE agents | Wrap the CLI/SDK for now |
 
-### 给 Agent 的一键提示词
+### One-Prompt Agent Bootstrap
 
 ```text
-你可以使用 HAR Skills 分析 HAR（HTTP Archive）文件。
+You can use HAR Skills to analyze HAR (HTTP Archive) files.
 
-安装：
+Install:
   go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest
 
-基础用法：
+Basic usage:
   har -f <capture.har> <command> [flags]
   cat capture.har | har <command>
   har -f capture.har <command> --format json
 
-优先从这些命令开始：
+Start with these commands:
   har -f capture.har info --format json
   har -f capture.har security --format json
   har -f capture.har performance --format json
@@ -281,35 +281,35 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
   har -f capture.har find --slow 1000 --format json
   har -f capture.har redact -o clean.har
 
-完整 Skill 文档：
+Full skill documentation:
   https://github.com/hitechcloud-vietnam/har-skills/blob/main/CLAUDE.md
 ```
 
-### 能力概览
+### Capabilities
 
-- **读入与解析**：文件、字节、Reader、stdin、gzip、标准/优化/懒加载/流式解析。
-- **检索与洞察**：概要、列表、URL/正则搜索、状态码、Header、Cookie、域名、耗时、瀑布流。
-- **安全与隐私**：安全响应头、Cookie 安全、CORS、混合内容、敏感信息泄露、数据脱敏。
-- **性能分析**：TTFB、总加载耗时、请求数量、传输体积、缓存、压缩和优化建议。
-- **操作与修复**：验证、转换 URL/Header/Scheme、重放请求、提取响应体、去重、索引。
-- **协作与导出**：diff、merge、split，导出 curl、wget、Python、Postman、CSV、Markdown、HTML、JSON、JSONL、YAML、XML。
+- **Ingest and parse**: files, bytes, readers, stdin, gzip, standard, optimized, lazy, and streaming parsers.
+- **Search and inspect**: summaries, listings, URL/regex searches, status codes, headers, cookies, domains, timings, and waterfalls.
+- **Security and privacy**: security headers, cookie security, CORS, mixed content, sensitive data exposure, and redaction.
+- **Performance analysis**: TTFB, total load time, request count, transfer size, caching, compression, and optimization recommendations.
+- **Operations and remediation**: validation, URL/header/scheme transforms, request replay, response extraction, deduplication, and indexing.
+- **Collaboration and export**: diff, merge, split, and export to curl, wget, Python, Postman, CSV, Markdown, HTML, JSON, JSONL, YAML, and XML.
 
-### 常用命令
+### Common Commands
 
 ```bash
-har -f capture.har info --format json          # 文件概要
-har -f capture.har find --errors --format json # 失败请求
-har -f capture.har find --slow 1000            # 慢请求
-har -f capture.har security                    # 安全审计
-har -f capture.har performance                 # 性能评分
-har -f capture.har redact -o clean.har         # 脱敏
-har -f capture.har export curl                 # 导出复现命令
-har diff before.har after.har                  # 对比两个 HAR
-har merge a.har b.har -o merged.har            # 合并 HAR
-har -f capture.har validate                    # 规范校验
+har -f capture.har info --format json          # File summary
+har -f capture.har find --errors --format json # Failed requests
+har -f capture.har find --slow 1000            # Slow requests
+har -f capture.har security                    # Security audit
+har -f capture.har performance                 # Performance score
+har -f capture.har redact -o clean.har         # Redact sensitive data
+har -f capture.har export curl                 # Export reproduction commands
+har diff before.har after.har                  # Compare two HAR files
+har merge a.har b.har -o merged.har            # Merge HAR files
+har -f capture.har validate                    # Validate against the specification
 ```
 
-### Go SDK 示例
+### Go SDK Example
 
 ```go
 import har "github.com/hitechcloud-vietnam/har-skills"

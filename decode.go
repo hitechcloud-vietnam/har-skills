@@ -13,27 +13,27 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-// DecodeContent 解码响应内容
+// DecodeContent decodes response content.
 //
-// 该方法会自动检测编码方式（base64）并解码，
-// 同时检测 Content-Encoding（gzip/deflate）并解压。
-// 返回解码后的原始字节数据。
+// It automatically detects and decodes base64 content, then decompresses
+// content encoded with Content-Encoding (gzip/deflate).
+// It returns the decoded raw bytes.
 func (c *Content) DecodeContent() ([]byte, error) {
 	if c == nil {
-		return nil, NewInvalidFormatError("内容为空")
+		return nil, NewInvalidFormatError("content is empty")
 	}
 
 	var data []byte
 
-	// 步骤1：处理base64编码
+	// Step 1: handle base64 encoding.
 	if strings.EqualFold(c.Encoding, "base64") && c.Text != "" {
 		decoded, err := base64.StdEncoding.DecodeString(c.Text)
 		if err != nil {
-			// 尝试URL安全的base64
+			// Try URL-safe base64.
 			decoded, err = base64.URLEncoding.DecodeString(c.Text)
 			if err != nil {
 				return nil, NewHarError(ErrCodeInvalidFormat,
-					fmt.Sprintf("base64解码失败: %v", err), err)
+					fmt.Sprintf("base64 decoding failed: %v", err), err)
 			}
 		}
 		data = decoded
@@ -43,7 +43,7 @@ func (c *Content) DecodeContent() ([]byte, error) {
 		return nil, nil
 	}
 
-	// 步骤2：检测并解压内容
+	// Step 2: detect and decompress the content.
 	data, err := decompressIfNeeded(data, c.MimeType)
 	if err != nil {
 		return nil, err
@@ -52,19 +52,19 @@ func (c *Content) DecodeContent() ([]byte, error) {
 	return data, nil
 }
 
-// DecodeContent 解码指定条目的响应内容
+// DecodeContent decodes the response content of the specified entry.
 func (e *Entries) DecodeContent() ([]byte, error) {
 	if e == nil {
-		return nil, NewInvalidFormatError("条目为空")
+		return nil, NewInvalidFormatError("entry is nil")
 	}
 	return e.Response.Content.DecodeContent()
 }
 
-// DecodeAllContent 解码HAR中所有条目的响应内容
-// 返回每个条目的解码结果，索引与HAR条目一一对应
+// DecodeAllContent decodes the response content of every entry in a HAR file.
+// It returns one decoded result per entry, with indices corresponding to the HAR entries.
 func (h *Har) DecodeAllContent() ([][]byte, error) {
 	if h == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
 	results := make([][]byte, len(h.Log.Entries))
@@ -82,7 +82,7 @@ func (h *Har) DecodeAllContent() ([][]byte, error) {
 
 	if len(partialErrors) > 0 {
 		rootErr := NewHarError(ErrCodeInvalidFormat,
-			fmt.Sprintf("解码过程中有%d个错误", len(partialErrors)), nil).
+			fmt.Sprintf("%d error(s) occurred during decoding", len(partialErrors)), nil).
 			WithMetadata("error_count", len(partialErrors))
 		for _, err := range partialErrors {
 			rootErr = rootErr.AddPartialError(err)
@@ -101,12 +101,12 @@ func decodePartialError(index int, err error) *HarError {
 			WithMetadata("entry_index", index)
 	}
 
-	return NewHarError(ErrCodeInvalidFormat, "内容解码失败", err).
+	return NewHarError(ErrCodeInvalidFormat, "content decoding failed", err).
 		WithField(field).
 		WithMetadata("entry_index", index)
 }
 
-// IsBase64Encoded 检查内容是否为base64编码
+// IsBase64Encoded reports whether the content is base64-encoded.
 func (c *Content) IsBase64Encoded() bool {
 	if c == nil {
 		return false
@@ -114,13 +114,13 @@ func (c *Content) IsBase64Encoded() bool {
 	return strings.EqualFold(c.Encoding, "base64")
 }
 
-// IsCompressed 检查内容是否被压缩（根据Content-Type头部或MimeType判断）
+// IsCompressed reports whether the content is compressed, based on the Content-Type header or MIME type.
 func (e *Entries) IsCompressed() bool {
 	if e == nil {
 		return false
 	}
 
-	// 检查响应头中的Content-Encoding
+	// Check the Content-Encoding response header.
 	for _, header := range e.Response.Headers {
 		if strings.EqualFold(header.Name, "Content-Encoding") {
 			encoding := strings.ToLower(strings.TrimSpace(header.Value))
@@ -133,7 +133,7 @@ func (e *Entries) IsCompressed() bool {
 	return false
 }
 
-// GetContentEncoding 获取内容编码方式
+// GetContentEncoding returns the content encoding.
 func (e *Entries) GetContentEncoding() string {
 	if e == nil {
 		return ""
@@ -148,7 +148,7 @@ func (e *Entries) GetContentEncoding() string {
 	return ""
 }
 
-// DecodeEntryText 解码条目的响应文本（便捷方法）
+// DecodeEntryText decodes an entry's response text (convenience method).
 func (e *Entries) DecodeEntryText() (string, error) {
 	data, err := e.DecodeContent()
 	if err != nil {
@@ -160,64 +160,65 @@ func (e *Entries) DecodeEntryText() (string, error) {
 	return string(data), nil
 }
 
-// decompressIfNeeded 根据MIME类型和内容特征尝试解压
+// decompressIfNeeded attempts decompression based on the MIME type and content signature.
 func decompressIfNeeded(data []byte, mimeType string) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
 	}
 
-	// 尝试gzip解压
+	// Try gzip decompression.
 	if isGzipData(data) {
 		reader, err := gzip.NewReader(bytes.NewReader(data))
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("gzip解压失败: %v", err), err)
+				fmt.Sprintf("gzip decompression failed: %v", err), err)
 		}
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("gzip解压失败: %v", err), err)
+				fmt.Sprintf("gzip decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	}
 
-	// 尝试deflate解压
+	// Try deflate decompression.
 	if isDeflateData(data) {
-		// isDeflateData 仅接受通过 zlib 头部校验的 FLG 值，因此
-		// zlib.NewReader 在此处必定成功。
+		// isDeflateData accepts only FLG values that pass zlib header validation,
+		// so zlib.NewReader must succeed here.
 		reader, _ := zlib.NewReader(bytes.NewReader(data))
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("deflate解压失败: %v", err), err)
+				fmt.Sprintf("deflate decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	}
 
-	// 尝试brotli解压
-	// isBrotliData 要求首段 Read 成功（n>0 且 err==nil）；brotli 流式解码
-	// 一旦首段成功则整体必成功，故 io.ReadAll 在此不会返回错误，无需错误分支。
+	// Try Brotli decompression.
+	// isBrotliData requires the first Read to succeed (n > 0 and err == nil).
+	// Once the initial streaming decode succeeds, the complete decode succeeds,
+	// so io.ReadAll cannot return an error here and no error branch is needed.
 	if isBrotliData(data) {
 		reader := brotli.NewReader(bytes.NewReader(data))
 		decompressed, _ := io.ReadAll(reader)
 		return decompressed, nil
 	}
 
-	// 尝试zstd解压
+	// Try Zstandard decompression.
 	if isZstdData(data) {
-		// zstd.NewReader 对通过 magic 校验的数据初始化阶段不会失败
-		// （实测 NewReader 永不返回 error），DecodeAll 才会报告损坏数据。
+		// zstd.NewReader cannot fail during initialization for data that passes the
+		// magic-byte check; DecodeAll reports corrupted data instead.
 		decoder, _ := zstd.NewReader(bytes.NewReader(data))
 		defer decoder.Close()
 
 		decompressed, err := decoder.DecodeAll(data, nil)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("zstd解压失败: %v", err), err)
+				fmt.Sprintf("zstd decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	}
@@ -225,13 +226,13 @@ func decompressIfNeeded(data []byte, mimeType string) ([]byte, error) {
 	return data, nil
 }
 
-// DecompressByEncoding 根据Content-Encoding值解压数据
+// DecompressByEncoding decompresses data according to the Content-Encoding value.
 //
-// 支持的编码: "gzip", "deflate", "br" (brotli), "zstd", "identity"
-// 多重编码（如 "gzip, deflate"）按 HTTP 语义逐层解压：
-// Content-Encoding 头按声明顺序表示包裹的层次——列表中的第一个编码
-// 是最外层（最后应用的），应最先解压。例如 "gzip, deflate" 表示数据
-// 是 gzip(deflate(original))，解压时先解 gzip 再解 deflate。
+// Supported encodings: "gzip", "deflate", "br" (Brotli), "zstd", and "identity".
+// Multiple encodings (such as "gzip, deflate") are decompressed layer by layer per HTTP semantics:
+// Content-Encoding lists encodings in wrapping order. The first encoding is the outermost
+// (applied last), so it must be decompressed first. For example, "gzip, deflate" means
+// gzip(deflate(original)); decompress gzip first, then deflate.
 func DecompressByEncoding(data []byte, encoding string) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
@@ -242,15 +243,15 @@ func DecompressByEncoding(data []byte, encoding string) ([]byte, error) {
 		return data, nil
 	}
 
-	// 多重编码：按逗号拆分，按声明顺序正序逐层解压
-	// （列表第一个是最外层，最先解）
+	// Split multiple encodings by comma and decompress them in declaration order
+	// (the first item is outermost and must be decoded first).
 	if strings.Contains(enc, ",") {
 		encodings := splitEncodings(enc)
 		current := data
 		for i, e := range encodings {
 			result, err := DecompressByEncoding(current, e)
 			if err != nil {
-				return nil, fmt.Errorf("第%d层 %q 解压失败: %w", i, e, err)
+				return nil, fmt.Errorf("layer %d %q decompression failed: %w", i, e, err)
 			}
 			current = result
 		}
@@ -262,28 +263,28 @@ func DecompressByEncoding(data []byte, encoding string) ([]byte, error) {
 		reader, err := gzip.NewReader(bytes.NewReader(data))
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("gzip解压失败: %v", err), err)
+				fmt.Sprintf("gzip decompression failed: %v", err), err)
 		}
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("gzip解压失败: %v", err), err)
+				fmt.Sprintf("gzip decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	case "deflate":
 		reader, err := zlib.NewReader(bytes.NewReader(data))
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("deflate解压失败: %v", err), err)
+				fmt.Sprintf("deflate decompression failed: %v", err), err)
 		}
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("deflate解压失败: %v", err), err)
+				fmt.Sprintf("deflate decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	case "br":
@@ -291,28 +292,29 @@ func DecompressByEncoding(data []byte, encoding string) ([]byte, error) {
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("brotli解压失败: %v", err), err)
+				fmt.Sprintf("Brotli decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	case "zstd":
-		// zstd.NewReader 对任意输入的初始化阶段不会失败（实测 NewReader 永不
-		// 返回 error），损坏数据在 DecodeAll 阶段才报错。
+		// zstd.NewReader does not fail during initialization for arbitrary input;
+		// corrupted data is reported by DecodeAll.
 		decoder, _ := zstd.NewReader(bytes.NewReader(data))
 		defer decoder.Close()
 
 		decompressed, err := decoder.DecodeAll(data, nil)
 		if err != nil {
 			return nil, NewHarError(ErrCodeInvalidFormat,
-				fmt.Sprintf("zstd解压失败: %v", err), err)
+				fmt.Sprintf("Zstandard decompression failed: %v", err), err)
 		}
 		return decompressed, nil
 	default:
 		return nil, NewUnsupportedError(
-			fmt.Sprintf("不支持的Content-Encoding: %q", encoding))
+			fmt.Sprintf("unsupported Content-Encoding: %q", encoding))
 	}
 }
 
-// splitEncodings 把 "gzip, deflate, br" 拆成 ["gzip", "deflate", "br"]（去空白、忽略空段）
+// splitEncodings splits "gzip, deflate, br" into ["gzip", "deflate", "br"],
+// trimming whitespace and ignoring empty items.
 func splitEncodings(enc string) []string {
 	parts := strings.Split(enc, ",")
 	out := make([]string, 0, len(parts))
@@ -325,9 +327,9 @@ func splitEncodings(enc string) []string {
 	return out
 }
 
-// CompressContent 使用指定的编码方式压缩数据
+// CompressContent compresses data using the specified encoding.
 //
-// 支持的编码: "gzip", "deflate", "br" (brotli), "zstd", "identity"
+// Supported encodings: "gzip", "deflate", "br" (Brotli), "zstd", and "identity".
 func CompressContent(data []byte, encoding string) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
@@ -339,7 +341,7 @@ func CompressContent(data []byte, encoding string) ([]byte, error) {
 	case "gzip":
 		var buf bytes.Buffer
 		writer := gzip.NewWriter(&buf)
-		// bytes.Buffer.Write 永不返回错误，故 Write/Close 不会失败。
+		// bytes.Buffer.Write never returns an error, so Write and Close cannot fail.
 		_, _ = writer.Write(data)
 		_ = writer.Close()
 		return buf.Bytes(), nil
@@ -352,31 +354,31 @@ func CompressContent(data []byte, encoding string) ([]byte, error) {
 	case "br":
 		var buf bytes.Buffer
 		writer := brotli.NewWriter(&buf)
-		// brotli.NewWriter 写入 bytes.Buffer（buffer.Write 永不失败），
-		// 且 brotli 编码器对内存输出不会在 Write/Close 阶段报错，无需错误分支。
+		// brotli.NewWriter writes to bytes.Buffer (whose Write never fails), and the
+		// Brotli encoder cannot fail when writing to memory, so no error branch is needed.
 		_, _ = writer.Write(data)
 		_ = writer.Close()
 		return buf.Bytes(), nil
 	case "zstd":
-		// zstd.NewWriter 对默认配置不会失败（实测 NewWriter 永不返回 error）。
+		// zstd.NewWriter cannot fail with the default configuration.
 		encoder, _ := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault))
 		defer encoder.Close()
 		return encoder.EncodeAll(data, nil), nil
 	default:
 		return nil, NewUnsupportedError(
-			fmt.Sprintf("不支持的压缩编码: %q", encoding))
+			fmt.Sprintf("unsupported compression encoding: %q", encoding))
 	}
 }
 
-// DecompressWithEncoding 使用Content-Encoding头部值解压数据
+// DecompressWithEncoding decompresses data using the Content-Encoding header value.
 //
-// 该函数根据HTTP Content-Encoding头部值来决定如何解压数据，
-// 与 decompressIfNeeded 不同，后者仅依赖magic bytes检测。
+// This function determines how to decompress data from the HTTP Content-Encoding header,
+// unlike decompressIfNeeded, which relies only on magic-byte detection.
 func DecompressWithEncoding(data []byte, contentEncoding string) ([]byte, error) {
 	return DecompressByEncoding(data, contentEncoding)
 }
 
-// isGzipData 检查数据是否为gzip格式
+// isGzipData reports whether data is in gzip format.
 func isGzipData(data []byte) bool {
 	if len(data) < 2 {
 		return false
@@ -385,12 +387,12 @@ func isGzipData(data []byte) bool {
 	return data[0] == 0x1f && data[1] == 0x8b
 }
 
-// isDeflateData 检查数据是否为deflate格式
+// isDeflateData reports whether data is in deflate format.
 func isDeflateData(data []byte) bool {
 	if len(data) < 2 {
 		return false
 	}
-	// zlib header: 通常以 0x78 开头
+	// The zlib header usually starts with 0x78.
 	// 0x78 0x01 = no compression
 	// 0x78 0x5E = best speed
 	// 0x78 0x9C = default compression
@@ -398,7 +400,7 @@ func isDeflateData(data []byte) bool {
 	return data[0] == 0x78 && (data[1] == 0x01 || data[1] == 0x5e || data[1] == 0x9c || data[1] == 0xda)
 }
 
-// isZstdData 检查数据是否为 zstd 格式（通过 4 字节魔数 0x28 0xB5 0x2F 0xFD）
+// isZstdData reports whether data is in Zstandard format, using the four-byte magic number 0x28 0xB5 0x2F 0xFD.
 func isZstdData(data []byte) bool {
 	if len(data) < 4 {
 		return false
@@ -406,18 +408,19 @@ func isZstdData(data []byte) bool {
 	return data[0] == 0x28 && data[1] == 0xb5 && data[2] == 0x2f && data[3] == 0xfd
 }
 
-// isBrotliData 启发式判断数据是否为 brotli 压缩。
-// brotli 没有像 gzip/zstd 那样的固定魔数，本函数靠尝试解码首段来判断：
-// 用 brotli.Reader 读取前若干字节，若能成功读出非空结果且无错误，则视为 brotli。
-// 误判概率很低（普通文本/JSON 几乎不会被 brotli 解码出有效字节）。
+// isBrotliData heuristically determines whether data is Brotli-compressed.
+// Brotli has no fixed magic number like gzip or Zstandard, so this function attempts
+// to decode the first segment. If brotli.Reader returns non-empty bytes without an error,
+// the data is treated as Brotli. False positives are unlikely because plain text and JSON
+// almost never decode to valid bytes.
 func isBrotliData(data []byte) bool {
 	if len(data) < 4 {
 		return false
 	}
 	reader := brotli.NewReader(bytes.NewReader(data))
-	// 只探测前 64 字节，避免对大文件全量解码
+	// Probe only the first 64 bytes to avoid decoding an entire large file.
 	probe := make([]byte, 64)
 	n, err := reader.Read(probe)
-	// 成功读出非零字节且无错误 → 视为 brotli
+	// Treat a successful read of non-zero bytes without an error as Brotli.
 	return err == nil && n > 0
 }

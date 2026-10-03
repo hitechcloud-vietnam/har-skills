@@ -1,80 +1,80 @@
 ---
-title: 安全与隐私
+title: Security & Privacy
 titleTemplate: false
 ---
 
-# 安全与隐私
+# Security & Privacy
 
-HAR 文件是浏览器的「现场录像」，里面常常混着令牌、Cookie、内网 IP、密钥。在分享或归档前，先做两件事：**审计**（`security`）找出风险点，**脱敏**（`redact`）把敏感值抹掉。这两个命令覆盖了 Level 3 的全部能力。
+A HAR file is a "recording" of a browser session, and it routinely carries tokens, cookies, internal IPs, and keys. Before sharing or archiving one, do two things: **audit** (`security`) to surface the risks, then **redact** (`redact`) to scrub the sensitive values. These two commands cover the entire Level 3 capability set.
 
-所有示例都可在仓库根目录直接运行，使用 `testdata/example.har` 或 `testdata/full.har`。
+Every example below runs from the repository root against `testdata/example.har` or `testdata/full.har`.
 
-## security — 安全审计
+## security — Security Audit
 
-对 HAR 做一次综合体检，输出 **0–100 的安全评分**和按严重性分组的发现清单（HIGH / MEDIUM / LOW / INFO）。评分越低说明风险越密集；发现项会给出 URL、类别、描述与修复建议。
+Run a full checkup on the HAR. Output is a **0–100 security score** plus a list of findings grouped by severity (HIGH / MEDIUM / LOW / INFO). A lower score means denser risk; each finding carries a URL, category, description, and remedy.
 
 ```bash
 har -f testdata/full.har security
 ```
 
-输出形如：
+Output looks like:
 
 ```text
-安全审计报告
+Security Audit Report
 ============
-评分: 72/100
-发现: 8 个问题
+Score: 72/100
+Findings: 8 issues
 
-[HIGH] 严重 (2)
+[HIGH] High (2)
 ------------------------------------------------------------
-  1. 缺失 HSTS 头
+  1. Missing HSTS header
      URL: http://example.com/login
-     类别: security-headers
-     描述: 响应未设置 Strict-Transport-Security，存在 SSL 剥离风险
-     修复: 在响应头中添加 HSTS，至少 max-age=31536000
+     Category: security-headers
+     Description: The response does not set Strict-Transport-Security, leaving it vulnerable to SSL stripping.
+     Remediation: Add HSTS to the response headers with at least max-age=31536000.
   ...
 ```
 
-### 检查项
+### Check categories
 
-`security` 把审计拆成 6 类，可单独开关：
+`security` splits the audit into 6 categories you can toggle individually:
 
-| 检查项 | 关注内容 |
-|--------|----------|
-| 安全头 | HSTS、Content-Security-Policy、X-Frame-Options、X-Content-Type-Options、Referrer-Policy 等是否缺失或配置薄弱 |
-| Cookie 安全 | Secure / HttpOnly / SameSite 属性、会话 Cookie 是否走明文、第三方 Cookie |
-| 混合内容 | HTTPS 页面里夹带的 HTTP 子资源（脚本、图片、iframe） |
-| 敏感数据 | 响应或表单里出现的密码、令牌、API Key、私钥等 |
-| CORS | `Access-Control-Allow-Origin: *` 配合凭据、通配符回显等危险组合 |
-| 信息泄露 | `Server`、`X-Powered-By`、堆栈、版本号、内部路径等暴露面 |
+| Category | What it looks for |
+|----------|-------------------|
+| Security headers | HSTS, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy — missing or weak |
+| Cookie security | Secure / HttpOnly / SameSite attributes, session cookies over cleartext, third-party cookies |
+| Mixed content | HTTP sub-resources (scripts, images, iframes) loaded from HTTPS pages |
+| Sensitive data | Passwords, tokens, API keys, private keys appearing in responses or form bodies |
+| CORS | `Access-Control-Allow-Origin: *` paired with credentials, wildcard reflections, and other dangerous combos |
+| Information disclosure | `Server`, `X-Powered-By`, stack traces, version numbers, internal paths |
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--check-headers` | bool | `true` | 检查安全头部 |
-| `--check-cookies` | bool | `true` | 检查 Cookie 安全性 |
-| `--check-mixed-content` | bool | `true` | 检查混合内容 |
-| `--check-sensitive-data` | bool | `true` | 检查敏感数据泄露 |
-| `--check-cors` | bool | `true` | 检查 CORS 配置 |
-| `--check-info-disclosure` | bool | `true` | 检查信息泄露 |
-| `--severity` | string | `low` | 最低严重性过滤（`all`/`info`/`low`/`medium`/`high`） |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--check-headers` | bool | `true` | Check security headers |
+| `--check-cookies` | bool | `true` | Check cookie security |
+| `--check-mixed-content` | bool | `true` | Check mixed content |
+| `--check-sensitive-data` | bool | `true` | Check sensitive-data leakage |
+| `--check-cors` | bool | `true` | Check CORS configuration |
+| `--check-info-disclosure` | bool | `true` | Check information disclosure |
+| `--severity` | string | `low` | Minimum severity filter (`all`/`info`/`low`/`medium`/`high`) |
 
-### 示例
+### Examples
 
-只看高危发现，输出 JSON 方便进 CI：
+Show only HIGH findings, emit JSON for CI ingestion:
 
 ```bash
 har -f testdata/full.har security --severity high --format json -o sec-high.json
 ```
 
-只跑头部与 CORS 两类检查，快速过一遍：
+Run only the headers and CORS checks for a quick pass:
 
 ```bash
 har -f testdata/full.har security --check-headers --check-cors
 ```
 
-关掉全部默认项，只查混合内容（适合迁移 HTTPS 时定位漏网之鱼）：
+Turn every default off and check only mixed content (handy when migrating to HTTPS):
 
 ```bash
 har -f testdata/full.har security \
@@ -83,53 +83,53 @@ har -f testdata/full.har security \
   --check-info-disclosure=false --check-mixed-content
 ```
 
-`--severity all` 连 INFO 级也显示，适合做完整基线：
+`--severity all` surfaces INFO-level findings too — useful for a full baseline:
 
 ```bash
 har -f testdata/full.har security --severity all
 ```
 
-### 实现原理
+### How it works
 
-底层调用 `(*Har).SecurityAudit()`，返回 `*SecurityReport`。报告结构里有 `Score int`、`Findings []SecurityFinding`，每条发现含 `Severity`、`Title`、`Category`、`Description`、`Remedy`、`EntryURL`。CLI 把 6 个 `--check-*` flag 映射成 `SecurityAuditOptions` 的开关位，再按 `--severity` 用 `report.FindBySeverity(sev)` 过滤。文本输出由 `formatSecurityReport` 拼装，JSON/YAML 直接序列化整个 `SecurityReport`。
+Under the hood the CLI calls `(*Har).SecurityAudit()`, which returns a `*SecurityReport`. The report holds `Score int` and `Findings []SecurityFinding`; each finding has `Severity`, `Title`, `Category`, `Description`, `Remedy`, and `EntryURL`. The 6 `--check-*` flags map onto the boolean fields of `SecurityAuditOptions`. `--severity` is applied via `report.FindBySeverity(sev)` to filter the output. Text rendering is handled by `formatSecurityReport`; JSON/YAML simply serialize the whole `SecurityReport`.
 
-## redact — 脱敏
+## redact — Redaction
 
-把敏感值替换成占位符，**输出一个新的 HAR 文件**（除非加 `--in-place`）。原始文件不被改动，适合在保留结构的前提下安全分享。
+Replace sensitive values with a placeholder and **write a new HAR file** (unless `--in-place` is given). The original file is left untouched — ideal for safe sharing while preserving structure.
 
 ```bash
 har -f testdata/full.har redact -o redacted.har
 ```
 
-### 默认脱敏目标
+### Default redaction targets
 
-`--defaults`（默认开启）会自动覆盖以下目标：
+`--defaults` (on by default) automatically covers these targets:
 
-| 位置 | 目标 |
-|------|------|
-| 请求头 | `Authorization`、`Proxy-Authorization`、`X-Api-Key`、`X-Auth-Token` |
-| Cookie | 名称为 `session`、`token`、`auth`、`password` 的 Cookie |
-| 查询参数 | `password`、`token`、`api_key`、`secret`、`access_token` |
-| POST 字段 | `password`、`secret`、`token` |
+| Location | Targets |
+|----------|---------|
+| Request headers | `Authorization`, `Proxy-Authorization`, `X-Api-Key`, `X-Auth-Token` |
+| Cookies | cookies named `session`, `token`, `auth`, `password` |
+| Query params | `password`, `token`, `api_key`, `secret`, `access_token` |
+| POST fields | `password`, `secret`, `token` |
 
-需要额外覆盖时，用 `--header` / `--cookie` / `--query-param` / `--post-field` 追加，不影响默认集。
+To cover more, append with `--header` / `--cookie` / `--query-param` / `--post-field`. These add to the default set; they do not replace it.
 
 ### Flags
 
-| Flag | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--defaults` | bool | `true` | 启用默认脱敏规则集 |
-| `--header` | stringSlice | `[]` | 额外脱敏的请求头字段名 |
-| `--cookie` | stringSlice | `[]` | 额外脱敏的 Cookie 名称 |
-| `--query-param` | stringSlice | `[]` | 额外脱敏的查询参数名 |
-| `--post-field` | stringSlice | `[]` | 额外脱敏的 POST 字段名 |
-| `--replacement` | string | `[REDACTED]` | 替换占位文本 |
-| `--redact-ips` | bool | `false` | 匿名化 IP 地址 |
-| `--in-place` | bool | `false` | 原地改写输入文件 |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--defaults` | bool | `true` | Enable the default redaction rule set |
+| `--header` | stringSlice | `[]` | Extra request-header names to redact |
+| `--cookie` | stringSlice | `[]` | Extra cookie names to redact |
+| `--query-param` | stringSlice | `[]` | Extra query-parameter names to redact |
+| `--post-field` | stringSlice | `[]` | Extra POST field names to redact |
+| `--replacement` | string | `[REDACTED]` | Replacement placeholder text |
+| `--redact-ips` | bool | `false` | Anonymize IP addresses |
+| `--in-place` | bool | `false` | Rewrite the input file in place |
 
-### 示例
+### Examples
 
-在默认集之外，额外抹掉自定义头 `X-Custom-Key` 和 Cookie `session_id`：
+Beyond the defaults, also scrub a custom header `X-Custom-Key` and a `session_id` cookie:
 
 ```bash
 har -f testdata/full.har redact \
@@ -138,19 +138,19 @@ har -f testdata/full.har redact \
   -o redacted.har
 ```
 
-把替换文本改成 `***`，并匿名化所有 IP（适合发给外包排查）：
+Change the placeholder to `***` and anonymize all IPs (good for handing off to an outside party):
 
 ```bash
 har -f testdata/full.har redact --redact-ips --replacement "***" -o clean.har
 ```
 
-直接改写原文件（慎用，会覆盖；建议先备份）：
+Rewrite the original file directly (use with care — back up first):
 
 ```bash
 har -f testdata/full.har redact --in-place
 ```
 
-只脱敏查询参数，关掉默认集：
+Redact only query parameters, disabling the default set:
 
 ```bash
 har -f testdata/full.har redact \
@@ -159,25 +159,25 @@ har -f testdata/full.har redact \
   -o params-only.har
 ```
 
-脱敏后顺手做一次校验，确认文件仍合规：
+After redaction, validate to confirm the file is still spec-compliant:
 
 ```bash
 har -f redacted.har validate --strict
 ```
 
-::: warning redact 不等于加密
-`redact` 是**结构化抹除**，不是加密或哈希。被替换的值无法还原，但 HAR 的请求/响应结构保持完整，便于对方继续做性能或缓存分析。对极敏感场景，建议 `redact` 之后再 `validate`，并人工抽查几条。
+::: warning redact is not encryption
+`redact` is **structured scrubbing**, not encryption or hashing. Replaced values cannot be recovered, but the request/response structure stays intact so the recipient can still run performance or cache analysis. For highly sensitive material, run `redact`, then `validate`, then spot-check a few entries by hand.
 :::
 
-### 实现原理
+### How it works
 
-底层调用 `(*Har).Redact(opts)`，返回一个新的 `*Har`（原对象不变）。`opts` 来自 `har.DefaultRedactOptions()`，CLI 把 `--header` 等 stringSlice 合并进对应字段，`--replacement` 写入 `Replacement`，`--redact-ips` 打开 `RedactIPs`。脱敏遍历每条 entry 的 headers、cookies、queryString、postData.params，命中目标名即替换为占位文本；IP 匿名化走单独的地址改写逻辑。`--in-place` 时把结果 `ToJSON(true)` 写回原路径，否则写到 `-o` 指定的文件（缺省输出到 stdout）。
+The CLI calls `(*Har).Redact(opts)`, which returns a new `*Har` (the original is untouched). `opts` starts from `har.DefaultRedactOptions()`; the CLI merges `--header` and friends into the corresponding slices, writes `--replacement` into `Replacement`, and turns on `RedactIPs` when `--redact-ips` is set. Redaction walks each entry's headers, cookies, queryString, and postData.params, replacing any value whose name matches a target with the placeholder. IP anonymization runs a separate address-rewrite pass. With `--in-place` the result is written back to the input path via `ToJSON(true)`; otherwise it goes to the `-o` file (or stdout if none given).
 
-## 小结
+## Summary
 
-| 命令 | 用途 | 是否改文件 |
-|------|------|-----------|
-| `security` | 审计风险、给评分 | 否，只读 |
-| `redact` | 抹除敏感值 | 是，输出新文件或 `--in-place` |
+| Command | Purpose | Modifies files? |
+|---------|---------|-----------------|
+| `security` | Audit risks, assign a score | No — read-only |
+| `redact` | Scrub sensitive values | Yes — new file, or `--in-place` |
 
-典型链路：先 `security` 找出风险点与泄漏面，再 `redact` 把值抹干净，最后 `validate` 复核。完整工作流见 [安全审计工作流](../workflows/security-audit.md)。
+A typical chain: `security` to find the risks and leaks, `redact` to scrub the values, then `validate` to re-check. See the full [Security Audit workflow](../workflows/security-audit.md).

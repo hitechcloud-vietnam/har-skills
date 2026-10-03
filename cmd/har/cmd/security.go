@@ -9,20 +9,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// securityCmd 运行安全审计
+// securityCmd runs a security audit.
 var securityCmd = &cobra.Command{
 	Use:   "security",
-	Short: "对HAR文件运行安全审计",
-	Long: `对HAR文件中的请求和响应进行安全审计，检查以下方面：
+	Short: "Run a security audit on a HAR file",
+	Long: `Audit requests and responses in a HAR file for the following issues:
 
-  - 安全头部缺失 (Strict-Transport-Security, X-Content-Type-Options 等)
-  - Cookie安全性 (Secure, HttpOnly, SameSite 属性)
-  - 混合内容 (HTTPS页面中的HTTP资源)
-  - 敏感数据泄露 (API密钥、令牌等)
-  - CORS配置问题
-  - 信息泄露 (Server头部、错误消息等)
+  - Missing security headers (Strict-Transport-Security, X-Content-Type-Options, etc.)
+  - Cookie security (Secure, HttpOnly, and SameSite attributes)
+  - Mixed content (HTTP resources on HTTPS pages)
+  - Sensitive data exposure (API keys, tokens, etc.)
+  - CORS configuration issues
+  - Information disclosure (Server headers, error messages, etc.)
 
-示例:
+Examples:
   har -f capture.har security
   har -f capture.har security --severity high
   har -f capture.har security --check-cookies=false --format json`,
@@ -32,19 +32,19 @@ var securityCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(securityCmd)
 
-	securityCmd.Flags().Bool("check-headers", true, "检查安全头部")
-	securityCmd.Flags().Bool("check-cookies", true, "检查Cookie安全性")
-	securityCmd.Flags().Bool("check-mixed-content", true, "检查混合内容")
-	securityCmd.Flags().Bool("check-sensitive-data", true, "检查敏感数据泄露")
-	securityCmd.Flags().Bool("check-cors", true, "检查CORS配置")
-	securityCmd.Flags().Bool("check-info-disclosure", true, "检查信息泄露")
-	securityCmd.Flags().String("severity", "low", "最低严重性过滤 (all/info/low/medium/high)")
+	securityCmd.Flags().Bool("check-headers", true, "Check security headers")
+	securityCmd.Flags().Bool("check-cookies", true, "Check cookie security")
+	securityCmd.Flags().Bool("check-mixed-content", true, "Check for mixed content")
+	securityCmd.Flags().Bool("check-sensitive-data", true, "Check for sensitive data exposure")
+	securityCmd.Flags().Bool("check-cors", true, "Check CORS configuration")
+	securityCmd.Flags().Bool("check-info-disclosure", true, "Check for information disclosure")
+	securityCmd.Flags().String("severity", "low", "Minimum severity filter (all/info/low/medium/high)")
 }
 
 func runSecurity(cmd *cobra.Command, args []string) error {
 	h := internal.LoadHar(cmd, args)
 
-	// 构建审计选项
+	// Build audit options.
 	opts := har.SecurityAuditOptions{
 		CheckSecurityHeaders: mustGetBool(cmd, "check-headers"),
 		CheckCookies:         mustGetBool(cmd, "check-cookies"),
@@ -56,7 +56,7 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 
 	report := h.SecurityAuditWithOptions(opts)
 
-	// 根据严重性过滤
+	// Filter by severity.
 	severity, _ := cmd.Flags().GetString("severity")
 	filtered := filterFindingsBySeverity(report.Findings, severity)
 	report.Findings = filtered
@@ -66,7 +66,7 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 	}, nil)
 }
 
-// filterFindingsBySeverity 根据最低严重性级别过滤发现
+// filterFindingsBySeverity filters findings at or above the minimum severity.
 func filterFindingsBySeverity(findings []har.SecurityFinding, minSeverity string) []har.SecurityFinding {
 	severityOrder := map[string]int{
 		"all":    0,
@@ -91,21 +91,21 @@ func filterFindingsBySeverity(findings []har.SecurityFinding, minSeverity string
 	return result
 }
 
-// formatSecurityReport 格式化安全审计报告为文本
+// formatSecurityReport formats the security audit report as text.
 func formatSecurityReport(report *har.SecurityReport, severity string) string {
 	var sb strings.Builder
 
-	sb.WriteString("安全审计报告\n")
+	sb.WriteString("Security Audit Report\n")
 	sb.WriteString("============\n")
-	sb.WriteString(fmt.Sprintf("评分: %d/100\n", report.Score))
-	sb.WriteString(fmt.Sprintf("发现: %d 个问题\n\n", len(report.Findings)))
+	sb.WriteString(fmt.Sprintf("Score: %d/100\n", report.Score))
+	sb.WriteString(fmt.Sprintf("Findings: %d issue(s)\n\n", len(report.Findings)))
 
 	if len(report.Findings) == 0 {
-		sb.WriteString("未发现安全问题。\n")
+		sb.WriteString("No security issues found.\n")
 		return sb.String()
 	}
 
-	// 按严重性分组
+	// Group by severity.
 	groups := map[string][]har.SecurityFinding{
 		"high":   {},
 		"medium": {},
@@ -118,10 +118,10 @@ func formatSecurityReport(report *har.SecurityReport, severity string) string {
 
 	severityLabels := []string{"high", "medium", "low", "info"}
 	severityNames := map[string]string{
-		"high":   "高危",
-		"medium": "中危",
-		"low":    "低危",
-		"info":   "信息",
+		"high":   "High",
+		"medium": "Medium",
+		"low":    "Low",
+		"info":   "Info",
 	}
 
 	for _, sev := range severityLabels {
@@ -137,10 +137,10 @@ func formatSecurityReport(report *har.SecurityReport, severity string) string {
 			if f.EntryURL != "" {
 				sb.WriteString(fmt.Sprintf("     URL: %s\n", f.EntryURL))
 			}
-			sb.WriteString(fmt.Sprintf("     类别: %s\n", f.Category))
-			sb.WriteString(fmt.Sprintf("     描述: %s\n", f.Description))
+			sb.WriteString(fmt.Sprintf("     Category: %s\n", f.Category))
+			sb.WriteString(fmt.Sprintf("     Description: %s\n", f.Description))
 			if f.Remedy != "" {
-				sb.WriteString(fmt.Sprintf("     修复: %s\n", f.Remedy))
+				sb.WriteString(fmt.Sprintf("     Remediation: %s\n", f.Remedy))
 			}
 			sb.WriteString("\n")
 		}
@@ -149,7 +149,7 @@ func formatSecurityReport(report *har.SecurityReport, severity string) string {
 	return sb.String()
 }
 
-// mustGetBool 从命令行标志获取布尔值
+// mustGetBool reads a boolean command-line flag.
 func mustGetBool(cmd *cobra.Command, name string) bool {
 	v, _ := cmd.Flags().GetBool(name)
 	return v

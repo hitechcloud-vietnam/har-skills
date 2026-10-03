@@ -1,33 +1,33 @@
 ---
-title: Provider 接口
+title: Provider Interfaces
 titleTemplate: false
 ---
 
-# Provider 接口
+# Provider Interfaces
 
-四种解析策略返回的具体类型各不相同（`*Har`、`*OptimizedHar`、`*LazyHar`、`EntryIterator`）。SDK 用 `interfaces.go` 中的一族 `Provider` 接口把它们统一起来，让你能面向抽象编程，再按需用 `ToStandard()` 取回完整 `*Har`。
+The four parsing strategies return different concrete types (`*Har`, `*OptimizedHar`, `*LazyHar`, `EntryIterator`). The SDK unifies them with a family of `Provider` interfaces in `interfaces.go`, so you can program to an abstraction and fall back to the full `*Har` via `ToStandard()` whenever needed.
 
-## 为什么需要接口族
+## Why an interface family
 
-假设你写了一个通用函数，想统计任意来源 HAR 的请求总数。如果它只接受 `*Har`，那么 `*OptimizedHar` 和 `*LazyHar` 的调用方就必须先 `ToStandard()` 做一次转换——可能抵消 optimized/lazy 的内存收益。接口族让函数签名收 `HARProvider`，调用方传入真实实现即可，无需提前物化。
+Suppose you write a generic function that counts requests in a HAR from any source. If it accepts only `*Har`, callers with `*OptimizedHar` or `*LazyHar` must `ToStandard()` first — possibly negating the memory benefits of optimized/lazy. The interface family lets the function signature take `HARProvider`; callers pass in the real implementation without upfront materialization.
 
 ```go
-// 通用处理：不关心底层是 standard / optimized / lazy
+// Generic handler: indifferent to standard / optimized / lazy
 func countEntries(p har.HARProvider) int {
     return len(p.GetEntries())
 }
 ```
 
-`standard_impl.go`、`optimized_impl.go`、`lazy_impl.go` 各自让自己的类型实现这族接口，因此同一个 `countEntries` 能吃下三种实现。
+`standard_impl.go`, `optimized_impl.go`, and `lazy_impl.go` each make their own type implement this family, so the same `countEntries` accepts all three implementations.
 
-### 接口族与四种实现的关系
+### How the interface family maps to the four implementations
 
-下图是 `interfaces.go` 接口族与四种实现的对应关系：实线表示"实现接口"，虚线表示 streaming 走的是迭代器而非 Provider 路径。
+The diagram below shows how the `interfaces.go` interface family corresponds to the four implementations: solid lines mean "implements", the dashed line means streaming takes the iterator path rather than the Provider path.
 
 ```mermaid
 flowchart TD
-    subgraph IF[接口族 interfaces.go]
-        HAR[HARProvider<br/>顶层]
+    subgraph IF[Interface family, interfaces.go]
+        HAR[HARProvider<br/>top-level]
         EP[EntryProvider]
         RP[RequestProvider]
         RSP[ResponseProvider]
@@ -47,17 +47,17 @@ flowchart TD
         HAR -->|GetPages| PP
     end
 
-    subgraph IMPL[四种实现]
+    subgraph IMPL[Four implementations]
         H[*Har<br/>standard_impl.go]
         OH[*OptimizedHar<br/>optimized_impl.go]
         LH[*LazyHar<br/>lazy_impl.go]
         ITER[EntryIterator<br/>streaming.go]
     end
 
-    H -.->|实现全部| HAR
-    OH -.->|实现全部| HAR
-    LH -.->|实现全部| HAR
-    ITER -.->|不实现 HARProvider<br/>迭代器模式| EP
+    H -.->|implements all| HAR
+    OH -.->|implements all| HAR
+    LH -.->|implements all| HAR
+    ITER -.->|does not implement HARProvider<br/>iterator pattern| EP
 
     H:::blue
     OH:::green
@@ -70,7 +70,7 @@ flowchart TD
     classDef red fill:#dc2626,color:#fff;
 ```
 
-## HARProvider —— 顶层接口
+## HARProvider — the top-level interface
 
 ```go
 type HARProvider interface {
@@ -83,26 +83,26 @@ type HARProvider interface {
 }
 ```
 
-`GetEntries()` 返回的是 `[]EntryProvider`，而不是 `[]Entries`——这是递归的抽象：每个条目也是接口，按需 `.ToStandard()` 物化成 `Entries`。`ToStandard()` 是逃生舱：任何时候你需要 `*Har` 的全部方法（`Statistics()`、`SecurityAudit()`、`Filter()` 等），都能拿回来。
+`GetEntries()` returns `[]EntryProvider`, not `[]Entries` — a recursive abstraction: each entry is also an interface, materialized to `Entries` on demand via `.ToStandard()`. `ToStandard()` is the escape hatch: any time you need the full set of `*Har` methods (`Statistics()`, `SecurityAudit()`, `Filter()`, ...), you can get it back.
 
 ```go
 p, err := har.ParseFile("capture.har", har.WithMemoryOptimized())
 if err != nil {
     log.Fatal(err)
 }
-// p 是 HARProvider；按需取标准形态
+// p is HARProvider; take the standard form on demand
 h := p.ToStandard()
 report := h.SecurityAudit()
 fmt.Println("security score:", report.Score)
 ```
 
-::: tip ToStandard() 的代价因实现而异
-- standard：返回自身，零成本。
-- optimized：把压缩表示转回规范结构体，一次性分配。
-- lazy：转回时元数据立即可用，但 `Content.Text` 仍保持惰性，直到被访问。
+::: tip ToStandard() cost varies by implementation
+- standard: returns itself, zero cost.
+- optimized: converts the compressed representation back to spec structs in one allocation.
+- lazy: metadata is immediately available after conversion, but `Content.Text` stays lazy until accessed.
 :::
 
-## EntryProvider —— 单条目接口
+## EntryProvider — the per-entry interface
 
 ```go
 type EntryProvider interface {
@@ -116,7 +116,7 @@ type EntryProvider interface {
 }
 ```
 
-`EntryProvider` 是遍历条目时的基本单元。注意它返回的是 `RequestProvider`/`ResponseProvider`/`TimingsProvider`，层层抽象。
+`EntryProvider` is the basic unit when walking entries. Note it returns `RequestProvider` / `ResponseProvider` / `TimingsProvider` — abstraction all the way down.
 
 ```go
 func printStatuses(p har.HARProvider) {
@@ -128,7 +128,7 @@ func printStatuses(p har.HARProvider) {
 }
 ```
 
-在 lazy 实现里，`ep.GetResponse().GetContent().GetText()` 才会触发该条目响应体的解析——这是接口抽象与惰性求值协同的关键：调用方代码看起来与 standard 完全一样，但底层的 body 解析被推迟了。
+In the lazy implementation, `ep.GetResponse().GetContent().GetText()` is what triggers parsing of that entry's body — the key to how interface abstraction cooperates with lazy evaluation: the caller code looks identical to standard, but the body parse is deferred.
 
 ## RequestProvider / ResponseProvider
 
@@ -159,11 +159,11 @@ type ResponseProvider interface {
 }
 ```
 
-注意 `GetQueryString()` 直接返回值类型 `[]QueryString`，而 `GetHeaders()` 返回 `[]HeaderProvider`——这种不对称是有意的：查询参数简单且高频全量遍历，header 在 optimized 实现里是 map，需要接口适配才能统一访问。
+Note `GetQueryString()` returns the value type `[]QueryString` directly, while `GetHeaders()` returns `[]HeaderProvider` — the asymmetry is intentional: query strings are simple and traversed in full frequently, whereas headers are a `map` in the optimized implementation and need an interface adapter for uniform access.
 
 ## HeaderProvider / CookieProvider / ContentProvider
 
-这三个是最细粒度的接口，分别对应头部、Cookie、响应内容。
+These three are the finest-grained interfaces, covering headers, cookies, and response content.
 
 ```go
 type HeaderProvider interface {
@@ -194,7 +194,7 @@ type ContentProvider interface {
 }
 ```
 
-`CookieProvider` 用 `IsHTTPOnly()`/`IsSecure()` 而非 `GetHTTPOnly()`——遵循 Go 对布尔 getter 的命名惯例。`ContentProvider.GetText()` 是 lazy 策略的延迟触发点。
+`CookieProvider` uses `IsHTTPOnly()` / `IsSecure()` rather than `GetHTTPOnly()` — following the Go naming convention for boolean getters. `ContentProvider.GetText()` is the deferred trigger point of the lazy strategy.
 
 ## TimingsProvider / PageProvider / PageTimingsProvider
 
@@ -225,32 +225,32 @@ type PageTimingsProvider interface {
 }
 ```
 
-`TimingsProvider` 只暴露规范核心字段，省略了 Chrome 扩展的 `_blocked_queueing`/`_blocked_proxy`——接口聚焦跨实现稳定存在的部分。需要扩展字段时，用 `ToStandard()` 取回完整 `Timings`。
+`TimingsProvider` exposes only the spec's core fields, omitting the Chrome extensions `_blocked_queueing` / `_blocked_proxy` — the interface focuses on what is stable across implementations. When you need the extension fields, use `ToStandard()` to get the full `Timings`.
 
-## 各实现如何满足接口
+## How each implementation satisfies the interfaces
 
-| 实现 | 文件 | HARProvider | EntryProvider | 备注 |
-|------|------|-------------|---------------|------|
-| standard | `standard_impl.go` | `*Har` | `*Entries` 直接返回 | `ToStandard()` 返回自身 |
-| optimized | `optimized_impl.go` + `memory.go` | `*OptimizedHar` | `*OptimizedEntries` | 另有 `ToStandardHar()` 别名与 `SearchBy*` |
-| lazy | `lazy_impl.go` | `*LazyHar` | `*LazyEntries` | `GetText()` 触发惰性解析 |
-| streaming | `streaming.go` | **不实现** | 通过 `EntryIterator` | 迭代器模式，无随机访问 |
+| Implementation | File | HARProvider | EntryProvider | Notes |
+|----------------|------|-------------|---------------|-------|
+| standard | `standard_impl.go` | `*Har` | `*Entries` returned directly | `ToStandard()` returns self |
+| optimized | `optimized_impl.go` + `memory.go` | `*OptimizedHar` | `*OptimizedEntries` | Also has `ToStandardHar()` alias and `SearchBy*` |
+| lazy | `lazy_impl.go` | `*LazyHar` | `*LazyEntries` | `GetText()` triggers lazy parse |
+| streaming | `streaming.go` | **does not implement** | via `EntryIterator` | iterator pattern, no random access |
 
-`standard_impl.go` 让 `*Har` 直接实现接口——字段就是接口返回值，零转换。编译期断言 `var _ HARProvider = (*Har)(nil)` 和 `var _ HARProvider = (*LazyHar)(nil)` 保证契约不被破坏。
+`standard_impl.go` makes `*Har` implement the interface directly — the fields are the return values, no conversion. Compile-time assertions `var _ HARProvider = (*Har)(nil)` and `var _ HARProvider = (*LazyHar)(nil)` keep the contract from breaking.
 
 ```go
-// standard_impl.go（简化）
+// standard_impl.go (simplified)
 func (h *Har) GetVersion() string          { return h.Log.Version }
 func (h *Har) GetCreator() Creator         { return h.Log.Creator }
 func (h *Har) GetBrowser() Browser         { return h.Log.Browser }
-func (h *Har) GetEntries() []EntryProvider { /* 把 []Entries 适配成 []EntryProvider */ }
-func (h *Har) GetPages() []PageProvider    { /* 同上 */ }
+func (h *Har) GetEntries() []EntryProvider { /* adapt []Entries into []EntryProvider */ }
+func (h *Har) GetPages() []PageProvider    { /* same */ }
 func (h *Har) ToStandard() *Har            { return h }
 ```
 
-## streaming 是迭代器模式，不是 Provider
+## streaming is an iterator pattern, not a Provider
 
-`streaming` 策略有意识地不实现 `HARProvider`：流式解析不支持"获取全部条目"，因此没有 `GetEntries()`/`ToStandard()`。它返回 `EntryIterator`，调用方用 `Next()` 推进、`Entry()` 取当前条目。
+The `streaming` strategy deliberately does not implement `HARProvider`: streaming does not support "get all entries", so it has no `GetEntries()` / `ToStandard()`. It returns `EntryIterator`; callers advance with `Next()` and read the current entry with `Entry()`.
 
 ```go
 iter, err := har.NewStreamingParserFromFile("huge.har")
@@ -260,7 +260,7 @@ if err != nil {
 defer iter.Close()
 
 for iter.Next() {
-    e := iter.Entry() // *Entries，已是值类型，可直接用字段
+    e := iter.Entry() // *Entries, already a value type, fields usable directly
     if e.Response.Status >= 500 {
         fmt.Println("5xx:", e.Request.URL)
     }
@@ -270,50 +270,50 @@ if err := iter.Err(); err != nil {
 }
 ```
 
-如果你拿到一个 `EntryIterator` 却又需要某条目的接口视图，可以直接用 `*Entries`（它满足 `EntryProvider`，因为 standard 实现就在 `*Entries` 上定义了接口方法）。
+If you hold an `EntryIterator` but want an interface view of an entry, you can use `*Entries` directly (it satisfies `EntryProvider`, since the standard implementation defines the interface methods on `*Entries`).
 
-streaming 迭代器的推进时序——`Decoder.Token()` 增量推进，每条 `Entry()` 都是上一轮 `Next()` 解码出的 `*Entries`：
+The advance sequence of the streaming iterator — `Decoder.Token()` drives incrementally, and each `Entry()` is the `*Entries` decoded by the previous `Next()`:
 
 ```mermaid
 sequenceDiagram
-    participant Caller as 调用方
+    participant Caller as Caller
     participant Iter as EntryIterator(streaming.go)
     participant Dec as json.Decoder
     participant Token as Decoder.Token()
 
     Caller->>Iter: NewStreamingParserFromFile("huge.har")
-    Iter->>Dec: 打开文件、构造 Decoder
+    Iter->>Dec: open file, build Decoder
     Caller->>Iter: defer Close()
 
-    loop 逐条 yield entry
+    loop yield one entry at a time
         Caller->>Iter: Next()
-        Iter->>Token: 推进到下一个 entries 边界
-        Token-->>Iter: { / } / 字段 token
-        Iter->>Token: Decode 出一条 *Entries
-        Token-->>Iter: entry 物化
+        Iter->>Token: advance to next entries boundary
+        Token-->>Iter: { / } / field token
+        Iter->>Token: Decode one *Entries
+        Token-->>Iter: entry materialized
         Iter-->>Caller: true
         Caller->>Iter: Entry()
-        Iter-->>Caller: *Entries（值类型，字段直接可用）
+        Iter-->>Caller: *Entries (value type, fields usable)
     end
 
     Caller->>Iter: Next()
-    Note over Token: 无更多条目
+    Note over Token: no more entries
     Iter-->>Caller: false
     Caller->>Iter: Err()
-    Iter-->>Caller: nil / 解析错误
+    Iter-->>Caller: nil / decode error
     Caller->>Iter: Close()
-    Note over Iter,Token: 释放底层 reader
+    Note over Iter,Token: release underlying reader
 ```
 
-## 面向抽象编程的典型模式
+## A typical "program to the abstraction" pattern
 
 ```go
-// 1. 接收 HARProvider，不关心来源
+// 1. Accept HARProvider, indifferent to source
 func summarize(p har.HARProvider) {
     fmt.Printf("HAR %s, %d entries, creator=%s\n",
         p.GetVersion(), len(p.GetEntries()), p.GetCreator().Name)
 
-    // 2. 只在需要完整 API 时才 ToStandard()
+    // 2. Only ToStandard() when you actually need the full API
     h := p.ToStandard()
     stats := h.Statistics()
     fmt.Printf("total entries: %d, total size: %d\n",
@@ -321,7 +321,7 @@ func summarize(p har.HARProvider) {
 }
 
 func main() {
-    // 同一个 summarize 适用于三种实现
+    // The same summarize works for all three implementations
     if p, err := har.ParseFile("a.har"); err == nil {
         summarize(p)
     }
@@ -334,27 +334,27 @@ func main() {
 }
 ```
 
-这个模式的要点：
+The points of this pattern:
 
-1. **入口处收 `HARProvider`**，调用方传任何实现都不用改函数。
-2. **延迟 `ToStandard()`** 到真正需要 `*Har` 专属方法时。如果函数只用接口方法，连转换都省了。
-3. **streaming 单独处理**——它是迭代器，不进 `HARProvider` 路径。
+1. **Take `HARProvider` at the entry point**; callers can pass any implementation without changing the function.
+2. **Defer `ToStandard()`** until you truly need `*Har`-specific methods. If the function only uses interface methods, skip the conversion entirely.
+3. **Handle streaming separately** — it is an iterator and does not enter the `HARProvider` path.
 
-下面的流程图概括了"面向抽象编程 → 按需 ToStandard() 取回完整 API"的调用流：
+The flowchart below summarizes the call flow of "program to the abstraction → ToStandard() on demand for the full API":
 
 ```mermaid
 flowchart LR
-    A[调用方持有 HARProvider] --> B{只需接口方法？}
-    B -- 是 --> C[直接用 GetEntries/GetVersion 等]
-    B -- 否，需 *Har 专属方法 --> D["p.ToStandard()"]
-    D --> E{底层是哪种实现？}
-    E -- standard --> F1[返回自身<br/>零成本]
-    E -- optimized --> F2[压缩表示转回规范结构体<br/>一次性分配]
-    E -- lazy --> F3[元数据立即可用<br/>Content.Text 仍惰性]
-    F1 --> G[*Har 完整 API<br/>Statistics/SecurityAudit/Filter...]
+    A[Caller holds HARProvider] --> B{Only need interface methods?}
+    B -- yes --> C[Use GetEntries/GetVersion etc. directly]
+    B -- no, need *Har-specific methods --> D["p.ToStandard()"]
+    D --> E{Which implementation is underneath?}
+    E -- standard --> F1[returns self<br/>zero cost]
+    E -- optimized --> F2[converts compressed form to spec structs<br/>one allocation]
+    E -- lazy --> F3[metadata available now<br/>Content.Text still lazy]
+    F1 --> G[Full *Har API<br/>Statistics/SecurityAudit/Filter...]
     F2 --> G
     F3 --> G
-    C --> End([结束])
+    C --> End([Done])
     G --> End
 
     F1:::blue
@@ -365,7 +365,7 @@ flowchart LR
     classDef orange fill:#ea580c,color:#fff;
 ```
 
-## 下一步
+## Next steps
 
-- 控制 `Parse()` 走哪种策略的 `Option` 与预设，见 [函数式选项](./functional-options)。
-- 拿到 `*Har` 后如何筛选条目，见 [过滤与链式结果](./filtering)。
+- For the `Option`s and presets that control which strategy `Parse()` takes, see [Functional options](./functional-options).
+- For how to filter entries once you have a `*Har`, see [Filtering and chained results](./filtering).

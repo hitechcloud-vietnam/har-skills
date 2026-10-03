@@ -1,87 +1,87 @@
 ---
-title: 流式解析原理
+title: Streaming Parsing Internals
 ---
 
-# 流式解析原理
+# Streaming Parsing Internals
 
-GB 级 HAR 文件无法整份驻留内存——光是把 `[]byte` 读进来就已经超限。`StreamingHar` 用 `json.Decoder` 的 token 推进，只解析元信息，`entries` 数组则逐条 `Decode`，让一条条 entry 像流水线一样流过你的处理函数。
+A multi-GB HAR file cannot live resident in memory — just reading the `[]byte` already exceeds the budget. `StreamingHar` drives `json.Decoder` token by token: it parses only metadata, then decodes the `entries` array one element at a time, so entries stream through your handler like parts on a conveyor.
 
-## 问题：GB 级文件无法全量驻留
+## The Problem: GB-scale Files Can't Be Resident
 
-标准 `ParseHar` 的第一步是 `json.Unmarshal(bytes, &har)`，前提是整个文件的 `[]byte` 都在内存里。一个 2GB 的 HAR 在 64 位 Go 里至少要 2GB 连续堆内存，还不算反序列化出的对象图。这既不现实，也没必要——大多数分析任务只需要遍历 entry 一次。
+Standard `ParseHar` starts with `json.Unmarshal(bytes, &har)`, which requires the entire file's `[]byte` in memory. A 2GB HAR needs at least 2GB of contiguous heap on 64-bit Go — before counting the deserialized object graph. That's both impractical and unnecessary: most analyses only need to walk each entry once.
 
-## 方案：json.Decoder 的 Token/Decode 增量推进
+## The Plan: Token/Decode Incremental Advancement with json.Decoder
 
-`encoding/json` 的 `Decoder` 能以 token 为单位前进。`StreamingHar` 的解析分两阶段：
+`encoding/json`'s `Decoder` advances one token at a time. `StreamingHar` parses in two phases:
 
-1. **元信息阶段**：用 `Token()` 推进到 `log` 对象内，逐字段 `Decode` 出 `version/creator/browser/pages`，直到遇到 `entries` 后的数组起始符 `[`。
-2. **条目阶段**：停在 `[` 之后，反复调用 `decoder.More()` + `decoder.Decode(&entry)` 逐条解析单个 `Entries`，直到 `]`。
+1. **Metadata phase**: drive `Token()` into the `log` object, `Decode` each `version/creator/browser/pages` field, until hitting the array-start `[` after `entries`.
+2. **Entry phase**: park just past `[`, then loop `decoder.More()` + `decoder.Decode(&entry)` to parse one `Entries` at a time until `]`.
 
-### Token 推进状态机
+### Token-Advancement State Machine
 
 ```mermaid
 stateDiagram-v2
-  [*] --> OpenBrace : "{ } 首个 token"
-  OpenBrace --> LogKey : Token() 找到 "log"
-  LogKey --> LogObj : Token() 期望 "{"
-  LogObj --> FieldName : 进入 log 对象
-  FieldName --> Version : 字段名为 "version" → Decode(&version)
-  FieldName --> Creator : 字段名为 "creator" → Decode(&creator)
-  FieldName --> Browser : 字段名为 "browser" → Decode(&browser)
-  FieldName --> Pages : 字段名为 "pages" → Decode(&pages)
-  FieldName --> EntriesArr : 字段名为 "entries" → Token() 期望 "["
-  FieldName --> Skip : 其他 → Decode(&dummy) 跳过
-  Version --> FieldName : 返回读取下一字段
+  [*] --> OpenBrace : "{ } first token"
+  OpenBrace --> LogKey : Token() finds "log"
+  LogKey --> LogObj : Token() expects "{"
+  LogObj --> FieldName : enter log object
+  FieldName --> Version : "version" → Decode(&version)
+  FieldName --> Creator : "creator" → Decode(&creator)
+  FieldName --> Browser : "browser" → Decode(&browser)
+  FieldName --> Pages : "pages" → Decode(&pages)
+  FieldName --> EntriesArr : "entries" → Token() expects "["
+  FieldName --> Skip : other → Decode(&dummy) skip
+  Version --> FieldName : read next field
   Creator --> FieldName
   Browser --> FieldName
   Pages --> FieldName
   Skip --> FieldName
-  EntriesArr --> Stop : 停！记录 fileOffset
-  Stop --> [*] : parseHarBasicInfo 返回
-  Stop --> Iter : StreamingEntryIterator.Next() 逐条 Decode
+  EntriesArr --> Stop : stop! record fileOffset
+  Stop --> [*] : parseHarBasicInfo returns
+  Stop --> Iter : StreamingEntryIterator.Next() decodes entry by entry
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```
-                       Token() 推进序列
+                       Token() sequence
                        ─────────────────
-  {  ──► "log"  ──►  {  ──►  字段名(字符串)  ──►  Decode(值)  ──► ... ──►  }
+  {  ──► "log"  ──►  {  ──►  field-name(string)  ──►  Decode(value)  ──► ... ──►  }
   ▲                                              │
-  │                                              │ 字段名为以下之一:
+  │                                              │ field name is one of:
   findHarObjectStart                             │  "version"  → Decode(&version)
-  (期望首个 token 为 '{')                         │  "creator"  → Decode(&creator)
+  (expects first token '{')                      │  "creator"  → Decode(&creator)
                                                  │  "browser"  → Decode(&browser)
                                                  │  "pages"    → Decode(&pages)
-                                                 │  "entries"  → Token() 期望 '[' → 停！
-                                                 │  (其他)     → Decode(&dummy) 跳过
+                                                 │  "entries"  → Token() expect '[' → stop!
+                                                 │  (other)    → Decode(&dummy) skip
                                                  ▼
-                                          遇到 "entries" + '['
+                                          hit "entries" + '['
                                                  │
                                                  ▼
-                                   parseHarBasicInfo 返回，记录 fileOffset
+                                   parseHarBasicInfo returns, record fileOffset
                                                  │
                                                  ▼
-                            StreamingEntryIterator.Next() 逐条 Decode
+                            StreamingEntryIterator.Next() decodes entry by entry
 ```
 </details>
 
-关键代码（`streaming.go`）：
+Key code (`streaming.go`):
 
 ```go
 func findHarObjectStart(decoder *json.Decoder) error {
-    token, err := decoder.Token() // 期望 '{'
+    token, err := decoder.Token() // expect '{'
     if delim, ok := token.(json.Delim); !ok || delim != '{' {
         return errors.New("expected { at the start of HAR file")
     }
     for {
-        token, err := decoder.Token() // 找 "log"
+        token, err := decoder.Token() // find "log"
         if str, ok := token.(string); ok && str == "log" {
             break
         }
     }
-    token, _ = decoder.Token() // 期望 '{'
+    token, _ = decoder.Token() // expect '{'
     if delim, ok := token.(json.Delim); !ok || delim != '{' {
         return errors.New("expected { after log field")
     }
@@ -89,20 +89,20 @@ func findHarObjectStart(decoder *json.Decoder) error {
 }
 ```
 
-`parseHarBasicInfo` 用 `switch` 分派字段名；遇到不认识的字段就 `Decode(&dummy interface{})` 跳过——这是 `Decoder` 比 `Unmarshal` 强的地方：**可以跳过不需要的字段而不报错**。
+`parseHarBasicInfo` dispatches on the field name with a `switch`; unknown fields get `Decode(&dummy interface{})` — that's the `Decoder` edge over `Unmarshal`: **it can skip fields you don't care about without error**.
 
-## 关键：文件源可重开
+## Key: The File Source Is Re-openable
 
-迭代器必须能"重置"——多次调用 `Entries()` 各拿一个独立游标。但 `json.Decoder` 不可回退。文件源（`*os.File`）的处理是：**重新打开文件，再走一遍 `findHarObjectStart` + `parseHarBasicInfo` 跳到 entries 数组**：
+An iterator must be resettable — multiple `Entries()` calls each get an independent cursor. But `json.Decoder` cannot rewind. For a file source (`*os.File`) the strategy is: **reopen the file and replay `findHarObjectStart` + `parseHarBasicInfo` to jump back to the entries array**:
 
 ```go
-// streaming.go — (*StreamingHar).Entries() 的文件分支
+// streaming.go — (*StreamingHar).Entries() file branch
 filePath := h.file.Name()
-reopenedFile, err := os.Open(filePath)              // 重新打开
+reopenedFile, err := os.Open(filePath)              // reopen
 reopenedDecoder := json.NewDecoder(reopenedFile)
-findHarObjectStart(reopenedDecoder)                 // 重新定位到 log.{
+findHarObjectStart(reopenedDecoder)                 // relocate to log.{
 throwawayHar := &StreamingHar{}
-parseHarBasicInfo(reopenedDecoder, throwawayHar)   // 重新推进到 entries[
+parseHarBasicInfo(reopenedDecoder, throwawayHar)   // re-advance to entries[
 return &StreamingEntryIterator{
     har:            h,
     file:           reopenedFile,
@@ -111,60 +111,60 @@ return &StreamingEntryIterator{
 }
 ```
 
-字节源（`data []byte`）更简单——每次 `Entries()` 都新建一个 `bytes.NewReader`，零成本。
+The bytes source (`data []byte`) is simpler — each `Entries()` just makes a fresh `bytes.NewReader`, zero cost.
 
 ```mermaid
 flowchart TD
-  subgraph BYTES["字节源 data []byte"]
-    BE["Entries() 调用"] --> BD["json.NewDecoder(bytes.NewReader(data))"]
-    BD --> BR["重新 findHarObjectStart + parseHarBasicInfo"]
+  subgraph BYTES["bytes source data []byte"]
+    BE["Entries() call"] --> BD["json.NewDecoder(bytes.NewReader(data))"]
+    BD --> BR["fresh findHarObjectStart + parseHarBasicInfo"]
   end
-  subgraph FILE["文件源 *os.File"]
-    FE["Entries() 调用"] --> FO["os.Open(同路径) 重新打开"]
+  subgraph FILE["file source *os.File"]
+    FE["Entries() call"] --> FO["os.Open(same path) reopen"]
     FO --> FD["json.NewDecoder(reopenedFile)"]
-    FD --> FR["重新 findHarObjectStart + parseHarBasicInfo"]
+    FD --> FR["fresh findHarObjectStart + parseHarBasicInfo"]
   end
-  NOTE["原 file 句柄仍保留，供元信息查询；不参与迭代"]:::note
+  NOTE["original file handle retained for metadata queries; not used by iteration"]:::note
   classDef note fill:#fff3cd,stroke:#856404
   FILE -.-> NOTE
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```
-字节源 data []byte                 文件源 *os.File
+bytes source data []byte            file source *os.File
 ────────────────────              ────────────────────────────
 Entries()                          Entries()
-  └─ json.NewDecoder(bytes.NewReader(data))   └─ os.Open(同路径) 重新打开
-      └─ 重新 findHarObjectStart + parseHarBasicInfo
-                                              （原 file 句柄仍保留，
-                                               供元信息查询；不参与迭代）
+  └─ json.NewDecoder(bytes.NewReader(data))   └─ os.Open(same path) reopen
+      └─ fresh findHarObjectStart + parseHarBasicInfo
+                                              (the original file handle is retained
+                                               for metadata queries; not used by iteration)
 ```
 </details>
 
-`StreamingHar` 在构造时记录 `har.fileOffset = decoder.InputOffset()`，但实际迭代并不用它 seek——重开策略更简单可靠，且 `os.Open` 在大多数 OS 上是廉价操作。
+`StreamingHar` records `har.fileOffset = decoder.InputOffset()` at construction, but iteration doesn't actually seek on it — reopening is simpler and more robust, and `os.Open` is cheap on most OSes.
 
-## 类型与接口
+## Types and Interface
 
 ```go
 // streaming.go
 type EntryIterator interface {
-    Next() bool          // 推进到下一条；无更多则 false
-    Entry() *Entries     // 当前条目
-    Err() error          // 迭代过程中的错误（io.EOF 归一为 nil）
-    Close() error        // 关闭资源
+    Next() bool          // advance; false when no more
+    Entry() *Entries     // current entry
+    Err() error          // iteration error (io.EOF normalized to nil)
+    Close() error        // release resources
 }
 
 type StreamingHar struct {
-    file       *os.File   // 文件源（可能为 nil）
+    file       *os.File   // file source (may be nil)
     fileOffset int64
     mutex      sync.Mutex
     creator    Creator
     browser    Browser
     pages      []Pages
     version    string
-    data       []byte     // 字节源（可能为 nil）
+    data       []byte     // bytes source (may be nil)
 }
 
 type StreamingEntryIterator struct {
@@ -179,22 +179,22 @@ type StreamingEntryIterator struct {
 }
 ```
 
-`StreamingHar` 的方法分两类：
+`StreamingHar` methods split into two groups:
 
-| 方法 | 说明 |
-|------|------|
-| `GetVersion/GetCreator/GetBrowser/GetPages` | 元信息访问，已在构造时解析，O(1) |
-| `Entries()` | 返回新的 `*StreamingEntryIterator`（每次新建游标） |
-| `GetAllEntries()` | 便捷方法，内部用 `Entries()` 全量收集到切片——**会加载所有内容到内存**，仅作便利 |
-| `Close()` | 关闭底层文件句柄 |
+| Method | Notes |
+|--------|-------|
+| `GetVersion/GetCreator/GetBrowser/GetPages` | metadata access, parsed at construction, O(1) |
+| `Entries()` | returns a fresh `*StreamingEntryIterator` (new cursor each time) |
+| `GetAllEntries()` | convenience wrapper that collects everything into a slice — **loads all content into memory**, convenience only |
+| `Close()` | closes the underlying file handle |
 
-`StreamingEntryIterator` 的 `Next()`：
+`StreamingEntryIterator.Next()`:
 
 ```go
 func (it *StreamingEntryIterator) Next() bool {
     if it.closed || it.err != nil { return false }
-    if !it.entriesStarted { /* 找 "entries" + '[' */ }
-    if !it.decoder.More() { return false }       // 数组耗尽
+    if !it.entriesStarted { /* locate "entries" + '[' */ }
+    if !it.decoder.More() { return false }       // array exhausted
     var entry Entries
     if err := it.decoder.Decode(&entry); err != nil {
         it.err = wrapStreamingIteratorError("failed to decode streaming entry", err)
@@ -206,23 +206,23 @@ func (it *StreamingEntryIterator) Next() bool {
 }
 ```
 
-## 入口
+## Entry Points
 
-`streaming.go` 直接构造：
+Direct construction from `streaming.go`:
 
 ```go
-sh, err := NewStreamingHarFromFile("huge.har")  // 文件源
-sh, err := NewStreamingHarFromBytes(data)       // 字节源（注意：字节源会先全量 Unmarshal 取元信息）
+sh, err := NewStreamingHarFromFile("huge.har")  // file source
+sh, err := NewStreamingHarFromBytes(data)       // bytes source (note: bytes source still full-Unmarshals metadata first)
 it  := sh.Entries()
 for it.Next() {
     e := it.Entry() // *Entries
-    // 处理单条
+    // process one entry
 }
 if err := it.Err(); err != nil { /* ... */ }
 it.Close()
 ```
 
-`parse.go` 包装为 `EntryIterator`（与函数选项体系对齐）：
+`parse.go` wraps it as `EntryIterator` (aligned with the functional-options system):
 
 ```go
 // parse.go
@@ -230,36 +230,38 @@ func NewStreamingParser(harBytes []byte, opts ...Option) (EntryIterator, error)
 func NewStreamingParserFromFile(filePath string, opts ...Option) (EntryIterator, error)
 ```
 
-> 注意 `Parse(...)` 函数选项入口在 `useStreaming` 时会返回 `ErrCodeUnsupported`——流式解析不返回完整 HAR 对象，必须用 `NewStreamingParser*`。这是设计上的有意为之。
+> Note: the `Parse(...)` functional-options entry returns `ErrCodeUnsupported` when `useStreaming` is set — streaming parsing doesn't return a complete HAR object; you must use `NewStreamingParser*`. This is intentional.
 
-## 重要：StreamingHar 不是完整 HARProvider
+## Important: StreamingHar Is Not a Full HARProvider
 
-`StreamingHar` **不实现** `HARProvider` 接口——它没有 `GetEntries() []EntryProvider`（那会要求全量驻留）。它是流式专用入口，只暴露元信息访问和迭代器。若需要完整 `HARProvider` 语义，把 `GetAllEntries()` 的结果装回 `*Har` 即可，但那就放弃了流式的内存优势。
+`StreamingHar` **does not implement** the `HARProvider` interface — it has no `GetEntries() []EntryProvider` (that would require full residency). It's a streaming-only entry point exposing metadata access and iterators. If you need full `HARProvider` semantics, stuff `GetAllEntries()`'s result into a `*Har` — but that surrenders streaming's memory advantage.
 
-## 适用场景
+## When to Use
 
 ```mermaid
 flowchart TD
-  Q1{"文件大小 / 是否需要全量驻留？"}
-  Q1 -->|"GB 级"| STREAM["StreamingHar<br/>（逐条处理、过滤后写盘、流式统计、按条件转储）"]
-  Q1 -->|"MB 级"| STD["标准解析足够<br/>（info / statistics / security / 完整分析）"]
+  Q1{"File size / do you need full residency?"}
+  Q1 -->|"GB-scale"| STREAM["StreamingHar<br/>(per-entry processing, filter-then-dump,<br/>streaming stats, conditional extraction)"]
+  Q1 -->|"MB"| STD["standard parsing is enough<br/>(info / statistics / security / full analysis)"]
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 文件大小 / 是否需要全量驻留？                                  │
+│ File size / do you need full residency?                       │
 └────────┬───────────────────────────┬─────────────────────────┘
-  GB 级  │                       MB  │
+  GB-scale│                       MB │
          ▼                           ▼
-   StreamingHar               标准解析足够
-   (逐条处理、过滤后写盘、      (info / statistics /
-    流式统计、按条件转储)        security / 完整分析)
+   StreamingHar               standard parsing is enough
+   (per-entry processing,      (info / statistics /
+    filter-then-dump,           security / full analysis)
+    streaming stats,
+    conditional extraction)
 ```
 </details>
 
-- **适合**：超大文件逐条处理——流式统计（按域名/状态码计数）、按条件过滤后转储到新 HAR、只对匹配 entry 做 body 提取。
-- **不适合**：需要随机访问任意 index、需要 diff/merge 这类跨 entry 全量操作、需要完整 `HARProvider` 接口的场景。
-- **字节源注意**：`NewStreamingHarFromBytes` 内部仍会 `json.Unmarshal` 整份数据取元信息——它适合"已有字节、想用统一迭代 API"的场景；真正要省内存请用 `NewStreamingHarFromFile` 直接读文件。
+- **Good fit**: per-entry processing of very large files — streaming stats (per-domain/status counts), filter-then-dump to a new HAR, body extraction only on matching entries.
+- **Bad fit**: random access by index, cross-entry operations like diff/merge, or anything requiring the full `HARProvider` interface.
+- **Bytes source note**: `NewStreamingHarFromBytes` still `json.Unmarshal`s the whole payload to get metadata — it suits the "already have bytes, want the unified iterator API" case. To actually save memory, use `NewStreamingHarFromFile` and read straight from disk.

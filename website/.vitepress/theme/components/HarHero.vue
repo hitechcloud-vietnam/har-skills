@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-// 分屏 Hero：左侧标题与定位句，右侧渲染一段真实 HAR JSON 片段
-// 这比"大数字+渐变"更贴题 —— HAR 本质是 JSON 文本，直接展示它
+// Split-screen hero: title and positioning statement on the left, a real HAR JSON
+// snippet on the right. Showing the JSON itself fits better than large numbers and gradients.
 
 const props = defineProps<{
   eyebrow?: string
@@ -13,7 +13,7 @@ const props = defineProps<{
   secondary?: { text: string; link: string }
 }>()
 
-// 高亮标题中的一部分（用 highlight 标记）
+// Highlight a portion of the title using the highlight property.
 const titleParts = computed(() => {
   if (!props.highlight) return [{ text: props.title, hl: false }]
   const idx = props.title.indexOf(props.highlight)

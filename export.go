@@ -308,7 +308,7 @@ type PostmanBody struct {
 // ToPostmanCollection 将HAR转换为Postman Collection v2.1格式JSON
 func (h *Har) ToPostmanCollection() ([]byte, error) {
 	if h == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
 	collection := PostmanCollection{
@@ -500,7 +500,7 @@ type ContentXML struct {
 // ToXML 将HAR转换为XML格式
 func (h *Har) ToXML() (string, error) {
 	if h == nil {
-		return "", NewInvalidFormatError("HAR对象为空")
+		return "", NewInvalidFormatError("HAR object is nil")
 	}
 
 	harXML := HARXML{

@@ -6,17 +6,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// diffCmd 比较两个HAR文件的差异
+// diffCmd compares two HAR files.
 var diffCmd = &cobra.Command{
 	Use:   "diff <file1> <file2>",
-	Short: "比较两个HAR文件",
-	Long: `比较两个HAR文件的差异，找出新增、删除和修改的请求。
+	Short: "Compare two HAR files",
+	Long: `Compare two HAR files to find added, removed, and modified requests.
 
-示例:
-  har diff capture1.har capture2.har              # 比较两个HAR文件
-  har diff a.har b.har --ignore-headers=Cookie    # 忽略Cookie头部差异
-  har diff a.har b.har --compare-by-url           # 按URL匹配而非索引
-  har diff a.har b.har --include-body             # 比较响应体内容`,
+Examples:
+  har diff capture1.har capture2.har              # Compare two HAR files
+  har diff a.har b.har --ignore-headers=Cookie    # Ignore differences in the Cookie header
+  har diff a.har b.har --compare-by-url           # Match by URL instead of index
+  har diff a.har b.har --include-body             # Compare response bodies`,
 	Args: cobra.ExactArgs(2),
 	RunE: runDiff,
 }
@@ -24,23 +24,23 @@ var diffCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(diffCmd)
 
-	diffCmd.Flags().StringSlice("ignore-headers", nil, "忽略的头部字段名（逗号分隔）")
-	diffCmd.Flags().Bool("ignore-timings", true, "忽略时间差异")
-	diffCmd.Flags().Bool("ignore-dates", true, "忽略日期差异")
-	diffCmd.Flags().Bool("include-body", false, "比较响应体内容")
-	diffCmd.Flags().Bool("compare-by-url", false, "按URL匹配（默认按索引+URL）")
+	diffCmd.Flags().StringSlice("ignore-headers", nil, "Header names to ignore (comma-separated)")
+	diffCmd.Flags().Bool("ignore-timings", true, "Ignore timing differences")
+	diffCmd.Flags().Bool("ignore-dates", true, "Ignore date differences")
+	diffCmd.Flags().Bool("include-body", false, "Compare response bodies")
+	diffCmd.Flags().Bool("compare-by-url", false, "Match by URL (default: index and URL)")
 }
 
-// runDiff 执行差异比较命令
+// runDiff executes the diff command.
 func runDiff(cmd *cobra.Command, args []string) error {
-	// 加载两个HAR文件
+	// Load both HAR files.
 	har1 := internal.LoadHarFromArg(args[0])
 	har2 := internal.LoadHarFromArg(args[1])
 
-	// 构建差异比较选项
+	// Build diff options.
 	options := har.DefaultDiffOptions()
 
-	// 从命令行标志读取选项
+	// Read options from command-line flags.
 	ignoreHeaders, _ := cmd.Flags().GetStringSlice("ignore-headers")
 	ignoreTimings, _ := cmd.Flags().GetBool("ignore-timings")
 	ignoreDates, _ := cmd.Flags().GetBool("ignore-dates")
@@ -53,10 +53,10 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	options.IncludeBody = includeBody
 	options.CompareByURL = compareByURL
 
-	// 执行差异比较
+	// Compare the files.
 	diffResult := har.Diff(har1, har2, options)
 
-	// 根据输出格式输出结果
+	// Write the result in the requested format.
 	return internal.WriteOutput(cmd, diffResult,
 		func() string { return diffResult.Report(har.FormatText) },
 		func() string { return diffResult.Report(har.FormatCSV) },

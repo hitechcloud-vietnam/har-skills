@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// 签名元素：HAR entries 的 waterfall 时间轴条。
-// 把工具最原生的视觉语言搬到首页 —— 每条请求是一根横条，
-// blocked→dns→connect→ssl→send→wait→receive 分段着色，按真实比例排布。
-// 这不是装饰，而是工具本身的核心可视化。
+// Signature element: a waterfall timeline bar for HAR entries.
+// Bring the tool's native visual language to the home page: each request is a bar,
+// with blocked→dns→connect→ssl→send→wait→receive segments proportioned to real timings.
+// This is a core visualization, not decoration.
 
 interface Entry {
   url: string
   method: string
   status: number
-  // 各阶段耗时(ms)，用于计算宽度比例
+  // Duration of each phase (ms), used to calculate relative widths.
   blocked: number
   dns: number
   connect: number
@@ -18,7 +18,7 @@ interface Entry {
   receive: number
 }
 
-// 模拟一组真实抓包的 timing（比例接近真实网络场景）
+// Simulated timings from a capture, with proportions close to a real network scenario.
 const entries: Entry[] = [
   { url: 'api.example.com/users',     method: 'GET',  status: 200, blocked: 5,  dns: 12,  connect: 45, ssl: 38, send: 2,  wait: 128, receive: 22 },
   { url: 'cdn.example.com/app.js',    method: 'GET',  status: 200, blocked: 3,  dns: 8,   connect: 0,  ssl: 0,  send: 1,  wait: 45,  receive: 180 },
@@ -38,7 +38,7 @@ const phases = [
   { key: 'receive',  color: '#f59e0b' }
 ] as const
 
-// 计算每条 entry 的总时长，用于归一化宽度
+// Calculate each entry's total duration to normalize bar widths.
 const totalMax = Math.max(...entries.map(e =>
   e.blocked + e.dns + e.connect + e.ssl + e.send + e.wait + e.receive
 ))
@@ -69,7 +69,7 @@ function widthOf(ms: number) {
           <span class="har-wf__url">{{ e.url }}</span>
           <span class="har-wf__status" :class="statusClass(e.status)">{{ e.status }}</span>
         </div>
-        <div class="har-wf__bar" role="img" :aria-label="`${e.method} ${e.url} 状态 ${e.status}`">
+        <div class="har-wf__bar" role="img" :aria-label="`${e.method} ${e.url} status ${e.status}`">
           <span
             v-for="p in phases"
             :key="p.key"

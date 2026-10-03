@@ -9,16 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cacheCmd 分析HAR文件中的缓存头部
+// cacheCmd analyzes cache headers in a HAR file.
 var cacheCmd = &cobra.Command{
 	Use:   "cache",
-	Short: "分析HAR文件中的缓存头部",
-	Long: `分析HAR文件中响应的缓存相关头部，评估每个请求的可缓存性。
+	Short: "Analyze HAR cache headers",
+	Long: `Analyze cache-related response headers in a HAR file and assess the cacheability of each request.
 
-检查 Cache-Control、ETag、Last-Modified、Vary 等头部，
-输出每个条目的缓存评估结果。
+Checks headers such as Cache-Control, ETag, Last-Modified, and Vary,
+then outputs a cacheability assessment for each entry.
 
-示例:
+Examples:
   har -f capture.har cache
   har -f capture.har cache --non-cacheable
   har -f capture.har cache --url "https://api.example.com/data"
@@ -29,8 +29,8 @@ var cacheCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 
-	cacheCmd.Flags().Bool("non-cacheable", false, "仅显示不可缓存的条目")
-	cacheCmd.Flags().String("url", "", "仅显示指定URL的缓存评估")
+	cacheCmd.Flags().Bool("non-cacheable", false, "Show only non-cacheable entries")
+	cacheCmd.Flags().String("url", "", "Show the cache assessment for the specified URL only")
 }
 
 func runCache(cmd *cobra.Command, args []string) error {
@@ -38,7 +38,7 @@ func runCache(cmd *cobra.Command, args []string) error {
 
 	report := h.CacheAnalysis()
 
-	// 过滤
+	// Apply filters.
 	showNonCacheable, _ := cmd.Flags().GetBool("non-cacheable")
 	specificURL, _ := cmd.Flags().GetString("url")
 
@@ -49,9 +49,9 @@ func runCache(cmd *cobra.Command, args []string) error {
 	if specificURL != "" {
 		assessment := report.FindByURL(specificURL)
 		if assessment == nil {
-			return fmt.Errorf("未找到URL '%s' 的缓存评估", specificURL)
+			return fmt.Errorf("no cache assessment found for URL '%s'", specificURL)
 		}
-		// 替换为单个评估
+		// Keep only the matching assessment.
 		report.Assessments = []har.CacheEntryAssessment{*assessment}
 	}
 
@@ -60,32 +60,32 @@ func runCache(cmd *cobra.Command, args []string) error {
 	}, nil)
 }
 
-// formatCacheReport 格式化缓存分析报告为文本
+// formatCacheReport formats the cache analysis report as text.
 func formatCacheReport(report *har.CacheReport) string {
 	var sb strings.Builder
 
-	sb.WriteString("缓存分析报告\n")
+	sb.WriteString("Cache Analysis Report\n")
 	sb.WriteString("============\n")
-	sb.WriteString(fmt.Sprintf("可缓存: %d / 不可缓存: %d / 缓存效率: %.1f%%\n\n",
+	sb.WriteString(fmt.Sprintf("Cacheable: %d / Non-cacheable: %d / Cache efficiency: %.1f%%\n\n",
 		report.CacheableCount, report.NonCacheableCount, report.CacheEfficiency*100))
 
 	if len(report.Assessments) == 0 {
-		sb.WriteString("无缓存评估数据。\n")
+		sb.WriteString("No cache assessment data.\n")
 		return sb.String()
 	}
 
 	sb.WriteString(fmt.Sprintf("%-4s %-50s %-10s %-10s %-10s %-6s\n",
-		"#", "URL", "可缓存", "类型", "Max-Age", "ETag"))
+		"#", "URL", "Cacheable", "Type", "Max-Age", "ETag"))
 	sb.WriteString(strings.Repeat("-", 90) + "\n")
 
 	for _, a := range report.Assessments {
-		cacheable := "否"
+		cacheable := "No"
 		if a.Cacheable {
-			cacheable = "是"
+			cacheable = "Yes"
 		}
-		hasETag := "无"
+		hasETag := "No"
 		if a.HasETag {
-			hasETag = "有"
+			hasETag = "Yes"
 		}
 		maxAge := "N/A"
 		if a.MaxAge > 0 {

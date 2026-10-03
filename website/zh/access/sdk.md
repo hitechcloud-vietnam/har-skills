@@ -1,24 +1,24 @@
 ---
-title: Go SDK 接入
+title: Go SDK Access
 ---
 
-# Go SDK 接入
+# Go SDK Access
 
-需要把 HAR 分析嵌入自己的 Go 程序时，直接用根包 SDK：40 个模块、70+ 方法，零运行时依赖。
+When you need to embed HAR analysis in your own Go program, use the root-package SDK directly: 40 modules, 70+ methods, zero runtime dependencies.
 
-## 导入与依赖
+## Import and dependencies
 
 ```go
 import har "github.com/hitechcloud-vietnam/har-skills"
 ```
 
-::: tip 零运行时依赖
-SDK 运行时不依赖任何第三方库（仅 `encoding/json`、`net/http` 等标准库）。`testify` 仅用于测试，不会进入你的构建产物。go.mod 干净，适合嵌入对依赖敏感的项目。
+::: tip Zero runtime dependencies
+The SDK has no third-party runtime deps (only stdlib `encoding/json`, `net/http`, etc.). `testify` is test-only and never enters your build. A clean go.mod makes it safe to embed in dependency-sensitive projects.
 :::
 
-## 最小示例
+## Minimal example
 
-`ParseHarFile` → `Statistics` → `SecurityAudit`，三行覆盖最常见的「解析 → 概览 → 审计」：
+`ParseHarFile` → `Statistics` → `SecurityAudit` — three lines cover the common "parse → overview → audit" flow:
 
 ```go
 package main
@@ -35,7 +35,7 @@ func main() {
         panic(err)
     }
 
-    stats := h.Statistics()           // *HarStatistics：条目数、传输大小、状态码分布…
+    stats := h.Statistics()           // *HarStatistics: entry count, transfer size, status distribution…
     fmt.Printf("entries=%d  size=%d\n", stats.EntryCount, stats.TotalTransferSize)
 
     report := h.SecurityAudit()       // *SecurityReport
@@ -43,23 +43,23 @@ func main() {
 }
 ```
 
-常用入口一览：
+Common entry points:
 
-| 函数 | 入参 | 返回 | 适用 |
-|------|------|------|------|
-| `ParseHarFile(path)` | 文件路径 | `*Har, error` | 最常用，标准解析 |
-| `ParseHarFileAuto(path)` | 文件路径 | `*Har, error` | 自动识别 gzip |
-| `ParseHar(bytes)` | `[]byte` | `*Har, error` | 已在内存中的数据 |
-| `ParseHarFromReader(r)` | `io.Reader` | `*Har, error` | 流式来源（网络、管道） |
-| `Parse(bytes, opts...)` | `[]byte` + 选项 | `HARProvider, error` | 需要选解析策略时 |
+| Function | Input | Returns | Use when |
+|----------|-------|---------|----------|
+| `ParseHarFile(path)` | file path | `*Har, error` | default, standard parse |
+| `ParseHarFileAuto(path)` | file path | `*Har, error` | auto-detects gzip |
+| `ParseHar(bytes)` | `[]byte` | `*Har, error` | data already in memory |
+| `ParseHarFromReader(r)` | `io.Reader` | `*Har, error` | network/pipe source |
+| `Parse(bytes, opts...)` | `[]byte` + options | `HARProvider, error` | when you need a strategy |
 
-## 双 API 风格
+## Two API styles
 
-SDK 同时提供结构体式与函数式选项两种写法，按场景选用。
+The SDK offers both a struct-style and a functional-options style — pick per task.
 
-### 结构体式：`Filter(FilterOptions{...})`
+### Struct style: `Filter(FilterOptions{...})`
 
-适合配置需要复用、或来自配置文件的场景：
+Good when config is reused or loaded from a file:
 
 ```go
 opts := har.FilterOptions{
@@ -71,9 +71,9 @@ result := h.Filter(opts)              // *FilterResult
 fmt.Println(result.Count())
 ```
 
-### 函数式选项：`FilterWith(WithFilterStatusCode(404))`
+### Functional options: `FilterWith(WithFilterStatusCode(404))`
 
-适合一行表达、可链式拼装的场景：
+Good for one-liners and chaining:
 
 ```go
 result := h.FilterWith(
@@ -87,46 +87,46 @@ for _, e := range result.GetAll() {
 }
 ```
 
-::: tip 两套等价
-`Filter(FilterOptions{Method:"GET", StatusCode:404})` 与 `FilterWith(WithFilterMethod("GET"), WithFilterStatusCode(404))` 语义完全等价，内部走同一套过滤逻辑。函数式选项只是更易链式与默认值共存。
+::: tip The two are equivalent
+`Filter(FilterOptions{Method:"GET", StatusCode:404})` and `FilterWith(WithFilterMethod("GET"), WithFilterStatusCode(404))` are semantically identical — same filtering engine underneath. Functional options just chain better and coexist with defaults.
 :::
 
-更多过滤与链式用法见 [过滤与链式结果](../sdk/filtering.md)，函数式选项全表见 [函数式选项](../sdk/functional-options.md)。
+See [Filtering & Chaining](../sdk/filtering.md) for more, and [Functional Options](../sdk/functional-options.md) for the full option table.
 
-## 四种解析策略
+## Four parsing strategies
 
-通过 `Parse()` + 选项选择不同解析策略，返回统一接口 `HARProvider`：
+Pick a strategy via `Parse()` + options; all return the unified `HARProvider` interface:
 
-| 策略 | 触发选项 | 特点 | 适用 |
-|------|----------|------|------|
-| standard | 默认 | 一次解析全部到 `*Har` | 通用、文件不大 |
-| optimized | `WithMemoryOptimized()` | 紧凑结构体，内存占用低 | 大文件、常驻分析 |
-| lazy | `WithLazyLoading()` | 字段按需解码 | 只读少量字段的大文件 |
-| streaming | `NewStreamingParserFromReader(r)` | 逐条迭代，不全量驻留 | 超大文件、ETL |
+| Strategy | Trigger option | Trait | Use when |
+|----------|----------------|-------|----------|
+| standard | default | parses everything into a `*Har` at once | general purpose, modest files |
+| optimized | `WithMemoryOptimized()` | compact structs, lower footprint | large files, long-running analysis |
+| lazy | `WithLazyLoading()` | fields decoded on demand | large files where few fields are read |
+| streaming | `NewStreamingParserFromReader(r)` | iterate entry by entry, no full resident | huge files, ETL |
 
 ```go
-// 标准解析
+// standard
 provider, err := har.Parse(data)
 
-// 内存优化解析
+// memory-optimized
 provider, err := har.Parse(data, har.WithMemoryOptimized())
 
-// 懒加载解析
+// lazy
 provider, err := har.Parse(data, har.WithLazyLoading())
 
-// 预设组合：OptFast / OptMemoryEfficient / OptLenient
+// preset combos: OptFast / OptMemoryEfficient / OptLenient
 provider, err := har.ParseFile("large.har", har.OptMemoryEfficient...)
 ```
 
-::: warning 流式不返回完整对象
-`WithStreaming()` 不能直接返回完整 `HARProvider`——流式要求逐条消费。请改用 `NewStreamingParserFromReader(r, opts...)` 拿到 `EntryIterator`，在循环里处理每条 entry。详见 [流式解析原理](../internals/streaming.md)。
+::: warning Streaming does not return a full object
+`WithStreaming()` cannot return a complete `HARProvider` directly — streaming demands per-entry consumption. Use `NewStreamingParserFromReader(r, opts...)` to get an `EntryIterator` and process entries in a loop. See [Streaming Parsing](../internals/streaming.md).
 :::
 
-策略选型深入对比见 [四种解析策略](../sdk/parsing-strategies.md)。
+For a deep comparison see [Parsing Strategies](../sdk/parsing-strategies.md).
 
-## HARProvider 接口
+## The HARProvider interface
 
-所有解析策略返回 `HARProvider`，面向抽象编程，运行期再决定具体实现：
+Every strategy returns `HARProvider`, so you program to the abstraction and decide the implementation at runtime:
 
 ```go
 func analyze(p har.HARProvider) {
@@ -136,25 +136,25 @@ func analyze(p har.HARProvider) {
     }
 }
 
-// 任一策略产物都能传入
+// any strategy's product works
 p, _ := har.Parse(data, har.WithLazyLoading()...)
 analyze(p)
 ```
 
-需要全量 `*Har` API（如 `SecurityAudit`、`Statistics`）时，用 `.ToStandard()` 转回标准形态：
+When you need the full `*Har` API (e.g. `SecurityAudit`, `Statistics`), convert with `.ToStandard()`:
 
 ```go
 provider, _ := har.ParseFile("big.har", har.OptMemoryEfficient...)
-h := provider.ToStandard()           // *Har，可调用全部方法
+h := provider.ToStandard()           // *Har, full API available
 report := h.SecurityAudit()
 ```
 
-`ToStandard()` 是幂等的：标准 `*Har` 调用它返回自身，optimized/lazy 实现各自做转换。详见 [Provider 接口](../sdk/providers.md)。
+`ToStandard()` is idempotent: a standard `*Har` returns itself; optimized/lazy implementations each perform the conversion. See [Provider Interfaces](../sdk/providers.md).
 
-## 下一步
+## Next steps
 
-- [数据结构](../sdk/data-structures.md) —— `Har`/`Entries`/`Request`/`Response` 字段图
-- [四种解析策略](../sdk/parsing-strategies.md) —— standard/optimized/lazy/streaming 深入
-- [Provider 接口](../sdk/providers.md) —— `HARProvider` 全方法
-- [函数式选项](../sdk/functional-options.md) —— `WithFilter*`/`WithReplay*`/`WithConvert*` 全表
-- [API 速查](../sdk/api-reference.md) —— 70+ 方法索引
+- [Data Structures](../sdk/data-structures.md) — field map for `Har`/`Entries`/`Request`/`Response`
+- [Parsing Strategies](../sdk/parsing-strategies.md) — standard/optimized/lazy/streaming in depth
+- [Provider Interfaces](../sdk/providers.md) — full `HARProvider` method list
+- [Functional Options](../sdk/functional-options.md) — the full `WithFilter*`/`WithReplay*`/`WithConvert*` table
+- [API Reference](../sdk/api-reference.md) — index of all 70+ methods

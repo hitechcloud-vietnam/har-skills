@@ -1,46 +1,46 @@
 ---
-title: 数据结构
+title: Data Structures
 titleTemplate: false
 ---
 
-# 数据结构
+# Data Structures
 
-`*Har` 是整个 SDK 的核心类型，在 `har.go` 中定义。它以一棵结构体树完整映射 HAR 1.2 规范，同时保留 Chrome DevTools 扩展字段（`_initiator`、`_priority`、`_resourceType`、`_transferSize` 等）。掌握这棵类型树，是使用所有 70+ 方法和编写自定义分析逻辑的前提。
+`*Har` is the central type of the entire SDK, defined in `har.go`. Its struct tree maps the HAR 1.2 spec in full while preserving Chrome DevTools extension fields (`_initiator`, `_priority`, `_resourceType`, `_transferSize`, etc.). Understanding this tree is a prerequisite for using all 70+ methods and writing custom analysis logic.
 
-## 类型树总览
+## Type tree overview
 
 ```
 Har
 └── Log
-    ├── Version        string            // HAR 规范版本，如 "1.2"
-    ├── Creator        Creator           // 生成 HAR 的工具
-    ├── Browser        Browser           // 浏览器信息（可选）
-    ├── Pages          []Pages           // 页面信息（可选）
+    ├── Version        string            // HAR spec version, e.g. "1.2"
+    ├── Creator        Creator           // tool that produced the HAR
+    ├── Browser        Browser           // browser info (optional)
+    ├── Pages          []Pages           // page info (optional)
     │   ├── StartedDateTime time.Time
     │   ├── ID              string
     │   ├── Title           string
     │   └── PageTimings     PageTimings
-    │       ├── OnContentLoad float64    // DOMContentLoaded（ms）
-    │       └── OnLoad        float64    // load 事件（ms）
-    ├── Entries        []Entries         // HTTP 请求/响应条目
-    └── Comment        string            // 可选注释
+    │       ├── OnContentLoad float64    // DOMContentLoaded (ms)
+    │       └── OnLoad        float64    // load event (ms)
+    ├── Entries        []Entries         // HTTP request/response entries
+    └── Comment        string            // optional comment
 ```
 
-`Har` 本身只持有一个 `Log` 字段和一个未导出的 `CustomFields`，几乎所有业务数据都在 `Log` 里。`Log.Entries` 是后续过滤、分析、导出、回放的主要操作对象。
+`Har` itself holds only a `Log` field and an unexported `CustomFields`; almost all business data lives inside `Log`. `Log.Entries` is the main object that subsequent filtering, analysis, export, and replay operate on.
 
-## Creator 与 Browser
+## Creator and Browser
 
-这两个结构体最简单，用来记录 HAR 是由谁、用什么工具或浏览器生成的。
+These two structs are the simplest: they record who generated the HAR and with which tool or browser.
 
 ```go
-// Creator 表示创建 HAR 文件的工具信息
+// Creator holds info about the tool that created the HAR file
 type Creator struct {
     Name    string `json:"name"`
     Version string `json:"version"`
     Comment string `json:"comment,omitempty"`
 }
 
-// Browser 表示浏览器信息
+// Browser holds browser info
 type Browser struct {
     Name    string `json:"name"`
     Version string `json:"version"`
@@ -48,16 +48,16 @@ type Browser struct {
 }
 ```
 
-对应 JSON：
+Corresponding JSON:
 
 ```json
 "creator": { "name": "WebInspector", "version": "537.36" },
 "browser": { "name": "Chrome", "version": "120.0.0.0" }
 ```
 
-## Pages 与 PageTimings
+## Pages and PageTimings
 
-`Pages` 描述一次页面加载的元信息和两个关键时间点。一个 HAR 文件可以包含多个页面（例如多标签页抓取）。
+`Pages` describes the metadata of a page load plus two key timing points. A single HAR file can contain multiple pages (e.g. a multi-tab capture).
 
 ```go
 type Pages struct {
@@ -70,38 +70,38 @@ type Pages struct {
 }
 
 type PageTimings struct {
-    OnContentLoad float64 `json:"onContentLoad"` // DOMContentLoaded 触发时间（ms）
-    OnLoad        float64 `json:"onLoad"`        // load 事件触发时间（ms）
+    OnContentLoad float64 `json:"onContentLoad"` // time of DOMContentLoaded (ms)
+    OnLoad        float64 `json:"onLoad"`        // time of load event (ms)
     Comment       string  `json:"comment,omitempty"`
 }
 ```
 
-`Entries.Pageref` 通过 `Pages.ID` 把单个请求关联到所属页面，这是 `waterfall --page-timings` 命令背后的数据基础。
+`Entries.Pageref` ties an individual request to its page via `Pages.ID`. This is the data behind the `waterfall --page-timings` command.
 
-## Entries —— 核心条目
+## Entries — the core entry
 
-`Entries` 是 SDK 中出现频率最高的类型。它对应一条完整的 HTTP 事务：请求、响应、计时、缓存以及 Chrome 扩展元数据。
+`Entries` is the most frequently used type in the SDK. It corresponds to one complete HTTP transaction: request, response, timings, cache, and Chrome extension metadata.
 
 ```go
 type Entries struct {
-    StartedDateTime time.Time `json:"startedDateTime"`           // 请求开始时间
-    Time            float64   `json:"time"`                      // 总耗时（ms）
+    StartedDateTime time.Time `json:"startedDateTime"`           // request start time
+    Time            float64   `json:"time"`                      // total duration (ms)
     Request         Request   `json:"request"`
     Response        Response  `json:"response"`
     Cache           Cache     `json:"cache"`
     Timings         Timings   `json:"timings"`
-    Pageref         string    `json:"pageref,omitempty"`         // 关联页面 ID
-    ServerIPAddress string    `json:"serverIPAddress,omitempty"` // 服务器 IP
-    Connection      string    `json:"connection,omitempty"`      // 连接 ID（连接复用分析）
-    Initiator       Initiator `json:"_initiator,omitempty"`      // 请求发起者（Chrome 扩展）
-    Priority        string    `json:"_priority,omitempty"`       // 请求优先级（Chrome 扩展）
-    ResourceType    string    `json:"_resourceType,omitempty"`   // 资源类型（Chrome 扩展）
+    Pageref         string    `json:"pageref,omitempty"`         // linked page ID
+    ServerIPAddress string    `json:"serverIPAddress,omitempty"` // server IP
+    Connection      string    `json:"connection,omitempty"`      // connection ID (reuse analysis)
+    Initiator       Initiator `json:"_initiator,omitempty"`      // request initiator (Chrome ext)
+    Priority        string    `json:"_priority,omitempty"`       // request priority (Chrome ext)
+    ResourceType    string    `json:"_resourceType,omitempty"`   // resource type (Chrome ext)
     Comment         string    `json:"comment,omitempty"`
     CustomFields    CustomFields `json:"-"`
 }
 ```
 
-`_initiator`、`_priority`、`_resourceType` 是 Chrome DevTools 扩展字段，浏览器导出的 HAR 才有。SDK 把它们当作普通字段处理，`find --resource-type`、`connections`、`FindByResourceType` 等能力都建立在这之上。
+`_initiator`, `_priority`, and `_resourceType` are Chrome DevTools extension fields present only in browser-exported HAR. The SDK treats them as ordinary fields; capabilities like `find --resource-type`, `connections`, and `FindByResourceType` build on them.
 
 ### Request
 
@@ -113,7 +113,7 @@ type Request struct {
     Cookies      []Cookie      `json:"cookies"`
     Headers      []Headers     `json:"headers"`
     QueryString  []QueryString `json:"queryString"`
-    PostData     *PostData     `json:"postData,omitempty"` // 可选，仅 POST 等带 body 的请求
+    PostData     *PostData     `json:"postData,omitempty"` // optional, only for body-bearing requests
     HeadersSize  int           `json:"headersSize"`
     BodySize     int           `json:"bodySize"`
     Comment      string        `json:"comment,omitempty"`
@@ -121,7 +121,7 @@ type Request struct {
 }
 ```
 
-`PostData` 是指针类型，表达"可选值"——这正是 `optimized` 策略用指针表达可选值的来源思路。`Headers` 在 standard 实现里是切片，在 optimized 实现里会被改写成 `map[string][]string` 以加速查找。
+`PostData` is a pointer, expressing "optional value" — this is the very idea the `optimized` strategy generalizes with pointers for optional fields. In the standard implementation `Headers` is a slice; in the optimized implementation it is rewritten as `map[string][]string` to speed up lookup.
 
 ### Response
 
@@ -136,14 +136,14 @@ type Response struct {
     RedirectURL  string       `json:"redirectURL"`
     HeadersSize  int          `json:"headersSize"`
     BodySize     int          `json:"bodySize"`
-    TransferSize int          `json:"_transferSize,omitempty"` // Chrome 扩展
-    Error        any          `json:"_error,omitempty"`        // Chrome 扩展
+    TransferSize int          `json:"_transferSize,omitempty"` // Chrome ext
+    Error        any          `json:"_error,omitempty"`        // Chrome ext
     Comment      string       `json:"comment,omitempty"`
     CustomFields CustomFields `json:"-"`
 }
 ```
 
-`TransferSize` 是 `find --largest`、`performance` 评分中"传输大小"的真实来源；它只存在于浏览器导出的 HAR 中，工具导出的可能为 0。
+`TransferSize` is the real source of "transfer size" in `find --largest` and the `performance` score; it only exists in browser-exported HAR and may be 0 for tool-exported files.
 
 ## Headers / QueryString / Cookie
 
@@ -174,15 +174,15 @@ type Cookie struct {
 }
 ```
 
-`Cookie` 的安全属性（`HTTPOnly`/`Secure`/`SameSite`）正是 `cookie` 命令和 `CookieAudit()` 审计的对象。注意 `SameSite` 是字符串而非枚举，规范允许 `"Strict"`/`"Lax"`/`"None"`，但也可能为空。
+The security attributes of `Cookie` (`HTTPOnly`/`Secure`/`SameSite`) are exactly what the `cookie` command and `CookieAudit()` inspect. Note `SameSite` is a string, not an enum: the spec allows `"Strict"`/`"Lax"`/`"None"`, but it may also be empty.
 
 ## PostData / Param
 
 ```go
 type PostData struct {
     MimeType     string       `json:"mimeType"`
-    Params       []Param      `json:"params,omitempty"` // 表单提交时使用
-    Text         string       `json:"text,omitempty"`   // 请求体文本
+    Params       []Param      `json:"params,omitempty"` // used for form submission
+    Text         string       `json:"text,omitempty"`   // request body text
     Comment      string       `json:"comment,omitempty"`
     CustomFields CustomFields `json:"-"`
 }
@@ -190,32 +190,32 @@ type PostData struct {
 type Param struct {
     Name         string `json:"name"`
     Value        string `json:"value,omitempty"`
-    FileName     string `json:"fileName,omitempty"`    // 文件上传
+    FileName     string `json:"fileName,omitempty"`    // file upload
     ContentType  string `json:"contentType,omitempty"`
     Comment      string `json:"comment,omitempty"`
     CustomFields CustomFields `json:"-"`
 }
 ```
 
-`Params` 和 `Text` 通常二选一：`application/x-www-form-urlencoded` 用 `Params`，`application/json` 用 `Text`。`redact` 默认会对 `Params` 中名为 `password/secret/token` 的字段脱敏。
+`Params` and `Text` are usually mutually exclusive: `application/x-www-form-urlencoded` uses `Params`, `application/json` uses `Text`. The `redact` command by default redacts `Params` named `password/secret/token`.
 
 ## Content
 
 ```go
 type Content struct {
-    Size        int    `json:"size"`                  // 内容大小（字节，解压后）
+    Size        int    `json:"size"`                  // content size in bytes (decompressed)
     MimeType    string `json:"mimeType"`
-    Compression int    `json:"compression,omitempty"` // 压缩节省的字节数
-    Text        string `json:"text,omitempty"`        // 文本内容
-    Encoding    string `json:"encoding,omitempty"`    // 编码方式，如 "base64"
+    Compression int    `json:"compression,omitempty"` // bytes saved by compression
+    Text        string `json:"text,omitempty"`        // text content
+    Encoding    string `json:"encoding,omitempty"`    // encoding, e.g. "base64"
     Comment     string `json:"comment,omitempty"`
     CustomFields CustomFields `json:"-"`
 }
 ```
 
-`Encoding` 为 `"base64"` 时，`Text` 是二进制内容的 base64 编码（如图片）。`extract` 命令和 `lazy` 策略都围绕 `Content.Text` 工作：lazy 会把它的解析推迟到首次访问时。
+When `Encoding` is `"base64"`, `Text` is the base64-encoded binary content (e.g. an image). Both the `extract` command and the `lazy` strategy revolve around `Content.Text`: lazy defers its parsing until first access.
 
-## Cache 与 Timings
+## Cache and Timings
 
 ```go
 type Cache struct {
@@ -233,26 +233,26 @@ type Timings struct {
     Send            float64 `json:"send"`
     Wait            float64 `json:"wait"`
     Receive         float64 `json:"receive"`
-    BlockedQueueing float64 `json:"_blocked_queueing,omitempty"` // Chrome 扩展
-    BlockedProxy    float64 `json:"_blocked_proxy,omitempty"`    // Chrome 扩展
+    BlockedQueueing float64 `json:"_blocked_queueing,omitempty"` // Chrome ext
+    BlockedProxy    float64 `json:"_blocked_proxy,omitempty"`    // Chrome ext
     Comment         string  `json:"comment,omitempty"`
     CustomFields    CustomFields `json:"-"`
 }
 ```
 
-::: warning Timings 的 -1 约定
-HAR 规范规定：**未测量的时间字段值为 `-1`**，而不是 `0`。SDK 在 `timing`、`waterfall`、`PerformanceScore()` 中都会跳过 `-1` 字段。如果你自行遍历 `Timings`，务必先判断 `> 0` 再累加，否则会得到负数总和。
+::: warning The -1 convention for Timings
+The HAR spec mandates that **an unmeasured timing field has the value `-1`**, not `0`. The SDK skips `-1` fields in `timing`, `waterfall`, and `PerformanceScore()`. If you iterate `Timings` yourself, always check `> 0` before summing, otherwise you will get a negative total.
 :::
 
-`Cache.BeforeRequest`/`AfterRequest` 都是指针，表达"该阶段没有缓存信息"的常见情况。`FindCacheHits()` 依据 `HitCount > 0` 判定缓存命中。
+`Cache.BeforeRequest`/`AfterRequest` are both pointers, expressing the common case of "no cache info for this phase". `FindCacheHits()` treats `HitCount > 0` as a cache hit.
 
-## CustomFields 扩展机制
+## The CustomFields extension mechanism
 
-几乎所有结构体都带一个未导出的 `CustomFields CustomFields \`json:"-"\`` 字段。它不在 JSON 序列化中输出，但允许 SDK 内部和高级用户在内存对象上挂载自定义元数据（例如来源文件路径、解析警告等），而不污染规范字段。普通使用中无需关心它。
+Nearly every struct carries an unexported `CustomFields CustomFields \`json:"-"\`` field. It is not emitted in JSON serialization, but lets the SDK internals and advanced users attach custom metadata to in-memory objects (e.g. source file path, parse warnings) without polluting spec fields. You can ignore it in normal usage.
 
-## 完整结构对照示例
+## Full structure side-by-side example
 
-下面是一条最小 `Entries` 在 Go 结构体与 JSON 中的对照，可作为理解整棵类型树的速查：
+Below is a minimal `Entries` shown in both the Go struct and JSON form — a cheat sheet for understanding the whole type tree:
 
 ```go
 entry := har.Entries{
@@ -283,7 +283,7 @@ entry := har.Entries{
         BodySize: 1024,
     },
     Timings: har.Timings{
-        DNS: -1, Connect: -1, Ssl: -1, // 未测量
+        DNS: -1, Connect: -1, Ssl: -1, // unmeasured
         Send: 1.0, Wait: 100.0, Receive: 19.5,
     },
     ServerIPAddress: "10.0.0.1",
@@ -291,7 +291,7 @@ entry := har.Entries{
 }
 ```
 
-对应 JSON 片段：
+Corresponding JSON fragment:
 
 ```json
 {
@@ -319,8 +319,8 @@ entry := har.Entries{
 }
 ```
 
-## 下一步
+## Next steps
 
-- 想知道这些结构体在不同解析策略下如何被存储，见 [解析策略](./parsing-strategies)。
-- 想以接口抽象方式处理任意实现，见 [Provider 接口](./providers)。
-- 想从 `Entries` 中筛选子集，见 [过滤与链式结果](./filtering)。
+- For how these structs are stored under different parsing strategies, see [Parsing strategies](./parsing-strategies).
+- For treating any implementation through interface abstraction, see [Provider interfaces](./providers).
+- For selecting a subset of `Entries`, see [Filtering and chained results](./filtering).

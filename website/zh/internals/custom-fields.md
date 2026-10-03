@@ -1,22 +1,23 @@
 ---
-title: 扩展字段保真
+title: Custom Fields Round-trip
 ---
 
-# 扩展字段保真（Custom Fields Round-trip）
+# Custom Fields Round-trip (Extension Field Fidelity)
 
-HAR 规范允许任意以 `_` 开头的字段作为自定义扩展数据，例如 Chrome DevTools 写入的
-`_initiator`、`_priority`、`_resourceType`、`_transferSize`。这些字段对调试和深度分析
-极其重要。本页解释 har-skills 如何在不破坏类型安全的前提下，**无损往返（round-trip
-保真）** 这些扩展字段。
+The HAR spec allows any field whose name starts with `_` to carry custom extension
+data — for example Chrome DevTools writes `_initiator`, `_priority`,
+`_resourceType`, `_transferSize`. These fields are invaluable for debugging and
+deep analysis. This page explains how har-skills performs a **lossless round-trip**
+of these extension fields without sacrificing type safety.
 
-## 1. 问题：标准 `UnmarshalJSON` 会丢弃未知字段
+## 1. The Problem: Standard `UnmarshalJSON` Drops Unknown Fields
 
-Go 标准库的 `encoding/json` 在把 JSON 反序列化到结构体时，遇到结构体里没有对应字段
-的键，默认行为是**静默丢弃**（除非开启 `DisallowUnknownFields`）。这意味着：
+Go's `encoding/json`, when decoding into a struct, silently **discards** keys that
+have no corresponding struct field (unless `DisallowUnknownFields` is set). So:
 
 ```mermaid
 graph LR
-  subgraph SRC["原始 HAR JSON"]
+  subgraph SRC["Original HAR JSON"]
     direction TB
     J1["&#34;_initiator&#34;: {...}"]
     J2["&#34;_priority&#34;: &#34;High&#34;"]
@@ -24,65 +25,65 @@ graph LR
     J4["&#34;request&#34;: {...}"]
   end
   SRC -->|"json.Unmarshal"| DST
-  subgraph DST["解析进 *Har（标准库默认）"]
+  subgraph DST["Parsed into *Har (stdlib default)"]
     direction TB
-    D1["// _initiator 丢了！"]:::bad
-    D2["// _priority 丢了！"]:::bad
-    D3["// _resourceType 丢了！"]:::bad
+    D1["// _initiator gone!"]:::bad
+    D2["// _priority gone!"]:::bad
+    D3["// _resourceType gone!"]:::bad
     D4["Request: Request{...}"]
   end
   classDef bad fill:#f8d7da,stroke:#dc3545
 ```
 
-对 Chrome HAR 文件而言，这等于扔掉了一半有价值的诊断信息。
+For a Chrome HAR file, that means throwing away half the diagnostic value.
 
-## 2. 方案：自定义 `UnmarshalJSON` / `MarshalJSON` + `CustomFields`
+## 2. Solution: Custom `UnmarshalJSON`/`MarshalJSON` + `CustomFields`
 
-har-skills 为以下 9 个核心类型实现了自定义编解码：
+har-skills implements custom encoding for 9 core types:
 
-| 类型        | 扩展字段载体           | 说明                                  |
-|-------------|------------------------|---------------------------------------|
-| `Har`       | `Har.CustomFields`     | 顶层对象                              |
-| `Log`       | `Log.CustomFields`     | 日志容器                              |
-| `Entries`   | `Entries.CustomFields` | 单条请求/响应                          |
-| `Request`   | `Request.CustomFields` | 请求侧                                |
-| `Response`  | `Response.CustomFields`| 响应侧                                |
-| `Content`   | `Content.CustomFields` | 响应体                                |
-| `Cookie`    | `Cookie.CustomFields`  | Cookie                                |
-| `Pages`     | `Pages.CustomFields`   | 页面                                  |
-| `Timings`   | `Timings.CustomFields` | 计时                                  |
-| `Cache`     | `Cache.CustomFields`   | 缓存元数据                            |
+| Type        | Carrier                 | Notes                                |
+|-------------|-------------------------|--------------------------------------|
+| `Har`       | `Har.CustomFields`      | Top-level object                     |
+| `Log`       | `Log.CustomFields`      | Log container                        |
+| `Entries`   | `Entries.CustomFields`  | A single request/response            |
+| `Request`   | `Request.CustomFields`  | Request side                         |
+| `Response`  | `Response.CustomFields` | Response side                        |
+| `Content`   | `Content.CustomFields`  | Response body                        |
+| `Cookie`    | `Cookie.CustomFields`   | Cookie                               |
+| `Pages`     | `Pages.CustomFields`    | Page                                 |
+| `Timings`   | `Timings.CustomFields`  | Timings                              |
+| `Cache`     | `Cache.CustomFields`    | Cache metadata                       |
 
-`CustomFields` 本质就是一个带便捷方法的 map：
+`CustomFields` is simply a map with convenience methods:
 
 ```go
-// 自定义扩展字段集合：键名以 "_" 开头（符合 HAR 规范）
+// Collection of custom extension fields; keys start with "_" (HAR spec)
 type CustomFields map[string]interface{}
 ```
 
-### 2.1 往返保真流程图
+### 2.1 Round-trip Flow
 
 ```mermaid
 flowchart TD
-  ORIG["原始 HAR JSON<br/>{ request, _initiator, _priority, _webSocketMessages }"]:::json
+  ORIG["Original HAR JSON<br/>{ request, _initiator, _priority, _webSocketMessages }"]:::json
   ORIG -->|"① UnmarshalJSON(data)<br/>extractCustomFields(data, 'Entries')"| ST
-  ST["Entries 结构体<br/>Request{...} ← 类型化字段<br/>Initiator / Priority ← _initiator/_priority 已是结构体字段<br/>CustomFields:{ _webSocketMessages } ← 其余 _ 字段在此保真"]:::struct
+  ST["Entries struct<br/>Request{...} ← typed field<br/>Initiator / Priority ← _initiator/_priority are now struct fields<br/>CustomFields:{ _webSocketMessages } ← remaining _ fields preserved"]:::struct
   ST -->|"② MarshalJSON()<br/>mergeCustomFieldsIntoJSON(stdData, cf)"| RESTORE
-  RESTORE["还原后的 JSON<br/>{ request, _initiator, _priority, _webSocketMessages }<br/>与原始一致"]:::json
+  RESTORE["Restored JSON<br/>{ request, _initiator, _priority, _webSocketMessages }<br/>identical to original"]:::json
   classDef json fill:#d4edda,stroke:#28a745
   classDef struct fill:#cce5ff,stroke:#004085
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```text
-        原始 HAR JSON
+        Original HAR JSON
  ┌───────────────────────────────┐
  │ {                             │
- │   "request": {...},           │   标准 JSON 字段
- │   "_initiator": {...},        │ ├── 已被结构体字段处理 → 进入结构体
- │   "_priority": "High",        │ ├── 其余 _ 字段     → 进入 CustomFields
+ │   "request": {...},           │   standard JSON fields
+ │   "_initiator": {...},        │ ├── handled by struct field → into struct
+ │   "_priority": "High",        │ ├── remaining _ fields  → into CustomFields
  │   "_webSocketMessages": [...] │
  │ }                             │
  └───────────────┬───────────────┘
@@ -91,11 +92,11 @@ flowchart TD
                  ▼
  ┌───────────────────────────────┐
  │ Entries {                     │
- │   Request: Request{...},      │   ← 类型化字段
- │   Initiator: ...,             │   ← _initiator 已是结构体字段
- │   Priority: "High",           │   ← _priority  已是结构体字段
+ │   Request: Request{...},      │   ← typed field
+ │   Initiator: ...,             │   ← _initiator is now a struct field
+ │   Priority: "High",           │   ← _priority  is now a struct field
  │   CustomFields: {             │
- │     "_webSocketMessages":...  │   ← 其余 _ 字段在此保真
+ │     "_webSocketMessages":...  │   ← remaining _ fields preserved here
  │   }                           │
  │ }                             │
  └───────────────┬───────────────┘
@@ -104,31 +105,32 @@ flowchart TD
                  ▼
  ┌───────────────────────────────┐
  │ {                             │
- │   "request": {...},           │   ← 标准字段还原
- │   "_initiator": {...},        │   ← 结构体字段序列化
+ │   "request": {...},           │   ← standard fields restored
+ │   "_initiator": {...},        │   ← struct fields serialized
  │   "_priority": "High",        │
- │   "_webSocketMessages": [...] │   ← CustomFields 合并回去
+ │   "_webSocketMessages": [...] │   ← CustomFields merged back
  │ }                             │
  └───────────────────────────────┘
-            还原后的 JSON（与原始一致）
+            Restored JSON (identical to original)
 ```
 </details>
 
-关键点：**没有任何字段被丢弃**，类型化字段与扩展字段各司其职。
+The key: **no field is dropped**. Typed fields and extension fields each play their
+part.
 
-## 3. `knownUnderscoreKeys`：避免重复存储
+## 3. `knownUnderscoreKeys`: Avoiding Double Storage
 
-部分 `_` 字段已经被提升为结构体的类型化字段。例如：
+Some `_` fields have been promoted to typed struct fields. For example:
 
-- `Response._transferSize` → `Response.TransferSize`（`int64`）
-- `Response._error` → `Response.Error`（`string`）
+- `Response._transferSize` → `Response.TransferSize` (`int64`)
+- `Response._error` → `Response.Error` (`string`)
 - `Timings._blocked_queueing` → `Timings.BlockedQueueing`
 - `Timings._blocked_proxy` → `Timings.BlockedProxy`
-- `Entries._initiator` / `_priority` / `_resourceType` → 已有结构体字段
+- `Entries._initiator` / `_priority` / `_resourceType` → existing struct fields
 
-如果这些键**既**进结构体**又**进 `CustomFields`，序列化时就会写出两份，产生重复
-键。`knownUnderscoreKeys` 表记录"哪些 `_` 键已被结构体吃掉"，`extractCustomFields`
-会跳过它们：
+If these keys went into **both** the struct and `CustomFields`, serialization would
+emit duplicate keys. The `knownUnderscoreKeys` table records "which `_` keys have
+already been consumed by a struct field", and `extractCustomFields` skips them:
 
 ```go
 var knownUnderscoreKeys = map[string]map[string]bool{
@@ -140,43 +142,43 @@ var knownUnderscoreKeys = map[string]map[string]bool{
 
 ```mermaid
 flowchart TD
-  RAW["raw JSON for one Entries"] --> LOOP["遍历每个键，判断是否以 '_' 开头"]
-  LOOP --> Q1{"以 '_' 开头?"}
-  Q1 -->|"否"| SKIP1["跳过（非扩展字段）"]
-  Q1 -->|"是"| Q2{"命中 knownUnderscoreKeys?<br/>（如 _initiator / _priority / _transferSize）"}
-  Q2 -->|"命中"| SKIP2["跳过（已由结构体字段处理，不重复存）"]:::warn
-  Q2 -->|"未命中"| STORE["存入 CustomFields"]:::ok
+  RAW["raw JSON for one Entries"] --> LOOP["for each key: does it start with '_'?"]
+  LOOP --> Q1{"starts with '_'?"}
+  Q1 -->|"no"| SKIP1["skip (not an extension field)"]
+  Q1 -->|"yes"| Q2{"hit knownUnderscoreKeys?<br/>(e.g. _initiator / _priority / _transferSize)"}
+  Q2 -->|"hit"| SKIP2["skip (already a struct field, don't duplicate)"]:::warn
+  Q2 -->|"miss"| STORE["store in CustomFields"]:::ok
   classDef ok fill:#d4edda,stroke:#28a745
   classDef warn fill:#fff3cd,stroke:#856404
 ```
 
 <details>
-<summary>ASCII 备份图</summary>
+<summary>ASCII backup diagram</summary>
 
 ```text
                   raw JSON for one Entries
                             │
                             ▼
         ┌───────────────────┴───────────────────┐
-        │  遍历每个键，判断是否以 "_" 开头        │
+        │  for each key: does it start with "_"?│
         └───────────────────┬───────────────────┘
                             │
             ┌───────────────┴───────────────┐
             ▼                               ▼
-   命中 knownUnderscoreKeys?         其余 _ 键
-   (如 _initiator / _priority)
+   hit knownUnderscoreKeys?         remaining _ keys
+   (e.g. _initiator / _priority)
             │                               │
             ▼                               ▼
-        跳过（已由结构体                存入 CustomFields
-        字段处理，不重复存）
+        skip (already a                 store in CustomFields
+        struct field, don't duplicate)
 ```
 </details>
 
-## 4. 内部函数
+## 4. Internal Functions
 
 ### `extractCustomFields(data, typeName)`
 
-从原始 JSON 字节里抽出 `_` 前缀字段，跳过已知键：
+Pulls `_`-prefixed fields out of raw JSON, skipping known keys:
 
 ```go
 func extractCustomFields(data []byte, typeName string) CustomFields {
@@ -191,11 +193,11 @@ func extractCustomFields(data []byte, typeName string) CustomFields {
             continue
         }
         if known != nil && known[key] {
-            continue // 已被结构体字段处理
+            continue // handled by a struct field
         }
         var v interface{}
         if err := json.Unmarshal(value, &v); err != nil {
-            cf[key] = string(value) // 解析失败的原始文本兜底
+            cf[key] = string(value) // fallback to raw text
         } else {
             cf[key] = v
         }
@@ -209,7 +211,7 @@ func extractCustomFields(data []byte, typeName string) CustomFields {
 
 ### `mergeCustomFieldsIntoJSON(stdData, cf)`
 
-序列化时把 `CustomFields` 合并回标准 JSON：
+Merges `CustomFields` back into standard JSON output during serialization:
 
 ```go
 func mergeCustomFieldsIntoJSON(stdData []byte, cf CustomFields) ([]byte, error) {
@@ -223,7 +225,7 @@ func mergeCustomFieldsIntoJSON(stdData []byte, cf CustomFields) ([]byte, error) 
     for key, value := range cf {
         v, err := json.Marshal(value)
         if err != nil {
-            return nil, NewJSONParseError("JSON序列化失败", err)
+            return nil, NewJSONParseError("JSON serialization failed", err)
         }
         result[key] = v
     }
@@ -232,8 +234,8 @@ func mergeCustomFieldsIntoJSON(stdData []byte, cf CustomFields) ([]byte, error) 
 }
 ```
 
-每个类型的 `UnmarshalJSON`/`MarshalJSON` 都用**类型别名（alias）技巧**避免递归
-调用自身：
+Each type's `UnmarshalJSON`/`MarshalJSON` uses the **type-alias trick** to avoid
+recursive calls to itself:
 
 ```go
 func (e *Entries) UnmarshalJSON(data []byte) error {
@@ -248,30 +250,30 @@ func (e *Entries) UnmarshalJSON(data []byte) error {
 
 func (e Entries) MarshalJSON() ([]byte, error) {
     type Alias Entries
-    data, err := json.Marshal(Alias(e)) // 用别名走标准序列化，不触发自身
+    data, err := json.Marshal(Alias(e)) // alias routes to standard marshaling
     if err != nil {
-        return nil, NewJSONParseError("JSON序列化失败", err)
+        return nil, NewJSONParseError("JSON serialization failed", err)
     }
     return mergeCustomFieldsIntoJSON(data, e.CustomFields)
 }
 ```
 
-> 注意 `MarshalJSON` 用的是**值接收器**，这样 `json.Marshal(h)` 无论 `h` 是值还是
-> 指针都能命中自定义逻辑。
+> Note `MarshalJSON` uses a **value receiver** so that `json.Marshal(h)` hits the
+> custom logic whether `h` is a value or a pointer.
 
-## 5. 公开 API：读写扩展字段
+## 5. Public API: Reading & Writing Extension Fields
 
-所有实现 `CustomFields` 的类型都暴露一致的访问接口：
+Every type that carries `CustomFields` exposes a consistent accessor set:
 
-| 方法                       | 作用                                   |
+| Method                     | Purpose                                |
 |----------------------------|----------------------------------------|
-| `GetCustomField(name)`     | 取值，不存在返回 `nil`                  |
-| `SetCustomField(name, v)`  | 设置（自动初始化 map）                  |
-| `HasCustomField(name)`     | 是否存在                                |
-| `DeleteCustomField(name)`  | 删除                                    |
-| `CustomFieldsKeys()`       | 所有键名                                |
+| `GetCustomField(name)`     | Get value; returns `nil` if absent     |
+| `SetCustomField(name, v)`  | Set (auto-initializes the map)         |
+| `HasCustomField(name)`     | Presence check                         |
+| `DeleteCustomField(name)`  | Remove                                 |
+| `CustomFieldsKeys()`       | All key names                          |
 
-示例：读出 Chrome 写入的 `_webSocketMessages`，再补一个自定义字段。
+Example: read Chrome's `_webSocketMessages`, then add a custom marker.
 
 ```go
 package main
@@ -290,38 +292,39 @@ func main() {
     for i := range h.Log.Entries {
         e := &h.Log.Entries[i]
 
-        // 读取浏览器扩展字段
+        // Read a browser extension field
         if v := e.GetCustomField("_webSocketMessages"); v != nil {
-            fmt.Printf("[%d] WebSocket 消息: %v\n", i, v)
+            fmt.Printf("[%d] WebSocket messages: %v\n", i, v)
         }
 
-        // 写入自定义标记字段（自动初始化 CustomFields）
+        // Write a custom marker (CustomFields auto-initialized)
         e.SetCustomField("_analyzedBy", "har-skills/v1")
     }
 
-    // 序列化回 JSON，所有 _ 字段（含新加的）都被保留
+    // Serialize back to JSON; all _ fields (including the new one) are preserved
     out, _ := h.ToJSON(true)
     _ = out
 }
 ```
 
-## 6. CLI 验证保真
+## 6. Verifying Fidelity via CLI
 
-用 `info` 命令可以看到解析正常，再用 `export json` 往返一次比对扩展字段是否还在：
+Use `info` to confirm the file parses, then round-trip with `export json` and check
+the `_` keys are still there:
 
 ```bash
-# 1. 原始 Chrome HAR（含 _initiator / _priority / _resourceType / _transferSize）
+# 1. Original Chrome HAR (with _initiator / _priority / _resourceType / _transferSize)
 har -f chrome.har info
 
-# 2. 导出为 JSON，扩展字段不应丢失
+# 2. Export to JSON; extension fields must not be lost
 har -f chrome.har export json --index 0 -o entry0.json
 
-# 3. 用 jq 核对 _ 字段
+# 3. Inspect _ keys with jq
 jq 'keys[] | select(startswith("_"))' entry0.json
 ```
 
 ```text
-预期输出（示例）：
+Expected output (example):
 "_initiator"
 "_priority"
 "_resourceType"
@@ -329,34 +332,35 @@ jq 'keys[] | select(startswith("_"))' entry0.json
 "_error"
 ```
 
-## 7. 适用场景
+## 7. Use Cases
 
-| 场景                                 | 价值                                            |
-|--------------------------------------|-------------------------------------------------|
-| 保留 Chrome DevTools 扩展字段        | 调试页面资源加载顺序、发起者链                  |
-| 保留 Firefox `_sec-fetch-*` 等元数据 | 安全分析、指纹研究                              |
-| 自定义工具写入 `_analyzedBy` 标记    | 流水线中去重、追溯                              |
-| 二次写入 HAR 不丢字段                | 作为中间格式反复处理（redact → transform → …）   |
+| Scenario                                    | Value                                              |
+|---------------------------------------------|----------------------------------------------------|
+| Preserve Chrome DevTools extension fields   | Debug resource load order, initiator chains        |
+| Preserve Firefox `_sec-fetch-*` metadata    | Security analysis, fingerprinting research         |
+| Write custom `_analyzedBy` markers          | Pipeline dedup, provenance tracking                |
+| Re-write HAR without losing fields          | Use as intermediate format (redact → transform → …)|
 
-## 8. 局限与注意
+## 8. Caveats
 
-- `CustomFields` 的值类型是 `interface{}`，深层结构会被解析成
-  `map[string]interface{}` / `[]interface{}`，使用时需做类型断言。
-- `SetCustomField` 不强制键名以 `_` 开头，但 HAR 规范只认 `_` 前缀；写非 `_` 键虽
-  不会被丢弃，但下游工具可能不识别。
-- 结构体已显式处理的 `_` 键（见 `knownUnderscoreKeys`）**不会**出现在
-  `CustomFields` 里，要用对应的类型化字段访问（如 `e.Priority` 而非
-  `e.GetCustomField("_priority")`）。
+- `CustomFields` values are `interface{}`; nested structures decode into
+  `map[string]interface{}` / `[]interface{}` and need type assertions when used.
+- `SetCustomField` does not enforce the `_` prefix. The HAR spec only recognizes
+  `_`-prefixed keys; non-`_` keys won't be dropped by har-skills but downstream
+  tools may not understand them.
+- `_` keys already consumed by a struct (see `knownUnderscoreKeys`) do **not**
+  appear in `CustomFields`. Access them via the typed field (e.g. `e.Priority`,
+  not `e.GetCustomField("_priority")`).
 
-## 小结
+## Summary
 
 ```mermaid
 flowchart LR
-  ORIG["原始 JSON"] -->|"UnmarshalJSON<br/>(extractCustomFields)"| MID["结构体字段 + CustomFields"]
-  MID -->|"MarshalJSON<br/>(mergeCustomFieldsIntoJSON)"| RESTORE["还原 JSON"]
-  RESTORE -.->|"字段零丢失往返"| ORIG
+  ORIG["Original JSON"] -->|"UnmarshalJSON<br/>(extractCustomFields)"| MID["struct fields + CustomFields"]
+  MID -->|"MarshalJSON<br/>(mergeCustomFieldsIntoJSON)"| RESTORE["restored JSON"]
+  RESTORE -.->|"zero-loss round-trip"| ORIG
 ```
 
-通过"类型化字段处理规范键 + `CustomFields` 兜底 `_` 扩展键 +
-`knownUnderscoreKeys` 去重"这套机制，har-skills 在保持强类型 API 的同时，实现了
-对任意浏览器/工具扩展字段的完整保真。
+With "typed fields for spec keys + `CustomFields` as the `_` extension fallback +
+`knownUnderscoreKeys` for dedup", har-skills keeps a strongly-typed API while
+preserving arbitrary browser/tool extension fields with full fidelity.

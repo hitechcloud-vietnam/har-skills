@@ -1,88 +1,89 @@
 ---
-title: 请求录制归档
+title: Recording Requests
 titleTemplate: false
 ---
 
-# 请求录制归档
+# Recording Requests
 
-`builder.go` 与 `http_convert.go` 提供了一组专门面向"上层抓包 → 归档成 HAR"场景的 API。本库作为底层库被网络安全/网络空间测绘系统封装时，上层系统抓到 `*http.Request` / `*http.Response` 后，无需手写 HAR 字段映射，调用一行即可落盘成符合 HAR 1.2 规范的条目。围绕"归档"这一核心动作，SDK 提供了内存累积、JSONL 持续追加、流式回放三种互补模式，覆盖单次任务、长期常驻、超大归档三类部署形态。
+`builder.go` and `http_convert.go` provide a set of APIs purpose-built for the "upper-layer capture → archive as HAR" scenario. When this library is wrapped as a low-level library by network security / cyberspace mapping systems, the upper-layer system can hand a captured `*http.Request` / `*http.Response` to it and persist a HAR 1.2-compliant entry in a single call, with no hand-written HAR field mapping. Centered on the "archiving" action, the SDK offers three complementary modes — in-memory accumulation, JSONL continuous append, and streaming replay — covering three deployment shapes: single-task, long-running resident, and ultra-large archives.
 
-## 适用场景
+## Applicable Scenarios
 
-本库的典型部署形态不是直接面向终端用户，而是作为**底层库被上层网络安全 / 网络空间测绘系统封装**：
+This library is not typically deployed directly to end users. Instead, it serves as a **low-level library wrapped by upper-layer network security / cyberspace mapping systems**:
 
-- 上层系统持有自己的抓包通道（被动代理、流量镜像、eBPF 探针、浏览器扩展 CDP……），拿到的就是一对 `*http.Request` / `*http.Response`；
-- 上层往往还掌握 req/resp 之外的额外信息——真实请求发起时间、服务器 IP、连接 ID、所属页面、发起来源（script / parser）等——这些无法从 req/resp 反推；
-- 归档目标可能是"一次任务一个 HAR 文件"，也可能是"7×24 小时常驻进程持续追加一个 JSONL 归档"。
+- The upper-layer system owns its own capture channel (passive proxy, traffic mirroring, eBPF probe, browser extension CDP...) and already holds a pair of `*http.Request` / `*http.Response`;
+- The upper layer often also holds information beyond req/resp — the real request start time, server IP, connection ID, owning page, initiator source (script / parser) — that cannot be reverse-derived from req/resp;
+- The archiving target may be "one HAR file per task", or "a 7×24 resident process continuously appending to a JSONL archive".
 
-本页 API 正是为此设计：`AddEntryFromHTTPWithMeta` 接受真实开始时间与元数据；`SafeRecorder` 内置互斥锁支持多协程并发抓包；`AppendEntryToJSONLFile` / `ForEachEntryFromReader` 解决长期归档的内存与回放问题。
+The APIs on this page are designed exactly for this: `AddEntryFromHTTPWithMeta` accepts the real start time and metadata; `SafeRecorder` ships with a mutex to support multi-goroutine concurrent capture; `AppendEntryToJSONLFile` / `ForEachEntryFromReader` solve the memory and replay problems of long-term archiving.
 
-## 三种归档模式
+## Three Archiving Modes
 
-按"条目量级 + 进程生命周期"选择模式：
+Choose a mode by "entry volume + process lifetime":
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    抓到的 req / resp 往哪里写？                       │
+│           Where should the captured req / resp be written?          │
 └─────────────────────────────────────────────────────────────────────┘
         │
-        │ 条目可控（单次任务 < 数万）？ ─────────── 是 ──→ 模式 1
-        │                                              内存累积 + 一次性导出
-        │                                              Recorder / SafeRecorder
-        │                                              .CaptureWithMeta(...)
-        │                                              .SaveToFile("task.har")
+        │ Bounded entries (single task < tens of thousands)? ── yes ──→ Mode 1
+        │                                                        In-memory accumulation
+        │                                                        + one-shot export
+        │                                                        Recorder / SafeRecorder
+        │                                                        .CaptureWithMeta(...)
+        │                                                        .SaveToFile("task.har")
         │
-        │ 长期常驻、抓一条写一条、内存要恒定？ ── 是 ──→ 模式 2
-        │                                              JSONL 持续追加
-        │                                              AppendEntryToJSONLFile
-        │                                              ("archive.jsonl", entry)
+        │ Long-running, write one per capture, constant memory? ── yes ──→ Mode 2
+        │                                                        JSONL continuous append
+        │                                                        AppendEntryToJSONLFile
+        │                                                        ("archive.jsonl", entry)
         │
-        │ 要回放/分析超大 JSONL 归档？ ─────────── 是 ──→ 模式 3
-                                                       流式读取归档
+        │ Need to replay/analyze a huge JSONL archive? ──────── yes ──→ Mode 3
+                                                       Streaming read of archive
                                                        ForEachEntryFromReader
                                                        (r, fn(entry) error)
 ```
 
-三种模式对比：
+Comparison of the three modes:
 
-| 维度 | 模式 1 内存累积 | 模式 2 JSONL 追加 | 模式 3 流式回放 |
-|------|----------------|------------------|----------------|
-| 适用 | 单次任务、条目可控 | 长期常驻、低内存 | 回放/分析超大归档 |
-| 核心 API | `Recorder` / `SafeRecorder` | `AppendEntryToJSONLFile` | `ForEachEntryFromReader` |
-| 内存 | 随条目数线性增长 | 恒定（单条 entry 大小） | 恒定（单条 entry 大小） |
-| 产物 | 合法 HAR JSON（带外壳） | JSONL（每行一条，无外壳） | 不产出，只消费 |
-| 写入时机 | 攒完后一次性 `SaveToFile` | 抓一条立即写一条 | 不写，只读 |
-| 并发安全 | 用 `SafeRecorder` | 文件级 `O_APPEND` 原子追加 | 单 reader 顺序读 |
-| 进程崩溃代价 | 未 `SaveToFile` 的全丢 | 至多丢正在写的那一条 | 只读，无写入风险 |
+| Dimension | Mode 1 In-memory | Mode 2 JSONL append | Mode 3 Streaming replay |
+|-----------|------------------|---------------------|--------------------------|
+| Best for | Single task, bounded entries | Long-running, low memory | Replay/analyze huge archives |
+| Core API | `Recorder` / `SafeRecorder` | `AppendEntryToJSONLFile` | `ForEachEntryFromReader` |
+| Memory | Grows linearly with entry count | Constant (single entry size) | Constant (single entry size) |
+| Output | Valid HAR JSON (with envelope) | JSONL (one per line, no envelope) | Produces nothing, only consumes |
+| Write timing | One-shot `SaveToFile` after batching | Write each entry immediately on capture | No writes, read only |
+| Concurrency-safe | Use `SafeRecorder` | File-level `O_APPEND` atomic append | Single reader, sequential |
+| Crash cost | All unsaved entries lost | At most the entry being written | Read-only, no write risk |
 
-### 三种模式的数据流对比
+### Data-flow comparison of the three modes
 
-把上面的决策树画成 Mermaid，三种模式从"抓到 req/resp"这一共同入口出发，走向不同的存储与回放路径：
+The decision tree above, drawn as Mermaid — all three modes start from the same "captured req/resp" entry point and diverge into different storage and replay paths:
 
 ```mermaid
 flowchart TD
-    Src([抓到 *http.Request / *http.Response]) --> Disp{按量级与生命周期选择模式}
+    Src([Captured *http.Request / *http.Response]) --> Disp{Pick mode by volume & lifetime}
 
-    Disp -->|单次任务| M1
-    subgraph M1[模式 1：内存累积]
-        M1A[Recorder / SafeRecorder<br/>.CaptureWithMeta] --> M1B[(内部 entries 切片<br/>随条目数线性增长)]
-        M1B --> M1C[.SaveToFile 一次性导出]
-        M1C --> M1D[("task.har<br/>合法 HAR JSON")]
+    Disp -->|single task| M1
+    subgraph M1[Mode 1: in-memory accumulation]
+        M1A[Recorder / SafeRecorder<br/>.CaptureWithMeta] --> M1B[(internal entries slice<br/>grows with entry count)]
+        M1B --> M1C[.SaveToFile one-shot export]
+        M1C --> M1D[("task.har<br/>valid HAR JSON")]
     end
 
-    Disp -->|长期常驻| M2
-    subgraph M2[模式 2：JSONL 追加]
-        M2A[AppendEntryToJSONLFile<br/>O_APPEND] --> M2B[("archive.jsonl<br/>每行一条，无外壳")]
+    Disp -->|long-running| M2
+    subgraph M2[Mode 2: JSONL append]
+        M2A[AppendEntryToJSONLFile<br/>O_APPEND] --> M2B[("archive.jsonl<br/>one per line, no envelope")]
     end
 
-    Disp -->|回放分析| M3
-    subgraph M3[模式 3：流式回放]
-        M3A[ForEachEntryFromReader r, fn] --> M3B[逐条回调<br/>不全量入内存]
-        M3B --> M3C[(统计/告警/导入)]
+    Disp -->|replay/analyze| M3
+    subgraph M3[Mode 3: streaming replay]
+        M3A[ForEachEntryFromReader r, fn] --> M3B[per-entry callback<br/>never loads all into memory]
+        M3B --> M3C[(stats / alerts / import)]
     end
 
-    M1D -.可被 har split --by 拆分.-> M3
-    M2B -.定期统计.-> M3A
+    M1D -.har split --by can split.-> M3
+    M2B -.periodic stats.-> M3A
 
     M1:::blue
     M2:::green
@@ -92,38 +93,38 @@ flowchart TD
     classDef orange fill:#ea580c,color:#fff;
 ```
 
-::: tip 模式可组合
-真实部署常组合使用：常驻进程用模式 2 持续追加 JSONL；定期用模式 3 流式统计；切分任务用 `har split --by` 把 JSONL 转成多个标准 HAR（模式 1 产物）交给下游分析。
+::: tip Modes compose
+Real deployments often combine them: a resident process uses Mode 2 to continuously append JSONL; periodically uses Mode 3 for streaming statistics; for split tasks uses `har split --by` to convert the JSONL into multiple standard HAR files (Mode 1 output) for downstream analysis.
 :::
 
-## 从 \*http.Request / \*http.Response 归档
+## Archiving from \*http.Request / \*http.Response
 
-`HarBuilder` 提供两个入口，差别在于"能否传真实开始时间与元数据"：
+`HarBuilder` exposes two entry points; the difference is "whether you can pass the real start time and metadata":
 
-| 入口 | startedDateTime | 元数据 | 返回 | 适用 |
-|------|----------------|--------|------|------|
-| `AddEntryFromHTTP(req, resp, duration)` | 写死 `time.Now()` | 不接受 | `*HarBuilder` | 快速兼容、不在意时序 |
-| `AddEntryFromHTTPWithMeta(req, resp, startedAt, duration, meta)` | 调用方传入真实值 | `EntryMeta` | `*EntryBuilder` | 测绘系统归档（推荐） |
+| Entry point | startedDateTime | Metadata | Returns | Best for |
+|-------------|-----------------|----------|---------|----------|
+| `AddEntryFromHTTP(req, resp, duration)` | Hardcoded `time.Now()` | Not accepted | `*HarBuilder` | Quick compatibility, timing not important |
+| `AddEntryFromHTTPWithMeta(req, resp, startedAt, duration, meta)` | Caller supplies real value | `EntryMeta` | `*EntryBuilder` | Mapping-system archiving (recommended) |
 
-旧入口 `AddEntryFromHTTP` 的致命限制是 `startedDateTime` 取当下——上层抓到 req 时可能已是几百毫秒前，密集抓包时多条目时序会错乱。新入口 `AddEntryFromHTTPWithMeta` 接受 `startedAt`（真正发起请求的时刻）和 `EntryMeta`（服务器 IP / 连接 ID / pageref / initiator / priority / resourceType 等），并返回 `*EntryBuilder` 便于后置定制。
+The fatal limitation of the legacy entry `AddEntryFromHTTP` is that `startedDateTime` is taken as "now" — by the time the upper layer captures req it may already be hundreds of milliseconds old, and under dense capture the timing of multiple entries gets scrambled. The new entry `AddEntryFromHTTPWithMeta` accepts `startedAt` (the moment the request was actually initiated) and `EntryMeta` (server IP / connection ID / pageref / initiator / priority / resourceType, etc.), and returns `*EntryBuilder` for post-hoc customization.
 
-`EntryMeta` 字段一览：
+`EntryMeta` field overview:
 
 ```go
 type EntryMeta struct {
-    ServerIPAddress string // HAR 字段 serverIPAddress
-    Connection      string // HAR 字段 connection，关联复用同一连接的条目
-    Pageref         string // 所属页面引用，需与 AddPage 注册的 id 对应
-    InitiatorType   string // Chrome 扩展 _initiator.type，如 "script"/"parser"/"other"
+    ServerIPAddress string // HAR field serverIPAddress
+    Connection      string // HAR field connection, links entries reusing the same connection
+    Pageref         string // Owning page reference, must match an id registered with AddPage
+    InitiatorType   string // Chrome extension _initiator.type, e.g. "script"/"parser"/"other"
     InitiatorURL    string // _initiator.url
     InitiatorLine   int    // _initiator.lineNumber
-    Priority        string // Chrome 扩展 _priority，如 "High"/"Low"
-    ResourceType    string // Chrome 扩展 _resourceType，如 "xhr"/"script"
-    Comment         string // 条目注释
+    Priority        string // Chrome extension _priority, e.g. "High"/"Low"
+    ResourceType    string // Chrome extension _resourceType, e.g. "xhr"/"script"
+    Comment         string // Entry comment
 }
 ```
 
-完整示例——上层有 `req / resp / startedAt / duration`，用新入口归档并后置定制，最后落盘：
+Full example — the upper layer has `req / resp / startedAt / duration`, uses the new entry to archive and customize afterwards, then persists:
 
 ```go
 package main
@@ -137,7 +138,8 @@ import (
     har "github.com/hitechcloud-vietnam/har-skills"
 )
 
-// capture 是上层测绘系统抓到的一组数据：req/resp 之外还有真实开始时间、耗时、对端 IP。
+// capture is a bundle of data the upper mapping system captured:
+// besides req/resp it also has the real start time, duration, and peer IP.
 type capture struct {
     req       *http.Request
     resp      *http.Response
@@ -152,7 +154,7 @@ func archiveOne(c capture) error {
         SetCreator("cyberprobe-agent", "1.4.2").
         SetBrowser("traffic-mirror", "0.3")
 
-    // 新入口：传真实 startedAt + 元数据，返回 *EntryBuilder 便于后置定制
+    // New entry: pass real startedAt + metadata, returns *EntryBuilder for post-hoc customization
     b.AddEntryFromHTTPWithMeta(
         c.req, c.resp, c.startedAt, c.duration,
         har.EntryMeta{
@@ -162,7 +164,7 @@ func archiveOne(c capture) error {
             Priority:        "High",
         },
     ).
-        // 后置定制：补一个上层代理注入的追踪头
+        // Post-hoc customization: add a tracing header injected by the upper-layer proxy
         AddRequestHeader("X-Probe-Trace", "probe-42").
         EndEntry()
 
@@ -170,7 +172,7 @@ func archiveOne(c capture) error {
 }
 
 func main() {
-    // 假装上层抓到了一条
+    // Pretend the upper layer captured one entry
     req, _ := http.NewRequest("GET", "https://api.example.com/v1/scan", nil)
     req.Header.Set("Authorization", "Bearer secret-token")
     resp := &http.Response{
@@ -194,15 +196,15 @@ func main() {
 }
 ```
 
-::: tip Recorder 与 HarBuilder 的关系
-`Recorder` 内部持有一个 `HarBuilder`，`Capture*` 系列方法转发给 builder，并额外提供 `SaveToFile` / `EntryCount` / `ToHar` 等便捷封装。但 `Recorder` 不暴露内部 builder，**要拿到 `AddEntryFromHTTPWithMeta` 返回的 `*EntryBuilder` 做后置定制，请直接用 `har.NewHarBuilder()`**——上例即如此。两条路径产物等价，选择哪条取决于你是否需要后置定制 entry。
+::: tip Recorder vs HarBuilder
+`Recorder` internally holds a `HarBuilder`; the `Capture*` family of methods forward to the builder and additionally provide convenience wrappers like `SaveToFile` / `EntryCount` / `ToHar`. But `Recorder` does not expose the internal builder — **to get the `*EntryBuilder` returned by `AddEntryFromHTTPWithMeta` for post-hoc customization, use `har.NewHarBuilder()` directly** — as the example above does. The two paths produce equivalent output; which to choose depends on whether you need to customize the entry afterwards.
 :::
 
-## 并发归档（SafeRecorder）
+## Concurrent Archiving (SafeRecorder)
 
-网络空间测绘系统通常是**多协程并发抓包**：一个 goroutine 接一路流量镜像，或多个 worker 并行处理不同会话。`Recorder` 内部未加锁，直接并发 `Capture` 会触发 `map`/slice 并发读写崩溃。`SafeRecorder` 在每个读写方法上加 `sync.Mutex`，开箱即用：
+Cyberspace mapping systems typically do **multi-goroutine concurrent capture**: one goroutine per traffic-mirror tap, or multiple workers processing different sessions in parallel. `Recorder` is unlocked internally; concurrent `Capture` calls directly will trigger `map`/slice concurrent-read-write crashes. `SafeRecorder` adds a `sync.Mutex` to every read/write method, ready to use out of the box:
 
-下图展示多 goroutine 通过 `CaptureWithMeta` 并发写入时，互斥锁如何串行化对内部 `entries` 切片的访问：
+The diagram below shows how the mutex serializes concurrent access to the internal `entries` slice when multiple goroutines call `CaptureWithMeta`:
 
 ```mermaid
 sequenceDiagram
@@ -211,9 +213,9 @@ sequenceDiagram
     participant Wn as worker goroutine N
     participant SR as SafeRecorder
     participant Mu as sync.Mutex
-    participant S as 内部 entries []Entries
+    participant S as internal entries []Entries
 
-    par 并发触发
+    par concurrent fire
         W1->>SR: CaptureWithMeta(req1, resp1, started1, dur, meta)
     and
         W2->>SR: CaptureWithMeta(req2, resp2, started2, dur, meta)
@@ -222,40 +224,40 @@ sequenceDiagram
     end
 
     SR->>Mu: Lock()
-    Note over SR,Mu: 互斥：同一时刻只有一个 goroutine 进入临界区
-    SR->>S: append(entry) 修改内部切片
+    Note over SR,Mu: mutex: only one goroutine in the critical section at a time
+    SR->>S: append(entry) mutate internal slice
     Mu-->>SR: Unlock()
-    SR-->>W1: *SafeRecorder（链式）
+    SR-->>W1: *SafeRecorder (chainable)
 
     SR->>Mu: Lock()
     SR->>S: append(entry)
     Mu-->>SR: Unlock()
     SR-->>W2: *SafeRecorder
 
-    Note over Wn,SR: 其余 worker 排队等锁
+    Note over Wn,SR: other workers queue on the lock
 
-    W1->>SR: ToHarCopy() 取快照
+    W1->>SR: ToHarCopy() take a snapshot
     SR->>Mu: Lock()
-    SR->>S: (*Har).Clone() 深拷贝
+    SR->>S: (*Har).Clone() deep copy
     Mu-->>SR: Unlock()
-    SR-->>W1: 独立 *Har 副本
+    SR-->>W1: standalone *Har copy
 ```
 
-| `SafeRecorder` 方法 | 作用 |
-|---------------------|------|
-| `NewSafeRecorder() *SafeRecorder` | 创建并发安全录制器 |
-| `SetCreator(name, version) *SafeRecorder` | 设置 creator |
-| `SetBrowser(name, version) *SafeRecorder` | 设置 browser |
-| `Capture(req, resp, duration) *SafeRecorder` | 兼容入口（startedDateTime 取当下） |
-| `CaptureWithMeta(req, resp, startedAt, duration, meta) *SafeRecorder` | 携带真实开始时间 + 元数据 |
-| `CaptureEntry(entry Entries) *SafeRecorder` | 直接追加预构建条目（不碰任何 body） |
-| `EntryCount() int` | 已录制条目数 |
-| `ToHar() *Har` | 内部指针（可能被后续 Capture 改，慎用） |
-| `ToHarCopy() *Har` | 深拷贝快照（并发场景推荐） |
-| `SaveToFile(path) error` | 缩进 JSON 保存 |
-| `SaveToFileWithOptions(path, indent, gzip) error` | 可选缩进 + gzip |
+| `SafeRecorder` method | Purpose |
+|-----------------------|---------|
+| `NewSafeRecorder() *SafeRecorder` | Create a concurrency-safe recorder |
+| `SetCreator(name, version) *SafeRecorder` | Set creator |
+| `SetBrowser(name, version) *SafeRecorder` | Set browser |
+| `Capture(req, resp, duration) *SafeRecorder` | Compatibility entry (startedDateTime is "now") |
+| `CaptureWithMeta(req, resp, startedAt, duration, meta) *SafeRecorder` | With real start time + metadata |
+| `CaptureEntry(entry Entries) *SafeRecorder` | Append a pre-built entry directly (never touches any body) |
+| `EntryCount() int` | Number of recorded entries |
+| `ToHar() *Har` | Internal pointer (may be mutated by later Capture, use with care) |
+| `ToHarCopy() *Har` | Deep-copy snapshot (recommended for concurrent scenarios) |
+| `SaveToFile(path) error` | Save as indented JSON |
+| `SaveToFileWithOptions(path, indent, gzip) error` | Optional indent + gzip |
 
-完整示例——N 个 worker goroutine 并发抓包，主协程等齐后导出：
+Full example — N worker goroutines capture concurrently, the main goroutine waits for all then exports:
 
 ```go
 package main
@@ -282,7 +284,7 @@ func main() {
         go func(id int) {
             defer wg.Done()
 
-            // 每个 worker 模拟抓若干条
+            // Each worker simulates capturing a handful of entries
             for j := 0; j < 50; j++ {
                 req, _ := http.NewRequest("GET",
                     fmt.Sprintf("https://api.example.com/scan/%d", j), nil)
@@ -294,7 +296,7 @@ func main() {
                 }
 
                 started := time.Now()
-                // 多协程安全归档，带真实开始时间 + 元数据
+                // Multi-goroutine-safe archiving, with real start time + metadata
                 rec.CaptureWithMeta(
                     req, resp, started, 80*time.Millisecond,
                     har.EntryMeta{
@@ -311,65 +313,65 @@ func main() {
 
     fmt.Printf("archived %d entries\n", rec.EntryCount())
 
-    // 一次性导出标准 HAR
+    // One-shot export of standard HAR
     if err := rec.SaveToFile("distributed.har"); err != nil {
         fmt.Println("save failed:", err)
         return
     }
 
-    // 如需在归档过程中取一份稳定快照（不等所有 worker 结束），用 ToHarCopy
+    // To take a stable snapshot mid-archive (without waiting for all workers), use ToHarCopy
     snapshot := rec.ToHarCopy()
     fmt.Printf("snapshot entries: %d\n", len(snapshot.Log.Entries))
 }
 ```
 
 ::: warning ToHar vs ToHarCopy
-`ToHar()` 返回内部 `*Har` 指针，在锁内取但返回后不再持锁——若此时另一协程 `Capture`，你拿到的切片可能正被改写。**并发场景取快照一律用 `ToHarCopy()`**（内部 `(*Har).Clone()` 深拷贝）。仅在所有抓包协程已停止、确认无人再写时，才用 `ToHar()`。
+`ToHar()` returns the internal `*Har` pointer — it is taken under the lock, but the lock is no longer held once returned. If another goroutine calls `Capture` at that moment, the slice you hold may be mid-mutation. **For snapshots during concurrent archiving, always use `ToHarCopy()`** (internally `(*Har).Clone()` deep copy). Only use `ToHar()` when all capture goroutines have stopped and you are sure no one is writing.
 :::
 
-## 长期持续归档（JSONL 追加）
+## Long-term Continuous Archiving (JSONL Append)
 
-模式 1 的软肋是"必须攒齐才落盘"：常驻进程跑一周，内存里攒百万条 entry 再 `SaveToFile`，既爆内存又让崩溃代价不可承受——未保存的全部丢失。
+The soft spot of Mode 1 is "you must batch everything before persisting": a resident process running for a week accumulates a million entries in memory before `SaveToFile` — that blows memory and makes the crash cost unbearable, with all unsaved entries lost.
 
-模式 2 用 JSON Lines（每行一条 entry 的 JSON 对象）解决：抓一条立即 `O_APPEND` 追加一行，进程崩了至多丢正在写的那一条。核心 API：
+Mode 2 solves this with JSON Lines (one entry's JSON object per line): capture one entry, immediately `O_APPEND` one line; if the process crashes you lose at most the entry being written. Core APIs:
 
-| 函数 | 作用 |
-|------|------|
-| `WriteEntryToWriter(w, entry) error` | 单条 entry 写成 JSONL 一行到任意 `io.Writer` |
-| `AppendEntryToJSONLFile(path, entry) error` | `O_APPEND` 追加到文件，文件不存在自动建，内存恒定 |
-| `ForEachEntryFromReader(r, fn) error` | 流式读 JSONL，逐条回调，不全量入内存 |
-| `ReadEntriesFromReader(r) ([]Entries, error)` | 一次性读全部入切片（小归档才用） |
-| `WriteEntriesToWriter(har, w) error` | 把整个 `*Har` 的 entries 写成 JSONL |
-| `(*Har).ToJSONLines() (string, error)` | 同上但返回字符串 |
+| Function | Purpose |
+|----------|---------|
+| `WriteEntryToWriter(w, entry) error` | Write a single entry as one JSONL line to any `io.Writer` |
+| `AppendEntryToJSONLFile(path, entry) error` | `O_APPEND` to a file; auto-creates if missing; constant memory |
+| `ForEachEntryFromReader(r, fn) error` | Stream-read JSONL, invoke callback per entry, never loads all into memory |
+| `ReadEntriesFromReader(r) ([]Entries, error)` | Read everything into a slice at once (only for small archives) |
+| `WriteEntriesToWriter(har, w) error` | Write all entries of a `*Har` as JSONL |
+| `(*Har).ToJSONLines() (string, error)` | Same as above but returns a string |
 
-下面的时序图展示"常驻抓包循环 → 写盘 → 后续流式回放"的完整生命周期，写盘与回放是两个独立阶段：
+The sequence diagram below shows the full lifecycle of "resident capture loop → write to disk → later streaming replay"; writing and replaying are two independent phases:
 
 ```mermaid
 sequenceDiagram
-    participant LP as 抓包循环(常驻 goroutine)
+    participant LP as capture loop (resident goroutine)
     participant B as HarBuilder
     participant App as AppendEntryToJSONLFile
-    participant Disk as 磁盘 archive.jsonl
+    participant Disk as disk archive.jsonl
     participant Reader as ForEachEntryFromReader
-    participant CB as 回调 fn(entry)
-    participant Stats as 统计结果
+    participant CB as callback fn(entry)
+    participant Stats as stats result
 
-    Note over LP,Disk: 阶段 1：持续写入（O_APPEND，内存恒定）
-    loop 每抓一条
+    Note over LP,Disk: Phase 1: continuous write (O_APPEND, constant memory)
+    loop per captured entry
         LP->>B: AddEntryFromHTTPWithMeta(req, resp, startedAt, dur, meta)
         B-->>LP: *EntryBuilder
         LP->>B: EndEntry / Build()
-        B-->>LP: *Har（含最后一条 entry）
+        B-->>LP: *Har (with the last entry)
         LP->>App: AppendEntryToJSONLFile(path, entry)
-        App->>Disk: O_APPEND 写一行 JSON
+        App->>Disk: O_APPEND write one JSON line
         App-->>LP: nil
     end
 
-    Note over Reader,Stats: 阶段 2：流式回放（不全量入内存）
+    Note over Reader,Stats: Phase 2: streaming replay (never loads all into memory)
     LP->>Reader: ForEachEntryFromReader(f, fn)
-    loop 每读一行
-        Reader->>Disk: 顺序读取
-        Disk-->>Reader: 一行 JSON
+    loop per line read
+        Reader->>Disk: sequential read
+        Disk-->>Reader: one JSON line
         Reader->>Reader: json.Decode -> Entries
         Reader->>CB: fn(entry)
         CB-->>Reader: nil
@@ -378,7 +380,7 @@ sequenceDiagram
     LP->>Stats: count / slow / avgMs
 ```
 
-示例——常驻循环抓一条写一条，之后用 `ForEachEntryFromReader` 流式统计：
+Example — a resident loop captures one and writes one, then uses `ForEachEntryFromReader` for streaming statistics:
 
 ```go
 package main
@@ -394,9 +396,9 @@ import (
 
 func main() {
     archivePath := "long-running.jsonl"
-    _ = os.Remove(archivePath) // 清理上次
+    _ = os.Remove(archivePath) // clean up last run
 
-    // 假装这是常驻抓包循环：抓到请求就追加一行
+    // Pretend this is a resident capture loop: each captured request appends a line
     for i := 0; i < 10000; i++ {
         req, _ := http.NewRequest("GET",
             fmt.Sprintf("https://api.example.com/scan/%d", i), nil)
@@ -408,7 +410,7 @@ func main() {
         }
 
         started := time.Now()
-        // 先用 builder 造 entry（会消费 req/resp.body），再追加到文件
+        // First build the entry with builder (consumes req/resp.body), then append to file
         b := har.NewHarBuilder()
         b.AddEntryFromHTTPWithMeta(
             req, resp, started, 50*time.Millisecond,
@@ -418,8 +420,8 @@ func main() {
             },
         ).EndEntry()
 
-        // AddEntryFromHTTPWithMeta 已把 entry 放进 builder 的 har，
-        // 这里取最后一条追加到 JSONL 文件
+        // AddEntryFromHTTPWithMeta already placed the entry into the builder's har;
+        // here we take the last one and append it to the JSONL file
         built := b.Build()
         if err := har.AppendEntryToJSONLFile(
             archivePath, built.Log.Entries[len(built.Log.Entries)-1],
@@ -428,7 +430,7 @@ func main() {
         }
     }
 
-    // 回放：流式统计，不全量入内存
+    // Replay: streaming statistics, never loading all into memory
     f, err := os.Open(archivePath)
     if err != nil {
         fmt.Fprintln(os.Stderr, err)
@@ -455,52 +457,52 @@ func main() {
 }
 ```
 
-::: tip 写到任意 Writer
-`AppendEntryToJSONLFile` 是 `os.OpenFile(O_APPEND)` 的封装；若你的归档后端不是本地文件（如网络套接字、Kafka producer），用更底层的 `WriteEntryToWriter(w, entry)` 直接写一行。
+::: tip Write to any Writer
+`AppendEntryToJSONLFile` wraps `os.OpenFile(O_APPEND)`; if your archive backend is not a local file (e.g. a network socket, a Kafka producer), use the lower-level `WriteEntryToWriter(w, entry)` to write a line directly.
 :::
 
-## 二进制响应体处理
+## Binary Response Body Handling
 
-归档的响应不总是文本 JSON。图片、字体、视频、`octet-stream` 等二进制 body 若直接 `string(bodyBytes)` 塞进 HAR 的 `Content.Text`，JSON 序列化时会破坏字节、往返后无法还原。
+Archived responses are not always text JSON. Binary bodies like images, fonts, video, `octet-stream` — if you stuff them into HAR's `Content.Text` via `string(bodyBytes)` directly, JSON serialization will corrupt the bytes and the round-trip cannot restore them.
 
-新 API 在 `addEntryFromHTTPImpl` 中自动判别：
+The new API auto-detects this inside `addEntryFromHTTPImpl`:
 
 ```go
-// builder.go 内部逻辑（节选）
+// Internal logic in builder.go (excerpt)
 mimeType := resp.Header.Get("Content-Type")
 content := Content{Size: len(bodyBytes), MimeType: mimeType}
 if isTextContentType(mimeType) {
-    content.Text = string(bodyBytes)          // 文本：原样存
+    content.Text = string(bodyBytes)          // Text: store as-is
 } else {
     content.Text = base64.StdEncoding.EncodeToString(bodyBytes)
-    content.Encoding = "base64"              // 二进制：base64 编码
+    content.Encoding = "base64"              // Binary: base64-encoded
 }
 ```
 
-`isTextContentType` 的判别规则（见 `http_convert.go`）：
+Detection rules of `isTextContentType` (see `http_convert.go`):
 
-| Content-Type | 判定 |
-|--------------|------|
-| `text/*`、含 `json`/`xml`/`javascript`/`urlencoded`/`form-data` | 文本 |
-| `application/*` 且不含 `image`/`audio`/`video`/`font`/`octet-stream`/`pdf`/`zip`/`gzip` | 文本 |
-| `image/*`、`audio/*`、`video/*`、`font/*`、`application/octet-stream` 等 | 二进制（base64） |
-| 空值 | 按文本（向后兼容） |
+| Content-Type | Verdict |
+|--------------|---------|
+| `text/*`, or contains `json`/`xml`/`javascript`/`urlencoded`/`form-data` | Text |
+| `application/*` and does not contain `image`/`audio`/`video`/`font`/`octet-stream`/`pdf`/`zip`/`gzip` | Text |
+| `image/*`, `audio/*`, `video/*`, `font/*`, `application/octet-stream`, etc. | Binary (base64) |
+| Empty value | Treated as text (backward-compatible) |
 
-调用方无需任何处理——传入 `resp` 即可，SDK 读 body、判别、编码、`Close` 一气呵成。下游读 HAR 时看到 `Content.Encoding == "base64"` 就知道要 `base64.StdDecode` 还原。
+Callers do nothing — pass in `resp` and the SDK reads the body, detects, encodes, and `Close`s in one pass. Downstream HAR readers see `Content.Encoding == "base64"` and know to `base64.StdDecode` to restore.
 
-## 自行组装 entry
+## Assembling an Entry Yourself
 
-`AddEntryFromHTTPWithMeta` 会消费 `req.Body` / `resp.Body` 并完成全部映射。但有些上层系统已经自己解析好了字段（例如从流量镜像里重组出 headers、cookies、postData），不想让 SDK 再 `io.ReadAll` 一遍。此时用三个导出辅助自行组装：
+`AddEntryFromHTTPWithMeta` consumes `req.Body` / `resp.Body` and completes all mapping. But some upper-layer systems have already parsed the fields themselves (e.g. reassembled headers, cookies, postData from a traffic mirror) and don't want the SDK to `io.ReadAll` again. For these cases, three exported helpers let you assemble manually:
 
-| 辅助函数 | 输入 | 输出 | 副作用 |
-|----------|------|------|--------|
-| `HeadersFromHTTP(http.Header) []Headers` | `net/http` 头 | HAR headers 切片（多值展开，保留大小写） | 无 |
-| `CookiesFromHTTP([]*http.Cookie) []Cookie` | `net/http` cookies | HAR cookies（Name/Value/Path/Domain/HTTPOnly/Secure） | 无 |
-| `PostDataFromRequest(*http.Request) (*PostData, int)` | `http.Request` | PostData + body 字节数 | **会消费并 Close `req.Body`** |
+| Helper | Input | Output | Side effect |
+|--------|-------|--------|-------------|
+| `HeadersFromHTTP(http.Header) []Headers` | `net/http` headers | HAR headers slice (multi-values expanded, case preserved) | None |
+| `CookiesFromHTTP([]*http.Cookie) []Cookie` | `net/http` cookies | HAR cookies (Name/Value/Path/Domain/HTTPOnly/Secure) | None |
+| `PostDataFromRequest(*http.Request) (*PostData, int)` | `http.Request` | PostData + body byte count | **Consumes and Closes `req.Body`** |
 
-`PostDataFromRequest` 自动识别 `Content-Type`：`application/x-www-form-urlencoded` 解析成 `PostData.Params`，其余存进 `PostData.Text`。
+`PostDataFromRequest` auto-detects `Content-Type`: `application/x-www-form-urlencoded` is parsed into `PostData.Params`; everything else goes into `PostData.Text`.
 
-示例——上层已有解析好的字段，手动组装 entry 并追加到 JSONL：
+Example — the upper layer already has parsed fields; assemble the entry manually and append to JSONL:
 
 ```go
 package main
@@ -516,7 +518,7 @@ import (
 )
 
 func main() {
-    // 假装上层已重组好 headers，不希望 SDK 碰 body
+    // Pretend the upper layer has already reassembled headers and doesn't want the SDK to touch the body
     httpReq, _ := http.NewRequest("POST",
         "https://api.example.com/v1/report", nil)
     httpReq.Header = http.Header{
@@ -524,9 +526,9 @@ func main() {
         "Authorization": []string{"Bearer xyz"},
     }
     httpReq.Body = io.NopCloser(bytes.NewReader([]byte("id=42&src=probe")))
-    // 注意：PostDataFromRequest 会消费 req.Body，这里只是演示
+    // Note: PostDataFromRequest consumes req.Body; this is just a demo
 
-    // 复用导出辅助，不动 entry 的其它字段
+    // Reuse the exported helpers without touching other entry fields
     headers := har.HeadersFromHTTP(httpReq.Header)
     postData, bodySize := har.PostDataFromRequest(httpReq)
     cookies := har.CookiesFromHTTP(httpReq.Cookies())
@@ -548,48 +550,48 @@ func main() {
         Timings:   har.Timings{Wait: 42, Blocked: -1, DNS: -1, Connect: -1, Send: -1, Receive: -1, Ssl: -1},
     }
 
-    // 手动追加到 JSONL 归档
+    // Manually append to a JSONL archive
     if err := har.AppendEntryToJSONLFile("manual.jsonl", entry); err != nil {
         os.Exit(1)
     }
 }
 ```
 
-::: tip 为什么 BodySize 要单独拿
-`PostDataFromRequest` 返回的第二个值是 body 字节数，正是 `Request.BodySize`。`AddEntryFromHTTPWithMeta` 内部也是这么填的——自行组装时别忘了设这个字段，否则 HAR 的 body 大小会是默认 `-1`。
+::: tip Why BodySize must be fetched separately
+The second value returned by `PostDataFromRequest` is the body byte count, which is exactly `Request.BodySize`. `AddEntryFromHTTPWithMeta` fills it the same way internally — don't forget to set this field when assembling yourself, or HAR's body size will default to `-1`.
 :::
 
-## 重要注意事项
+## Important Notes
 
-::: warning AddEntryFromHTTP\* 会消费并关闭 req.Body / resp.Body
-`AddEntryFromHTTP` / `AddEntryFromHTTPWithMeta` / `PostDataFromRequest` 内部都会 `io.ReadAll` 后 `Close` 请求体与响应体。**若上层在归档之后仍需响应体（例如做内容匹配、写另一份日志），必须在调用前缓存副本：**
+::: warning AddEntryFromHTTP\* consumes and closes req.Body / resp.Body
+`AddEntryFromHTTP` / `AddEntryFromHTTPWithMeta` / `PostDataFromRequest` all `io.ReadAll` then `Close` the request and response bodies internally. **If the upper layer still needs the response body after archiving (e.g. for content matching, writing another log), you must cache a copy before the call:**
 
 ```go
-// 缓存 resp.Body 副本，归档用原件、业务用副本
+// Cache a copy of resp.Body: archive uses the original, the business uses the copy
 bodyBytes, _ := io.ReadAll(resp.Body)
 resp.Body.Close()
 
-// 归档：SDK 会再次读取并 Close 这个已重置的 body
+// Archive: the SDK will read and Close this reset body again
 resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 rec.CaptureWithMeta(req, resp, startedAt, dur, meta)
 
-// 业务侧继续用副本
+// Business side continues to use the copy
 useBody(bodyBytes)
 ```
 
-`http.NoBody` 等空 body 不受影响（`isNilReader` 判空后跳过）。
+Empty bodies like `http.NoBody` are unaffected (`isNilReader` detects nil and skips).
 :::
 
-::: warning ToHar() 返回内部指针，并发场景用 ToHarCopy()
-`SafeRecorder.ToHar()` 在锁内取指针但返回后不持锁，另一协程的 `Capture` 可能正在改写其底层 slice。**并发归档过程中取快照一律用 `ToHarCopy()`**（内部 `(*Har).Clone()` 深拷贝），仅在确认所有抓包协程已停止时才用 `ToHar()`。
+::: warning ToHar() returns an internal pointer; use ToHarCopy() for concurrent scenarios
+`SafeRecorder.ToHar()` takes the pointer under the lock but does not hold it after returning — another goroutine's `Capture` may be mutating the underlying slice. **For snapshots during concurrent archiving, always use `ToHarCopy()`** (internally `(*Har).Clone()` deep copy); only use `ToHar()` when you are sure all capture goroutines have stopped.
 :::
 
-::: warning JSONL 不是合法 HAR JSON
-JSONL 归档每行是一个独立的 `Entries` JSON 对象，**没有 HAR 规范要求的 `{"log": {...}}` 外壳**，直接 `har.ParseHarFile()` 解析会失败。JSONL 仅供追加归档与流式回放（`ForEachEntryFromReader` / `ReadEntriesFromReader`）。要产出符合规范、可被任何 HAR 工具消费的标准 HAR 文件，用 `Recorder.SaveToFile` 或 `SafeRecorder.SaveToFile`。
+::: warning JSONL is not valid HAR JSON
+A JSONL archive has one independent `Entries` JSON object per line and **lacks the `{"log": {...}}` envelope required by the HAR spec** — parsing it directly with `har.ParseHarFile()` will fail. JSONL is for append-only archiving and streaming replay (`ForEachEntryFromReader` / `ReadEntriesFromReader`) only. To produce a spec-compliant standard HAR file consumable by any HAR tool, use `Recorder.SaveToFile` or `SafeRecorder.SaveToFile`.
 :::
 
-## 下一步
+## Next Steps
 
-- 把归档产物交给分析模块：见 [过滤与链式结果](./filtering) 找出特定条目，见 [导出能力](./export) 转 curl/Postman。
-- 归档后做安全审计：`SecurityAudit()` / `CookieAudit()`，见 [数据结构](./data-structures)。
-- 长期归档切分管理：CLI `har split --by time --interval 30m` 把大归档切成可管理的小块。
+- Hand the archive off to the analysis module: see [Filtering & Chaining](./filtering) to find specific entries, and [Export](./export) to convert to curl/Postman.
+- Run a security audit after archiving: `SecurityAudit()` / `CookieAudit()`, see [Data Structures](./data-structures).
+- Manage long-term archives by splitting: the CLI `har split --by time --interval 30m` breaks a large archive into manageable chunks.

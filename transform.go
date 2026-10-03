@@ -81,7 +81,7 @@ func (h *Har) RemoveHeaders(names []string) *Har {
 }
 
 // AddHeaders 向所有请求和/或响应中添加头部，返回新的Har对象
-// target 取值为 "request"、"response" 或 "both"
+// target is "request", "response", or "both".
 func (h *Har) AddHeaders(headers map[string]string, target string) *Har {
 	if h == nil {
 		return nil

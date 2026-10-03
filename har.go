@@ -8,68 +8,68 @@ import (
 	"time"
 )
 
-// 错误定义
+// Error definitions.
 var (
-	// ErrInvalidHar 表示HAR对象缺少必要字段
-	ErrInvalidHar = NewValidationError("HAR对象缺少必要字段", "")
+	// ErrInvalidHar indicates that the HAR object is missing required fields.
+	ErrInvalidHar = NewValidationError("HAR object is missing required fields", "")
 
-	// ErrInvalidURL 表示HAR条目中的URL无效
-	ErrInvalidURL = NewValidationError("HAR条目中包含无效URL", "")
+	// ErrInvalidURL indicates that a HAR entry contains an invalid URL.
+	ErrInvalidURL = NewValidationError("HAR entry contains an invalid URL", "")
 
-	// ErrNotJsonContent 表示内容不是JSON格式
-	ErrNotJsonContent = NewInvalidFormatError("内容不是JSON格式")
+	// ErrNotJsonContent indicates that the content is not JSON.
+	ErrNotJsonContent = NewInvalidFormatError("content is not JSON")
 )
 
-// ParseHarFile 解析HAR格式的文件
+// ParseHarFile parses a file in HAR format.
 //
-// ParseHarFile是ParseHar的便捷包装，它会先读取文件内容再进行解析。
-// 该函数遵循错误处理最佳实践，将所有错误转换为HarError类型，便于统一处理。
+// ParseHarFile is a convenience wrapper around ParseHar that reads the file before parsing it.
+// It follows error-handling best practices by converting all errors to HarError for consistent handling.
 //
-// 示例:
+// Example:
 //
 //	har, err := ParseHarFile("example.har")
 //	if err != nil {
-//	    log.Fatalf("解析HAR文件失败: %v", err)
+//	    log.Fatalf("failed to parse HAR file: %v", err)
 //	}
 func ParseHarFile(harFilePath string) (*Har, error) {
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError(fmt.Sprintf("无法读取文件 '%s'", harFilePath), err)
+		return nil, NewFileSystemError(fmt.Sprintf("unable to read file '%s'", harFilePath), err)
 	}
 	return ParseHar(harFileBytes)
 }
 
-// ParseHar 解析HAR格式的字节数据
+// ParseHar parses byte data in HAR format.
 //
-// ParseHar函数将HAR格式的字节数据解析为Har结构体对象。
-// 该函数会进行完整的验证，确保HAR对象满足规范要求。
+// ParseHar converts byte data in HAR format into a Har struct.
+// It performs full validation to ensure the Har object conforms to the specification.
 //
-// 示例:
+// Example:
 //
 //	harBytes, _ := ioutil.ReadFile("example.har")
 //	har, err := ParseHar(harBytes)
 //	if err != nil {
-//	    log.Fatalf("解析HAR数据失败: %v", err)
+//	    log.Fatalf("failed to parse HAR data: %v", err)
 //	}
 func ParseHar(harFileBytes []byte) (*Har, error) {
-	// 检查输入是否为空
+	// Check for empty input.
 	if len(harFileBytes) == 0 {
-		return nil, NewInvalidFormatError("输入为空")
+		return nil, NewInvalidFormatError("input is empty")
 	}
 
-	// 检查是否是JSON格式
+	// Check that the input is JSON.
 	if !isJSONContent(harFileBytes) {
 		return nil, ErrNotJsonContent
 	}
 
-	// 解析JSON
+	// Parse the JSON.
 	har := new(Har)
 	err := json.Unmarshal(harFileBytes, har)
 	if err != nil {
 		return nil, WrapJSONUnmarshalError(err)
 	}
 
-	// 验证HAR对象
+	// Validate the HAR object.
 	if err := ValidateHarFile(har); err != nil {
 		return nil, err
 	}
@@ -77,252 +77,252 @@ func ParseHar(harFileBytes []byte) (*Har, error) {
 	return har, nil
 }
 
-// Har 表示HTTP归档(HAR)文件的主结构
+// Har represents the root structure of an HTTP Archive (HAR) file.
 //
-// Har结构是HAR格式的根对象，包含一个Log字段。
-// 所有HAR数据都包含在Log字段中。
+// Har is the root object in HAR format and contains a Log field.
+// All HAR data is stored in Log.
 type Har struct {
-	Log          Log          `json:"log"` // HAR日志对象
+	Log          Log          `json:"log"` // HAR log object.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Log 表示HAR日志对象
+// Log represents the HAR log object.
 //
-// Log包含HAR数据的主要部分，包括版本、创建者信息、
-// 页面信息和HTTP条目数据。
+// Log contains the main HAR data, including the version, creator information,
+// page information, and HTTP entries.
 type Log struct {
-	Version      string       `json:"version"`           // HAR规范版本
-	Creator      Creator      `json:"creator"`           // 创建工具信息
-	Browser      Browser      `json:"browser,omitempty"` // 浏览器信息（可选）
-	Pages        []Pages      `json:"pages,omitempty"`   // 页面信息
-	Entries      []Entries    `json:"entries"`           // HTTP请求/响应条目
-	Comment      string       `json:"comment,omitempty"` // 可选注释
+	Version      string       `json:"version"`           // HAR specification version.
+	Creator      Creator      `json:"creator"`           // Information about the creating tool.
+	Browser      Browser      `json:"browser,omitempty"` // Browser information (optional).
+	Pages        []Pages      `json:"pages,omitempty"`   // Page information.
+	Entries      []Entries    `json:"entries"`           // HTTP request/response entries.
+	Comment      string       `json:"comment,omitempty"` // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Creator 表示创建HAR文件的工具信息
+// Creator represents information about the tool that created the HAR file.
 type Creator struct {
-	Name    string `json:"name"`              // 创建工具名称
-	Version string `json:"version"`           // 创建工具版本
-	Comment string `json:"comment,omitempty"` // 可选注释
+	Name    string `json:"name"`              // Name of the creating tool.
+	Version string `json:"version"`           // Version of the creating tool.
+	Comment string `json:"comment,omitempty"` // Optional comment.
 }
 
-// Browser 表示浏览器信息
+// Browser represents browser information.
 type Browser struct {
-	Name    string `json:"name"`              // 浏览器名称
-	Version string `json:"version"`           // 浏览器版本
-	Comment string `json:"comment,omitempty"` // 可选注释
+	Name    string `json:"name"`              // Browser name.
+	Version string `json:"version"`           // Browser version.
+	Comment string `json:"comment,omitempty"` // Optional comment.
 }
 
-// PageTimings 表示页面加载计时
+// PageTimings represents page load timings.
 type PageTimings struct {
-	OnContentLoad float64 `json:"onContentLoad"`     // DOMContentLoaded事件触发时间(ms)
-	OnLoad        float64 `json:"onLoad"`            // load事件触发时间(ms)
-	Comment       string  `json:"comment,omitempty"` // 可选注释
+	OnContentLoad float64 `json:"onContentLoad"`     // Time when the DOMContentLoaded event fired (ms).
+	OnLoad        float64 `json:"onLoad"`            // Time when the load event fired (ms).
+	Comment       string  `json:"comment,omitempty"` // Optional comment.
 }
 
-// Pages 表示HAR文件中的页面信息
+// Pages represents page information in a HAR file.
 type Pages struct {
-	StartedDateTime time.Time    `json:"startedDateTime"`   // 页面加载开始时间
-	ID              string       `json:"id"`                // 页面唯一标识
-	Title           string       `json:"title"`             // 页面标题
-	PageTimings     PageTimings  `json:"pageTimings"`       // 页面加载计时
-	Comment         string       `json:"comment,omitempty"` // 可选注释
+	StartedDateTime time.Time    `json:"startedDateTime"`   // Page load start time.
+	ID              string       `json:"id"`                // Unique page identifier.
+	Title           string       `json:"title"`             // Page title.
+	PageTimings     PageTimings  `json:"pageTimings"`       // Page load timings.
+	Comment         string       `json:"comment,omitempty"` // Optional comment.
 	CustomFields    CustomFields `json:"-"`
 }
 
-// Headers 表示HTTP头部
+// Headers represents an HTTP header.
 type Headers struct {
-	Name    string `json:"name"`              // 头部名称
-	Value   string `json:"value"`             // 头部值
-	Comment string `json:"comment,omitempty"` // 可选注释
+	Name    string `json:"name"`              // Header name.
+	Value   string `json:"value"`             // Header value.
+	Comment string `json:"comment,omitempty"` // Optional comment.
 }
 
-// QueryString 表示URL查询参数
+// QueryString represents a URL query parameter.
 type QueryString struct {
-	Name    string `json:"name"`              // 参数名称
-	Value   string `json:"value"`             // 参数值
-	Comment string `json:"comment,omitempty"` // 可选注释
+	Name    string `json:"name"`              // Parameter name.
+	Value   string `json:"value"`             // Parameter value.
+	Comment string `json:"comment,omitempty"` // Optional comment.
 }
 
-// Cookie 表示HTTP Cookie
+// Cookie represents an HTTP cookie.
 type Cookie struct {
-	Name         string       `json:"name"`               // Cookie名称
-	Value        string       `json:"value"`              // Cookie值
-	Path         string       `json:"path,omitempty"`     // Cookie路径
-	Domain       string       `json:"domain,omitempty"`   // Cookie域
-	Expires      time.Time    `json:"expires,omitempty"`  // 过期时间
-	HTTPOnly     bool         `json:"httpOnly,omitempty"` // 是否为HttpOnly
-	Secure       bool         `json:"secure,omitempty"`   // 是否为Secure
-	SameSite     string       `json:"sameSite,omitempty"` // SameSite策略
-	Comment      string       `json:"comment,omitempty"`  // 可选注释
+	Name         string       `json:"name"`               // Cookie name.
+	Value        string       `json:"value"`              // Cookie value.
+	Path         string       `json:"path,omitempty"`     // Cookie path.
+	Domain       string       `json:"domain,omitempty"`   // Cookie domain.
+	Expires      time.Time    `json:"expires,omitempty"`  // Expiration time.
+	HTTPOnly     bool         `json:"httpOnly,omitempty"` // Whether HttpOnly is enabled.
+	Secure       bool         `json:"secure,omitempty"`   // Whether Secure is enabled.
+	SameSite     string       `json:"sameSite,omitempty"` // SameSite policy.
+	Comment      string       `json:"comment,omitempty"`  // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// PostData 表示HTTP请求的POST数据
+// PostData represents POST data in an HTTP request.
 type PostData struct {
-	MimeType     string       `json:"mimeType"`          // MIME类型
-	Params       []Param      `json:"params,omitempty"`  // 参数列表（表单提交时使用）
-	Text         string       `json:"text,omitempty"`    // 请求体文本内容
-	Comment      string       `json:"comment,omitempty"` // 可选注释
+	MimeType     string       `json:"mimeType"`          // MIME type.
+	Params       []Param      `json:"params,omitempty"`  // Parameter list (used for form submissions).
+	Text         string       `json:"text,omitempty"`    // Request body text.
+	Comment      string       `json:"comment,omitempty"` // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Param 表示POST请求中的表单参数
+// Param represents a form parameter in a POST request.
 type Param struct {
-	Name         string       `json:"name"`                  // 参数名称
-	Value        string       `json:"value,omitempty"`       // 参数值
-	FileName     string       `json:"fileName,omitempty"`    // 文件名（用于文件上传）
-	ContentType  string       `json:"contentType,omitempty"` // 内容类型
-	Comment      string       `json:"comment,omitempty"`     // 可选注释
+	Name         string       `json:"name"`                  // Parameter name.
+	Value        string       `json:"value,omitempty"`       // Parameter value.
+	FileName     string       `json:"fileName,omitempty"`    // File name (for file uploads).
+	ContentType  string       `json:"contentType,omitempty"` // Content type.
+	Comment      string       `json:"comment,omitempty"`     // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Content 表示HTTP响应内容
+// Content represents HTTP response content.
 type Content struct {
-	Size         int          `json:"size"`                  // 内容大小(字节)
-	MimeType     string       `json:"mimeType"`              // MIME类型
-	Compression  int          `json:"compression,omitempty"` // 压缩节省字节数(可选)
-	Text         string       `json:"text,omitempty"`        // 文本内容(可选)
-	Encoding     string       `json:"encoding,omitempty"`    // 编码方式(可选，如base64)
-	Comment      string       `json:"comment,omitempty"`     // 可选注释
+	Size         int          `json:"size"`                  // Content size (bytes).
+	MimeType     string       `json:"mimeType"`              // MIME type.
+	Compression  int          `json:"compression,omitempty"` // Bytes saved by compression (optional).
+	Text         string       `json:"text,omitempty"`        // Text content (optional).
+	Encoding     string       `json:"encoding,omitempty"`    // Encoding (optional, e.g. base64).
+	Comment      string       `json:"comment,omitempty"`     // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Request 表示HTTP请求
+// Request represents an HTTP request.
 type Request struct {
-	Method       string        `json:"method"`             // HTTP方法(GET, POST等)
-	URL          string        `json:"url"`                // 请求URL
-	HTTPVersion  string        `json:"httpVersion"`        // HTTP版本
-	Cookies      []Cookie      `json:"cookies"`            // Cookie列表
-	Headers      []Headers     `json:"headers"`            // 头部列表
-	QueryString  []QueryString `json:"queryString"`        // 查询参数
-	PostData     *PostData     `json:"postData,omitempty"` // POST数据(可选)
-	HeadersSize  int           `json:"headersSize"`        // 头部大小(字节)
-	BodySize     int           `json:"bodySize"`           // 请求体大小(字节)
-	Comment      string        `json:"comment,omitempty"`  // 可选注释
+	Method       string        `json:"method"`             // HTTP method (GET, POST, etc.).
+	URL          string        `json:"url"`                // Request URL.
+	HTTPVersion  string        `json:"httpVersion"`        // HTTP version.
+	Cookies      []Cookie      `json:"cookies"`            // Cookies.
+	Headers      []Headers     `json:"headers"`            // Headers.
+	QueryString  []QueryString `json:"queryString"`        // Query parameters.
+	PostData     *PostData     `json:"postData,omitempty"` // POST data (optional).
+	HeadersSize  int           `json:"headersSize"`        // Header size (bytes).
+	BodySize     int           `json:"bodySize"`           // Request body size (bytes).
+	Comment      string        `json:"comment,omitempty"`  // Optional comment.
 	CustomFields CustomFields  `json:"-"`
 }
 
-// Response 表示HTTP响应
+// Response represents an HTTP response.
 type Response struct {
-	Status       int          `json:"status"`                  // 状态码
-	StatusText   string       `json:"statusText"`              // 状态描述
-	HTTPVersion  string       `json:"httpVersion"`             // HTTP版本
-	Cookies      []Cookie     `json:"cookies"`                 // Cookie列表
-	Headers      []Headers    `json:"headers"`                 // 头部列表
-	Content      Content      `json:"content"`                 // 响应内容
-	RedirectURL  string       `json:"redirectURL"`             // 重定向URL
-	HeadersSize  int          `json:"headersSize"`             // 头部大小(字节)
-	BodySize     int          `json:"bodySize"`                // 响应体大小(字节)
-	TransferSize int          `json:"_transferSize,omitempty"` // 传输大小(Chrome扩展)
-	Error        any          `json:"_error,omitempty"`        // 错误信息(Chrome扩展)
-	Comment      string       `json:"comment,omitempty"`       // 可选注释
+	Status       int          `json:"status"`                  // Status code.
+	StatusText   string       `json:"statusText"`              // Status description.
+	HTTPVersion  string       `json:"httpVersion"`             // HTTP version.
+	Cookies      []Cookie     `json:"cookies"`                 // Cookies.
+	Headers      []Headers    `json:"headers"`                 // Headers.
+	Content      Content      `json:"content"`                 // Response content.
+	RedirectURL  string       `json:"redirectURL"`             // Redirect URL.
+	HeadersSize  int          `json:"headersSize"`             // Header size (bytes).
+	BodySize     int          `json:"bodySize"`                // Response body size (bytes).
+	TransferSize int          `json:"_transferSize,omitempty"` // Transfer size (Chrome extension).
+	Error        any          `json:"_error,omitempty"`        // Error information (Chrome extension).
+	Comment      string       `json:"comment,omitempty"`       // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// BeforeRequest 表示请求前的缓存状态
+// BeforeRequest represents cache state before the request.
 type BeforeRequest struct {
-	Expires      time.Time    `json:"expires,omitempty"` // 过期时间
-	LastAccess   time.Time    `json:"lastAccess"`        // 最后访问时间
-	ETag         string       `json:"eTag"`              // ETag
-	HitCount     int          `json:"hitCount"`          // 命中次数
-	Comment      string       `json:"comment,omitempty"` // 注释（可选）
+	Expires      time.Time    `json:"expires,omitempty"` // Expiration time.
+	LastAccess   time.Time    `json:"lastAccess"`        // Last access time.
+	ETag         string       `json:"eTag"`              // ETag.
+	HitCount     int          `json:"hitCount"`          // Number of cache hits.
+	Comment      string       `json:"comment,omitempty"` // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// AfterRequest 表示请求后的缓存状态
+// AfterRequest represents cache state after the request.
 type AfterRequest struct {
-	Expires      time.Time    `json:"expires,omitempty"` // 过期时间
-	LastAccess   time.Time    `json:"lastAccess"`        // 最后访问时间
-	ETag         string       `json:"eTag"`              // ETag
-	HitCount     int          `json:"hitCount"`          // 命中次数
-	Comment      string       `json:"comment,omitempty"` // 注释（可选）
+	Expires      time.Time    `json:"expires,omitempty"` // Expiration time.
+	LastAccess   time.Time    `json:"lastAccess"`        // Last access time.
+	ETag         string       `json:"eTag"`              // ETag.
+	HitCount     int          `json:"hitCount"`          // Number of cache hits.
+	Comment      string       `json:"comment,omitempty"` // Optional comment.
 	CustomFields CustomFields `json:"-"`
 }
 
-// Cache 表示HTTP缓存信息
+// Cache represents HTTP cache information.
 type Cache struct {
-	BeforeRequest *BeforeRequest `json:"beforeRequest,omitempty"` // 请求前缓存状态
-	AfterRequest  *AfterRequest  `json:"afterRequest,omitempty"`  // 请求后缓存状态
-	Comment       string         `json:"comment,omitempty"`       // 注释
+	BeforeRequest *BeforeRequest `json:"beforeRequest,omitempty"` // Cache state before the request.
+	AfterRequest  *AfterRequest  `json:"afterRequest,omitempty"`  // Cache state after the request.
+	Comment       string         `json:"comment,omitempty"`       // Comment.
 	CustomFields  CustomFields   `json:"-"`
 }
 
-// Timings 表示HTTP请求/响应过程中的时间指标
+// Timings represents timing measurements during an HTTP request/response.
 type Timings struct {
-	Blocked         float64      `json:"blocked"`                     // 阻塞时间(ms)
-	DNS             float64      `json:"dns"`                         // DNS解析时间(ms)
-	Connect         float64      `json:"connect"`                     // TCP连接时间(ms)
-	Ssl             float64      `json:"ssl"`                         // SSL/TLS协商时间(ms)
-	Send            float64      `json:"send"`                        // 发送请求时间(ms)
-	Wait            float64      `json:"wait"`                        // 等待响应时间(ms)
-	Receive         float64      `json:"receive"`                     // 接收响应时间(ms)
-	BlockedQueueing float64      `json:"_blocked_queueing,omitempty"` // 排队阻塞时间(Chrome扩展, ms)
-	BlockedProxy    float64      `json:"_blocked_proxy,omitempty"`    // 代理阻塞时间(Chrome扩展, ms)
-	Comment         string       `json:"comment,omitempty"`           // 可选注释
+	Blocked         float64      `json:"blocked"`                     // Blocked time (ms).
+	DNS             float64      `json:"dns"`                         // DNS lookup time (ms).
+	Connect         float64      `json:"connect"`                     // TCP connection time (ms).
+	Ssl             float64      `json:"ssl"`                         // SSL/TLS negotiation time (ms).
+	Send            float64      `json:"send"`                        // Request send time (ms).
+	Wait            float64      `json:"wait"`                        // Response wait time (ms).
+	Receive         float64      `json:"receive"`                     // Response receive time (ms).
+	BlockedQueueing float64      `json:"_blocked_queueing,omitempty"` // Queue blocking time (Chrome extension, ms).
+	BlockedProxy    float64      `json:"_blocked_proxy,omitempty"`    // Proxy blocking time (Chrome extension, ms).
+	Comment         string       `json:"comment,omitempty"`           // Optional comment.
 	CustomFields    CustomFields `json:"-"`
 }
 
-// Entries 表示HAR文件中的单个HTTP请求/响应条目
+// Entries represents a single HTTP request/response entry in a HAR file.
 type Entries struct {
-	StartedDateTime time.Time    `json:"startedDateTime"`           // 请求开始时间
-	Time            float64      `json:"time"`                      // 总耗时(ms)
-	Request         Request      `json:"request"`                   // 请求信息
-	Response        Response     `json:"response"`                  // 响应信息
-	Cache           Cache        `json:"cache"`                     // 缓存信息
-	Timings         Timings      `json:"timings"`                   // 详细计时
-	Pageref         string       `json:"pageref,omitempty"`         // 关联的页面ID
-	ServerIPAddress string       `json:"serverIPAddress,omitempty"` // 服务器IP
-	Connection      string       `json:"connection,omitempty"`      // 连接ID
-	Initiator       Initiator    `json:"_initiator,omitempty"`      // 请求发起者(Chrome扩展)
-	Priority        string       `json:"_priority,omitempty"`       // 请求优先级(Chrome扩展)
-	ResourceType    string       `json:"_resourceType,omitempty"`   // 资源类型(Chrome扩展)
-	Comment         string       `json:"comment,omitempty"`         // 可选注释
+	StartedDateTime time.Time    `json:"startedDateTime"`           // Request start time.
+	Time            float64      `json:"time"`                      // Total duration (ms).
+	Request         Request      `json:"request"`                   // Request information.
+	Response        Response     `json:"response"`                  // Response information.
+	Cache           Cache        `json:"cache"`                     // Cache information.
+	Timings         Timings      `json:"timings"`                   // Detailed timings.
+	Pageref         string       `json:"pageref,omitempty"`         // Associated page ID.
+	ServerIPAddress string       `json:"serverIPAddress,omitempty"` // Server IP address.
+	Connection      string       `json:"connection,omitempty"`      // Connection ID.
+	Initiator       Initiator    `json:"_initiator,omitempty"`      // Request initiator (Chrome extension).
+	Priority        string       `json:"_priority,omitempty"`       // Request priority (Chrome extension).
+	ResourceType    string       `json:"_resourceType,omitempty"`   // Resource type (Chrome extension).
+	Comment         string       `json:"comment,omitempty"`         // Optional comment.
 	CustomFields    CustomFields `json:"-"`
 }
 
-// Initiator 表示请求发起者(Chrome DevTools扩展)
+// Initiator represents the request initiator (Chrome DevTools extension).
 type Initiator struct {
-	Type       string `json:"type"`       // 发起类型
-	URL        string `json:"url"`        // 发起URL
-	LineNumber int    `json:"lineNumber"` // 代码行号
-	Stack      Stack  `json:"stack"`      // 调用栈
+	Type       string `json:"type"`       // Initiator type.
+	URL        string `json:"url"`        // Initiator URL.
+	LineNumber int    `json:"lineNumber"` // Source line number.
+	Stack      Stack  `json:"stack"`      // Call stack.
 }
 
-// Stack 表示调用栈(Chrome DevTools扩展)
+// Stack represents a call stack (Chrome DevTools extension).
 type Stack struct {
-	CallFrames []CallFrame `json:"callFrames"` // 调用帧
-	Parent     Parent      `json:"parent"`     // 父级调用栈
+	CallFrames []CallFrame `json:"callFrames"` // Call frames.
+	Parent     Parent      `json:"parent"`     // Parent call stack.
 }
 
-// Parent 表示父级调用栈(Chrome DevTools扩展)
+// Parent represents the parent call stack (Chrome DevTools extension).
 type Parent struct {
-	Parent      *Parent     `json:"parent"`      // 嵌套父级
-	Description string      `json:"description"` // 描述
-	CallFrames  []CallFrame `json:"callFrames"`  // 调用帧
-	ParentID    ParentID    `json:"parentId"`    // 父级ID
+	Parent      *Parent     `json:"parent"`      // Nested parent.
+	Description string      `json:"description"` // Description.
+	CallFrames  []CallFrame `json:"callFrames"`  // Call frames.
+	ParentID    ParentID    `json:"parentId"`    // Parent ID.
 }
 
-// ParentID 表示父级ID(Chrome DevTools扩展)
+// ParentID represents the parent ID (Chrome DevTools extension).
 type ParentID struct {
 	ID         string `json:"id"`         // ID
-	DebuggerID string `json:"debuggerId"` // 调试器ID
+	DebuggerID string `json:"debuggerId"` // Debugger ID.
 }
 
-// CallFrame 表示调用帧(Chrome DevTools扩展)
+// CallFrame represents a call frame (Chrome DevTools extension).
 type CallFrame struct {
-	FunctionName string `json:"functionName"` // 函数名
-	ScriptID     string `json:"scriptId"`     // 脚本ID
+	FunctionName string `json:"functionName"` // Function name.
+	ScriptID     string `json:"scriptId"`     // Script ID.
 	URL          string `json:"url"`          // URL
-	LineNumber   int    `json:"lineNumber"`   // 行号
-	ColumnNumber int    `json:"columnNumber"` // 列号
+	LineNumber   int    `json:"lineNumber"`   // Line number.
+	ColumnNumber int    `json:"columnNumber"` // Column number.
 }
 
-// IsValidURL 检查URL是否有效
+// IsValidURL reports whether a URL is valid.
 //
-// 该函数检查给定的URL字符串是否符合URL规范。
-// 返回true表示URL有效，false表示无效。
+// It checks whether the given URL string conforms to URL syntax.
+// It returns true if the URL is valid and false otherwise.
 func IsValidURL(rawURL string) bool {
 	_, err := url.Parse(rawURL)
 	return err == nil

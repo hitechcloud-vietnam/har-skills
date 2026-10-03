@@ -1,35 +1,36 @@
 ---
-title: 安全审计工作流
+title: Security Audit Workflow
 ---
 
-# 安全审计工作流
+# Security Audit Workflow
 
-从一份原始 HAR 抓包，到产出可对外分享的"已脱敏且校验通过"的安全报告，本工作流串起
-har-skills 的安全审计、脱敏、校验三大能力。每一步都给出 CLI 命令、对应 SDK 方法、
-以及背后在做什么。
+From a raw HAR capture to a shareable, redacted, and validated security report —
+this workflow chains har-skills' audit, redaction, and validation capabilities.
+Each step lists the CLI command, the underlying SDK method, and what is actually
+happening.
 
-## 工作流总览
+## Workflow Overview
 
 ```mermaid
 flowchart LR
-    HAR["capture.har<br/（原始抓包）"]:::input
-    subgraph S1["① 审计"]
+    HAR["capture.har<br/>(raw capture)"]:::input
+    subgraph S1["1. Audit"]
         A1["har security"]:::step
         A2["Score 0-100<br/>findings × severity"]:::out
     end
-    subgraph S2["② 脱敏"]
+    subgraph S2["2. Redact"]
         B1["har redact --redact-ips"]:::step
-        B2["redacted.har<br/>敏感数据已抹除"]:::out
+        B2["redacted.har<br/>secrets stripped"]:::out
     end
-    subgraph S3["③ 校验"]
+    subgraph S3["3. Validate"]
         C1["har validate --strict"]:::step
-        C2["通过 / 失败 + 错误清单"]:::out
+        C2["pass / fail + errors"]:::out
     end
     HAR --> A1 --> A2
-    A2 -- "按 HIGH/MEDIUM/LOW/INFO 处理" --> B1 --> B2
+    A2 -- "triage by HIGH/MEDIUM/LOW/INFO" --> B1 --> B2
     B2 --> C1 --> C2
-    C2 -. "通过" .-> SHARE["可安全分享的 redacted.har"]:::done
-    C2 -. "失败" .-> FIX["回查脱敏配置"]:::warn
+    C2 -. "pass" .-> SHARE["shareable redacted.har"]:::done
+    C2 -. "fail" .-> FIX["review redaction config"]:::warn
 
     classDef input fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
     classDef step fill:#fff7e6,stroke:#f59e0b,color:#7c4a03
@@ -38,18 +39,18 @@ flowchart LR
     classDef warn fill:#fce8e6,stroke:#d93025,color:#a50e0e
 ```
 
-::: tip 端到端一句话
-原始抓包经 `security` 出报告、按严重度处置、`redact --redact-ips` 脱敏、`validate --strict` 把关，三步串成"发现 → 处置 → 放行"的安全闭环。
+::: tip In one sentence
+The raw capture is audited by `security`, triaged by severity, redacted via `redact --redact-ips`, and gated by `validate --strict` — three steps forming a closed loop: **detect → remediate → release**.
 :::
 
-| 步骤 | CLI 命令                                  | SDK 方法                       | 产出                |
+| Step | CLI command                               | SDK method                     | Output              |
 |------|-------------------------------------------|--------------------------------|---------------------|
 | 1    | `har -f capture.har security`             | `h.SecurityAudit()`            | `*SecurityReport`   |
-| 2    | 分析 findings，按 severity 处理           | `report.FindBySeverity(...)`   | 修复清单            |
-| 3    | `har -f capture.har redact --redact-ips`  | `h.Redact(opts)`               | `*Har`（脱敏后）    |
-| 4    | `har -f redacted.har validate --strict`   | `har.ValidateStrict(h)`        | `error` 清单        |
+| 2    | Analyze findings by severity              | `report.FindBySeverity(...)`   | Remediation list    |
+| 3    | `har -f capture.har redact --redact-ips`  | `h.Redact(opts)`               | `*Har` (redacted)   |
+| 4    | `har -f redacted.har validate --strict`   | `har.ValidateStrict(h)`        | `error` list        |
 
-## 第 1 步：跑安全审计
+## Step 1: Run the Security Audit
 
 ### CLI
 
@@ -57,47 +58,48 @@ flowchart LR
 har -f capture.har security --format json -o security-report.json
 ```
 
-可选的检查开关：`--check-headers`、`--check-cookies`、`--check-mixed-content`、
-`--check-sensitive-data`、`--check-cors`、`--check-info-disclosure`、
-`--severity high`。
+Optional check toggles: `--check-headers`, `--check-cookies`,
+`--check-mixed-content`, `--check-sensitive-data`, `--check-cors`,
+`--check-info-disclosure`, `--severity high`.
 
 ### SDK
 
 ```go
 h, _ := har.ParseHarFile("capture.har")
-report := h.SecurityAudit()           // 默认全量检查
-fmt.Println("安全评分:", report.Score) // 0-100
-high := report.FindBySeverity("high") // 取高危
+report := h.SecurityAudit()            // all default checks
+fmt.Println("Score:", report.Score)    // 0-100
+high := report.FindBySeverity("high")  // high-severity findings
 ```
 
-### 背后做什么
+### What it does
 
-`SecurityAudit()` 按 `DefaultSecurityAuditOptions()` 逐项扫描：
+`SecurityAudit()` runs the checks from `DefaultSecurityAuditOptions()`:
 
-- **Headers**：缺失安全头（`Strict-Transport-Security`、`Content-Security-Policy`、
-  `X-Content-Type-Options` 等）、`Server`/`X-Powered-By` 信息泄露；
-- **Cookies**：缺 `Secure`/`HttpOnly`/`SameSite`；
-- **Mixed Content**：HTTPS 页面里的 HTTP 子资源；
-- **Sensitive Data**：响应体里的密钥、令牌、信用卡号模式；
-- **CORS**：`Access-Control-Allow-Origin: *` 配合凭据；
-- **Info Disclosure**：错误页堆栈、版本号泄露。
+- **Headers**: missing security headers (`Strict-Transport-Security`,
+  `Content-Security-Policy`, `X-Content-Type-Options`, ...), `Server`/
+  `X-Powered-By` leakage;
+- **Cookies**: missing `Secure`/`HttpOnly`/`SameSite`;
+- **Mixed Content**: HTTP subresources on HTTPS pages;
+- **Sensitive Data**: secrets/tokens/credit-card patterns in bodies;
+- **CORS**: `Access-Control-Allow-Origin: *` combined with credentials;
+- **Info Disclosure**: error-page stack traces, version leakage.
 
-每条 finding 带 `Severity`（HIGH/MEDIUM/LOW/INFO），最终聚合为 0–100 的
-`Score`。
+Each finding carries a `Severity` (HIGH/MEDIUM/LOW/INFO); they roll up into a
+0–100 `Score`.
 
-## 第 2 步：分析 findings 并按严重度处理
+## Step 2: Triage Findings by Severity
 
 ```mermaid
 flowchart TD
     R["SecurityReport"]:::input
-    H["HIGH<br/>立即修复"]:::high
-    M["MEDIUM<br/>排期修复"]:::med
-    L["LOW<br/>跟踪改进"]:::low
-    I["INFO<br/>记录备查"]:::info
-    R --> H --> HX["明文令牌 / CORS+凭据 / 缺失 HSTS"]:::act
-    R --> M --> MX["Cookie 缺 SameSite"]:::act
-    R --> L --> LX["多余 X-Powered-By"]:::act
-    R --> I --> IX["归档备查"]:::act
+    H["HIGH<br/>fix now"]:::high
+    M["MEDIUM<br/>schedule"]:::med
+    L["LOW<br/>track"]:::low
+    I["INFO<br/>log for reference"]:::info
+    R --> H --> HX["cleartext tokens / CORS+creds / missing HSTS"]:::act
+    R --> M --> MX["cookie missing SameSite"]:::act
+    R --> L --> LX["redundant X-Powered-By"]:::act
+    R --> I --> IX["archive for reference"]:::act
 
     classDef input fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
     classDef high fill:#fce8e6,stroke:#d93025,color:#a50e0e
@@ -108,81 +110,83 @@ flowchart TD
 ```
 
 ```bash
-# 只看高危
+# High-severity only
 har -f capture.har security --severity high --format json
 ```
 
-SDK 侧可用 `report.FindBySeverity("high")` 拿到切片，逐条打印 `Title`、`URL`、
-`Detail`，挂进工单系统。
+On the SDK side, `report.FindBySeverity("high")` returns a slice; iterate it,
+print `Title`, `URL`, `Detail`, and feed them into your ticketing system.
 
-## 第 3 步：脱敏敏感数据
+## Step 3: Redact Sensitive Data
 
-审计只读不改。在把 HAR 交给下游（工单、第三方分析、回归测试）之前，必须**脱敏**。
+The audit is read-only. Before sharing the HAR downstream (tickets, third-party
+analysis, regression tests), you must **redact**.
 
 ### CLI
 
 ```bash
-# 默认脱敏 + 匿名化 IP，产出新文件（不动原文件）
+# Defaults + IP anonymization, output to a new file (original untouched)
 har -f capture.har redact --redact-ips -o redacted.har
 ```
 
-常用开关：`--header X-Custom`、`--cookie session`、`--query-param token`、
-`--post-field secret`、`--replacement "***"`、`--in-place`。
+Common flags: `--header X-Custom`, `--cookie session`, `--query-param token`,
+`--post-field secret`, `--replacement "***"`, `--in-place`.
 
-### 默认脱敏目标
+### Default Redaction Targets
 
-| 类别           | 默认匹配项（大小写不敏感）                                   |
-|----------------|--------------------------------------------------------------|
-| Headers        | Authorization、Proxy-Authorization、WWW-Authenticate、Cookie、Set-Cookie、X-Api-Key、X-Auth-Token、X-CSRF-Token |
-| Cookies        | session、token、auth、password、secret、api_key、access_token、refresh_token |
-| QueryParams    | password、token、api_key、secret、access_token、refresh_token、private_key、client_secret |
-| PostDataFields | 同 QueryParams                                               |
-| IPs            | `--redact-ips` 时，IPv4 末段置 `.0`，IPv6 末段置 `:0`        |
+| Category       | Default matches (case-insensitive)                          |
+|----------------|-------------------------------------------------------------|
+| Headers        | Authorization, Proxy-Authorization, WWW-Authenticate, Cookie, Set-Cookie, X-Api-Key, X-Auth-Token, X-CSRF-Token |
+| Cookies        | session, token, auth, password, secret, api_key, access_token, refresh_token |
+| QueryParams    | password, token, api_key, secret, access_token, refresh_token, private_key, client_secret |
+| PostDataFields | same as QueryParams                                         |
+| IPs            | with `--redact-ips`: IPv4 last octet → `.0`, IPv6 last segment → `:0` |
 
-替换文本默认 `[REDACTED]`。
+Default replacement text is `[REDACTED]`.
 
 ### SDK
 
 ```go
 opts := har.DefaultRedactOptions()
-opts.RedactIPs = true                  // 匿名化服务器 IP
+opts.RedactIPs = true                  // anonymize server IPs
 opts.Replacement = "[REDACTED]"
-redacted := h.Redact(opts)             // 返回新 *Har，原 h 不变
+redacted := h.Redact(opts)             // returns a new *Har; original untouched
 data, _ := redacted.ToJSON(true)
 os.WriteFile("redacted.har", data, 0644)
 ```
 
-`Redact` 内部先 `Clone()` 再 `RedactInPlace`，所以**原对象不受影响**——这是
-har-skills 一贯的"返回新实例"约定。
+`Redact` internally does `Clone()` then `RedactInPlace`, so **the original object
+is untouched** — har-skills' standard "return a new instance" convention.
 
-::: warning 脱敏不是审计的替代
-审计只读、只产报告；脱敏才动数据。把 HAR 交给下游前必须走脱敏，否则 Authorization / Cookie / 令牌 / IP 等敏感数据会随 HAR 外泄。
+::: warning Redaction is not a substitute for auditing
+The audit is read-only and only produces a report; redaction is what actually modifies data. Before passing the HAR downstream you must redact — otherwise Authorization / Cookie / tokens / IPs leak with the file.
 :::
 
-### 脱敏覆盖范围（一图）
+### Redaction Coverage (diagram)
 
-::: details 点开看：一条 Entries 被脱敏时触及的字段
+::: details Click to expand: fields touched when redacting one Entries
 ```text
-一条 Entries 被脱敏时触及的字段：
+Fields touched when redacting one Entries:
 
-  Request.Headers[*].Value        ← 命中 header 名 → 替换
-  Request.Cookies[*].Value        ← 命中 cookie 名 → 替换
-  Request.QueryString[*].Value    ← 命中 param 名 → 替换
-  Request.URL                     ← 解析 query 串并替换；可选 path 规则
+  Request.Headers[*].Value        ← matching header name → replace
+  Request.Cookies[*].Value        ← matching cookie name → replace
+  Request.QueryString[*].Value    ← matching param name → replace
+  Request.URL                     ← parse query string & replace; optional path rules
   Request.PostData.Params[*].Value
-  Request.PostData.Text           ← key=value / JSON 两种模式按敏感键替换
+  Request.PostData.Text           ← key=value / JSON modes, redact by sensitive key
   Response.Headers[*].Value
   Response.Cookies[*].Value
-  ServerIPAddress                 ← RedactIPs 时匿名化
+  ServerIPAddress                 ← anonymized when RedactIPs is set
 ```
 
-POST body 文本脱敏支持两种模式：URL 编码表单（`key=value&`）与 JSON
-（`"key": "value"`），都按 `PostDataFields` 名单匹配。
+POST body text redaction supports two modes: URL-encoded form (`key=value&`) and
+JSON (`"key": "value"`), matching against the `PostDataFields` list.
 :::
 
-## 第 4 步：严格校验脱敏后的文件
+## Step 4: Strictly Validate the Redacted Output
 
-脱敏可能动了 URL/headers，需确认产物仍符合 HAR 规范。
+Redaction may have touched URLs/headers, so confirm the product still conforms to
+the HAR spec.
 
 ### CLI
 
@@ -190,83 +194,83 @@ POST body 文本脱敏支持两种模式：URL 编码表单（`key=value&`）与
 har -f redacted.har validate --strict
 ```
 
-`--strict` 开启更严格的检查集合；`--timings-tolerance`（默认 10ms）控制计时一致性
-容差。
+`--strict` enables the stricter check set; `--timings-tolerance` (default 10ms)
+controls the timing-consistency tolerance.
 
 ### SDK
 
 ```go
 rH, _ := har.ParseHarFile("redacted.har")
 if err := har.ValidateHarFile(rH); err != nil {
-    log.Fatal("基础校验失败: ", err)
+    log.Fatal("basic validation failed: ", err)
 }
 if err := har.ValidateStrict(rH); err != nil {
-    log.Fatal("严格校验失败: ", err)
+    log.Fatal("strict validation failed: ", err)
 }
-// 计时一致性
+// timing consistency
 for _, ve := range har.ValidateTimingsConsistency(rH, 10.0) {
     log.Println(ve)
 }
 ```
 
-`ValidateHarFile` 检查规范必需字段（版本、creator、entries 非空、queryString 有
-name、postData 有 mimeType 等）；`ValidateStrict` 额外检查 pageID 唯一、状态码范围、
-Cookie SameSite、缓存字段等；`ValidateTimingsConsistency` 校验各阶段计时之和与
-`entry.Time` 是否在容差内一致。
+`ValidateHarFile` checks required spec fields (version, creator, non-empty
+entries, queryString name, postData mimeType, ...); `ValidateStrict` adds pageID
+uniqueness, status-code range, cookie SameSite, cache fields, etc.;
+`ValidateTimingsConsistency` checks that phase timings sum consistently with
+`entry.Time` within tolerance.
 
-## 完整端到端脚本
+## End-to-End Script
 
 ```bash
 #!/usr/bin/env bash
-# security-audit.sh — 端到端安全审计 + 脱敏 + 校验
+# security-audit.sh — end-to-end security audit + redaction + validation
 set -euo pipefail
 
-HAR="${1:?用法: security-audit.sh <capture.har>}"
+HAR="${1:?usage: security-audit.sh <capture.har>}"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
-echo "==> 1/4 安全审计 (security)"
+echo "==> 1/4 security audit"
 har -f "$HAR" security --format json -o "$WORKDIR/security-report.json"
-# 控制台只看高危
+# console: high-severity only
 har -f "$HAR" security --severity high
 
-echo "==> 2/4 高危 findings 统计"
-# 用 jq 数 HIGH 条数（jq 未安装时可用 har security --severity high 文本输出）
+echo "==> 2/4 high-severity finding count"
 HIGH_COUNT=$(jq '[.findings[]? | select(.severity=="HIGH")] | length' \
     "$WORKDIR/security-report.json" 2>/dev/null || echo "n/a")
-echo "高危 findings: $HIGH_COUNT"
+echo "high-severity findings: $HIGH_COUNT"
 
-echo "==> 3/4 脱敏 (redact + IP 匿名)"
+echo "==> 3/4 redact (+ IP anonymization)"
 har -f "$HAR" redact --redact-ips -o "$WORKDIR/redacted.har"
 
-echo "==> 4/4 严格校验脱敏产物"
+echo "==> 4/4 strict validation of the redacted product"
 if har -f "$WORKDIR/redacted.har" validate --strict; then
-    echo "校验通过，产物: $WORKDIR/redacted.har"
+    echo "validation passed, product: $WORKDIR/redacted.har"
     cp "$WORKDIR/redacted.har" ./redacted.har
     cp "$WORKDIR/security-report.json" ./security-report.json
-    echo "完成: redacted.har + security-report.json"
+    echo "done: redacted.har + security-report.json"
 else
-    echo "校验失败，请检查脱敏配置" >&2
+    echo "validation failed; check redaction config" >&2
     exit 1
 fi
 ```
 
-运行：
+Run it:
 
 ```bash
 chmod +x security-audit.sh
 ./security-audit.sh capture.har
 ```
 
-## 输出物清单
+## Output Artifacts
 
-| 文件                    | 来源命令                  | 用途                     |
-|-------------------------|---------------------------|--------------------------|
-| `security-report.json`  | `security --format json`  | 工单/归档/趋势对比       |
-| `redacted.har`          | `redact --redact-ips`     | 可安全分享的抓包         |
-| 校验退出码              | `validate --strict`       | CI 门禁（非零即失败）    |
+| File                    | Source command            | Purpose                       |
+|-------------------------|---------------------------|-------------------------------|
+| `security-report.json`  | `security --format json`  | Tickets / archive / trends    |
+| `redacted.har`          | `redact --redact-ips`     | Safe-to-share capture         |
+| Validate exit code      | `validate --strict`       | CI gate (non-zero = fail)     |
 
-## SDK 等价端到端
+## SDK End-to-End Equivalent
 
 ```go
 package main
@@ -284,46 +288,46 @@ func main() {
         log.Fatal(err)
     }
 
-    // 1. 审计
+    // 1. Audit
     report := h.SecurityAudit()
     fmt.Printf("Score=%d  HIGH=%d\n", report.Score, len(report.FindBySeverity("high")))
 
-    // 2. 脱敏（克隆，不改原对象）
+    // 2. Redact (cloned; original untouched)
     opts := har.DefaultRedactOptions()
     opts.RedactIPs = true
     redacted := h.Redact(opts)
 
-    // 3. 校验
+    // 3. Validate
     if err := har.ValidateStrict(redacted); err != nil {
-        log.Fatalf("脱敏产物校验失败: %v", err)
+        log.Fatalf("redacted product failed validation: %v", err)
     }
 
-    // 4. 落盘
+    // 4. Persist
     data, _ := redacted.ToJSON(true)
     if err := os.WriteFile("redacted.har", data, 0644); err != nil {
         log.Fatal(err)
     }
-    fmt.Println("redacted.har 已生成且校验通过")
+    fmt.Println("redacted.har produced and validated")
 }
 ```
 
-## 小结
+## Summary
 
 ```mermaid
 flowchart LR
-    SEC["security<br/>只读"]:::step --> RED["redact<br/>克隆+改"]:::step --> VAL["validate<br/>规范门禁"]:::step
-    SEC -.-> O1["报告"]:::out
-    RED -.-> O2["可分享 HAR"]:::out
-    VAL -.-> O3["CI 通过/失败"]:::out
+    SEC["security<br/>read-only"]:::step --> RED["redact<br/>clone+modify"]:::step --> VAL["validate<br/>spec gate"]:::step
+    SEC -.-> O1["report"]:::out
+    RED -.-> O2["shareable HAR"]:::out
+    VAL -.-> O3["CI pass/fail"]:::out
 
     classDef step fill:#fff7e6,stroke:#f59e0b,color:#7c4a03
     classDef out fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
 ```
 
-::: tip 三步闭环
-- **审计只读**：`SecurityAudit()` 不修改 HAR，只产报告；
-- **脱敏克隆**：`Redact()` 返回新 `*Har`，原件安全；
-- **校验兜底**：脱敏后用 `ValidateStrict` 把关，避免产物破坏下游工具。
+::: tip Three-step loop
+- **Audit is read-only**: `SecurityAudit()` does not modify the HAR, it only produces a report.
+- **Redaction clones**: `Redact()` returns a new `*Har`; the original is safe.
+- **Validation is the backstop**: after redaction, `ValidateStrict` gates the product so a broken artifact never reaches downstream tools.
 
-三者组合，构成"发现 → 处置 → 放行"的安全闭环。
+Together they form a closed security loop: **detect → remediate → release**.
 :::

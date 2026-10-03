@@ -1,43 +1,43 @@
 ---
-title: 解析策略
+title: Parsing Strategies
 titleTemplate: false
 ---
 
-# 解析策略
+# Parsing Strategies
 
-har-skills 提供四种解析策略，对应不同文件规模与访问模式。它们的返回值都满足 `HARProvider` 接口，但内存占用、解析速度、对响应体的处理时机各不相同。选对策略，能在 GB 级文件下把内存从几十 GB 压到几十 MB。
+har-skills offers four parsing strategies for different file sizes and access patterns. They all return values satisfying the `HARProvider` interface, but differ in memory footprint, parse speed, and when response bodies are materialized. Picking the right strategy can compress memory from tens of GB down to tens of MB on a multi-GB file.
 
-## 四种策略一览
+## The four strategies at a glance
 
-| 策略 | 入口函数 | 返回类型 | 何时解析 body | 典型场景 |
-|------|---------|---------|--------------|---------|
-| standard | `ParseHarFile` / `ParseHar` | `*Har` | 立即全量 | 小文件，默认 |
-| optimized | `ParseHarOptimized` / `ParseHarFileOptimized` | `*OptimizedHar` | 立即全量 | 大文件统计分析 |
-| lazy | `ParseHarWithLazyLoading` / `ParseHarFileWithLazyLoading` | `*LazyHar` | 首次访问时 | body 巨大但只需元数据 |
-| streaming | `NewStreamingParser` / `NewStreamingParserFromFile` | `EntryIterator` | 逐条解析 | GB 级超大文件 |
+| Strategy | Entry function | Return type | When body is parsed | Typical scenario |
+|----------|----------------|-------------|---------------------|------------------|
+| standard | `ParseHarFile` / `ParseHar` | `*Har` | eagerly, in full | small files, default |
+| optimized | `ParseHarOptimized` / `ParseHarFileOptimized` | `*OptimizedHar` | eagerly, in full | large files, statistical analysis |
+| lazy | `ParseHarWithLazyLoading` / `ParseHarFileWithLazyLoading` | `*LazyHar` | on first access | huge bodies but only metadata needed |
+| streaming | `NewStreamingParser` / `NewStreamingParserFromFile` | `EntryIterator` | one entry at a time | GB-scale very large files |
 
-### 策略选择决策图
+### Strategy decision diagram
 
-按"文件大小 → 是否需要 body → 内存约束"三个维度逐层决策，先看下图再对照后面的决策表：
+Decide along three dimensions — "file size → need body? → memory budget" — layer by layer. Read this diagram first, then cross-check with the decision table below:
 
 ```mermaid
 flowchart TD
-    Start([要解析一个 HAR 文件]) --> Q1{文件有多大？}
+    Start([Need to parse a HAR file]) --> Q1{How big is the file?}
 
-    Q1 -- "< 50 MB" --> Q2{需要响应体 body？}
-    Q1 -- "50 MB–500 MB" --> Q3{需要响应体 body？}
-    Q1 -- "> 500 MB / GB 级" --> Q4{能否逐条处理？}
+    Q1 -- "< 50 MB" --> Q2{Need the body?}
+    Q1 -- "50 MB–500 MB" --> Q3{Need the body?}
+    Q1 -- "> 500 MB / GB-scale" --> Q4{Can process one-by-one?}
 
-    Q2 -- 是 --> S1[standard<br/>ParseHarFile]
-    Q2 -- 否，只要统计 --> Q5{追求最快解析？}
-    Q5 -- 是 --> S1b[standard + OptFast<br/>ParseFile path OptFast]
-    Q5 -- 否 --> S1
+    Q2 -- yes --> S1[standard<br/>ParseHarFile]
+    Q2 -- no, stats only --> Q5{Want fastest parse?}
+    Q5 -- yes --> S1b[standard + OptFast<br/>ParseFile path OptFast]
+    Q5 -- no --> S1
 
-    Q3 -- 是，按需读 --> S3[lazy<br/>ParseHarFileWithLazyLoading]
-    Q3 -- 否，只统计 --> S2[optimized<br/>ParseFile WithMemoryOptimized]
+    Q3 -- yes, on demand --> S3[lazy<br/>ParseHarFileWithLazyLoading]
+    Q3 -- no, stats only --> S2[optimized<br/>ParseFile WithMemoryOptimized]
 
-    Q4 -- 是 --> S4[streaming<br/>NewStreamingParserFromFile]
-    Q4 -- 否，必须随机访问 --> W((无法整体载入<br/>需拆分或抽样))
+    Q4 -- yes --> S4[streaming<br/>NewStreamingParserFromFile]
+    Q4 -- no, need random access --> W((Cannot load whole<br/>split or sample))
 
     S1:::blue
     S1b:::blue
@@ -53,108 +53,108 @@ flowchart TD
     classDef warn fill:#f59e0b,color:#000,stroke:#b45309;
 ```
 
-::: details 四种策略并非四套代码
-它们是同一套类型在不同存储/访问约定下的实现：standard 直接读写规范结构体；optimized 在其上压缩表示；lazy 把响应体推迟到按需解析；streaming 用 `json.Decoder` 增量推进、根本不构造完整对象。
+::: details The four strategies are not four separate codebases
+They are the same type under different storage/access conventions: standard reads and writes the spec structs directly; optimized compresses their representation; lazy defers response bodies to on-demand parsing; streaming drives a `json.Decoder` incrementally and never builds a complete top-level object at all.
 :::
 
-## standard：零开销直接读
+## standard: zero-overhead direct read
 
-`standard_impl.go` 让 `*Har` 自身实现 `HARProvider`，字段就是规范结构体本身——没有包装、没有转换、没有惰性。这是 `ParseHarFile` 的默认路径，也是所有 `ToStandard()` 的最终归宿。
+`standard_impl.go` makes `*Har` itself implement `HARProvider`; the fields are exactly the spec structs — no wrapping, no conversion, no laziness. This is the default path of `ParseHarFile`, and the final destination of every `ToStandard()` call.
 
 ```go
 import har "github.com/hitechcloud-vietnam/har-skills"
 
-// 从文件解析（默认 standard）
+// Parse from a file (standard by default)
 h, err := har.ParseHarFile("capture.har")
 if err != nil {
     log.Fatal(err)
 }
-// h 是 *Har，可立即访问全部字段
+// h is *Har; all fields are immediately accessible
 fmt.Println(h.Log.Creator.Name, len(h.Log.Entries))
 ```
 
-`standard_impl.go` 里 `*Har` 直接实现接口方法：
+In `standard_impl.go`, `*Har` implements the interface methods directly:
 
 ```go
-func (h *Har) GetVersion() string       { return h.Log.Version }
+func (h *Har) GetVersion() string         { return h.Log.Version }
 func (h *Har) GetEntries() []EntryProvider { ... }
-func (h *Har) ToStandard() *Har         { return h } // 自己就是标准形态
+func (h *Har) ToStandard() *Har           { return h } // it IS the standard form
 ```
 
-`ToStandard()` 在 standard 实现里是恒等操作（返回自身），这是设计上的"零开销"承诺：当你不需要切换策略时，永远不必为抽象买单。
+`ToStandard()` is the identity operation for the standard implementation — the "zero-overhead" promise: when you do not need to switch strategies, you never pay for abstraction.
 
-## optimized：枚举 + map + 指针压缩内存
+## optimized: enum + map + pointer to compress memory
 
-`memory.go` 与 `optimized_impl.go` 把规范结构体改写成内存更紧凑的 `*OptimizedHar`：
+`memory.go` and `optimized_impl.go` rewrite the spec structs into the more compact `*OptimizedHar`:
 
-- **HTTPMethod 枚举**：`HTTPMethod` 是 `uint8`，`ParseMethod("GET")` 把字符串映射成小整数。请求方法在高基数文件中重复极多，用 `uint8` 替代 `string` 可显著省内存。
-- **Headers 改为 map**：`[]Headers` 变成 `map[string][]string`，按名查找从 O(n) 降到 O(1)，这正是 `FindByHeader` 在大文件上仍快的原因。
-- **可选值用指针**：`PostData`、`Cache.BeforeRequest` 等可选字段本就是指针，optimized 把这一思路推广到更多字段，避免"零值 vs 缺省"的歧义。
+- **HTTPMethod enum**: `HTTPMethod` is a `uint8`; `ParseMethod("GET")` maps the string to a small integer. Request methods repeat heavily in high-cardinality files, so replacing `string` with `uint8` saves meaningful memory.
+- **Headers as map**: `[]Headers` becomes `map[string][]string`, dropping name lookup from O(n) to O(1) — this is why `FindByHeader` stays fast on large files.
+- **Optional values as pointers**: `PostData` and `Cache.BeforeRequest` are already pointers; optimized generalizes this idea to more fields, removing the "zero value vs absent" ambiguity.
 
 ```go
-// 内存优化解析
+// Memory-optimized parse
 oh, err := har.ParseHarFileOptimized("large.har")
 if err != nil {
     log.Fatal(err)
 }
-// oh 是 *OptimizedHar，仍满足 HARProvider
+// oh is *OptimizedHar and still satisfies HARProvider
 fmt.Println(oh.GetVersion(), len(oh.GetEntries()))
 
-// 按方法枚举检索（内部用 uint8，无字符串比较）
+// Search by method enum (internally uint8, no string comparison)
 gets := oh.SearchByMethod(har.ParseMethod("GET"))
 ```
 
-`ParseHarOptimized` 的实现是"先标准解析，再转换"——它内部调用 `ParseHar` 得到 `*Har`，再经 `ToOptimizedHar` 压缩。所以 optimized 的解析阶段并不更快，优势在于**后续访问与驻留内存**：做 `Statistics()`、`DomainSummary()`、`FindByDomain()` 这类遍历时，更小的对象意味着更少的 GC 压力和缓存未命中。
+`ParseHarOptimized` is implemented as "parse standard first, then convert" — it calls `ParseHar` internally to get a `*Har`, then compresses via `ToOptimizedHar`. So optimized is not faster to parse; its advantage is **subsequent access and resident memory**: when running `Statistics()`, `DomainSummary()`, `FindByDomain()` and similar traversals, smaller objects mean less GC pressure and fewer cache misses.
 
-需要回到完整 `*Har` API 时调用 `ToStandard()`（或别名 `ToStandardHar()`）。
+When you need the full `*Har` API, call `ToStandard()` (or its alias `ToStandardHar()`).
 
-## lazy：响应体延迟加载
+## lazy: defer response bodies
 
-`lazy.go` 与 `lazy_impl.go` 的 `*LazyHar` 只解析元数据，把 `Content.Text`（响应体）的解析推迟到首次访问。它用 `sync.RWMutex` 双检锁保证并发安全且只解析一次。
+`lazy.go` and `lazy_impl.go`'s `*LazyHar` parses only metadata and defers `Content.Text` (the response body) until first access. It uses a `sync.RWMutex` double-checked lock so concurrent access is safe and parsing happens at most once.
 
-适用场景：抓包文件里每条响应体几 MB，整个文件几百 MB，但你只关心 URL、状态码、计时——body 永远不会被读到。standard 会把所有 body 一次性载入内存，lazy 则让这部分内存按需分配。
+The scenario: each response body is several MB, the whole file is hundreds of MB, but you only care about URLs, status codes, and timings — the bodies will never be read. standard loads all bodies into memory eagerly; lazy allocates that memory on demand.
 
 ```go
-// 懒加载解析
+// Lazy parse
 lh, err := har.ParseHarFileWithLazyLoading("big.har")
 if err != nil {
     log.Fatal(err)
 }
 
-// 此时响应体尚未解析，内存占用主要是元数据
+// At this point response bodies are not yet parsed; memory is mostly metadata
 for _, ep := range lh.GetEntries() {
     fmt.Println(ep.GetRequest().GetMethod(), ep.GetResponse().GetStatus())
-    // 第一次调用 GetText() 才会真正解析该条目的 body
+    // Calling GetText() for the first time actually parses that entry's body
     // txt := ep.GetResponse().GetContent().GetText()
 }
 ```
 
-`lazyContentWrapper`/`LazyContent` 的 `ToStandard()` 在转换时才触发解析；一旦解析完成，结果被缓存，后续访问直接读缓存。双检锁的模式大致是：
+`ToStandard()` on `lazyContentWrapper` / `LazyContent` triggers parsing at conversion time; once parsed, the result is cached and later reads hit the cache. The double-checked lock pattern is roughly:
 
 ```go
-// 概念示意（简化自 lazy_impl.go）
+// Conceptual sketch (simplified from lazy_impl.go)
 func (c *LazyContent) GetText() string {
-    if c.cached != "" {            // 先读锁快速路径
+    if c.cached != "" {            // fast path under read lock
         return c.cached
     }
     c.mu.Lock()
     defer c.mu.Unlock()
-    if c.cached != "" {            // 再检：可能已被其他 goroutine 解析
+    if c.cached != "" {            // re-check: another goroutine may have parsed it
         return c.cached
     }
-    c.cached = parseBodyNow(c.raw) // 真正解析
+    c.cached = parseBodyNow(c.raw) // actual parse
     return c.cached
 }
 ```
 
-## streaming：json.Decoder 增量推进
+## streaming: json.Decoder incremental advance
 
-`streaming.go` 用 `encoding/json` 的 `Decoder.Token()` 增量推进，逐条 yield `*Entries`，**完全不构造顶层 `*Har` 对象**。它返回的是 `EntryIterator` 接口，而非 `HARProvider`——因为流式本质上不支持"获取全部条目"的随机访问。
+`streaming.go` uses `encoding/json`'s `Decoder.Token()` to advance incrementally, yielding one `*Entries` at a time and **never building a top-level `*Har` object**. It returns the `EntryIterator` interface, not `HARProvider` — because streaming fundamentally does not support "get all entries" random access.
 
-适用场景：GB 级超大文件、只想逐条处理（例如导入数据库、做合规扫描）、内存极其紧张。
+The scenario: GB-scale files, you only want to process entries one by one (e.g. importing into a database, running a compliance scan), and memory is very tight.
 
 ```go
-// 流式解析
+// Streaming parse
 iter, err := har.NewStreamingParserFromFile("huge.har")
 if err != nil {
     log.Fatal(err)
@@ -169,45 +169,45 @@ for iter.Next() {
         fmt.Println("error entry:", e.Request.URL)
     }
 }
-if err := iter.Err(); err != nil { // 始终检查迭代错误
+if err := iter.Err(); err != nil { // always check iteration errors
     log.Fatal(err)
 }
 ```
 
-`EntryIterator` 接口（`streaming.go`）：
+The `EntryIterator` interface (`streaming.go`):
 
 ```go
 type EntryIterator interface {
-    Next() bool       // 推进到下一条，无更多则返回 false
-    Entry() *Entries  // 当前条目
-    Err() error       // 迭代过程中出现的错误
-    Close() error     // 关闭并释放资源
+    Next() bool       // advance to next entry; false when none remain
+    Entry() *Entries  // current entry
+    Err() error       // error encountered during iteration
+    Close() error     // release resources
 }
 ```
 
-::: tip 流式不返回 HARProvider
-`streaming` 是唯一不返回 `HARProvider` 的策略。它没有 `GetEntries()` / `ToStandard()`，因为那意味着把所有条目物化到内存——与流式初衷相悖。`Parse([]byte, WithStreaming())` 会返回 `UnsupportedError`，引导你改用 `NewStreamingParser`。
+::: tip Streaming does not return HARProvider
+`streaming` is the only strategy that does not return `HARProvider`. It has no `GetEntries()` / `ToStandard()`, because those would materialize all entries into memory — defeating the purpose. `Parse([]byte, WithStreaming())` returns an `UnsupportedError` that steers you to `NewStreamingParser` instead.
 :::
 
-## Parse() 统一入口如何分发
+## How Parse() dispatches
 
-`Parse([]byte, opts ...Option)`（`parse.go`）是函数式风格的统一入口。它根据传入的 `Option` 决定走哪条策略，返回 `HARProvider`。下面的数据流图展示了 `applyOptions` → `validateInput` → `parseWithStrategy` 的分发过程，4 个分支对应 4 种实现：
+`Parse([]byte, opts ...Option)` (`parse.go`) is the functional-style unified entry point. It selects a strategy based on the `Option`s passed and returns `HARProvider`. The data-flow diagram below shows the dispatch path `applyOptions` → `validateInput` → `parseWithStrategy`, with four branches mapping to the four implementations:
 
 ```mermaid
 flowchart LR
-    Caller([调用方]) -->|"Parse(bytes, opts...)"| Apply[applyOptions<br/>合并 Option 得到 options]
-    Apply --> Val[validateInput<br/>校验空输入等]
-    Val --> Disp{parseWithStrategy<br/>看 options 选策略}
+    Caller([Caller]) -->|"Parse(bytes, opts...)"| Apply[applyOptions<br/>merge Options into options]
+    Apply --> Val[validateInput<br/>guard against empty input]
+    Val --> Disp{parseWithStrategy<br/>pick strategy from options}
 
-    Disp -- "useStreaming = true" --> Err[(UnsupportedError<br/>引导用 NewStreamingParser)]
+    Disp -- "useStreaming = true" --> Err[(UnsupportedError<br/>steers to NewStreamingParser)]
     Disp -- "useMemoryOptimized" --> Opt[ParseHarOptimized<br/>*OptimizedHar]
     Disp -- "useLazyLoading" --> Lazy[ParseHarWithLazyLoading<br/>*LazyHar]
-    Disp -- "默认" --> Std[ParseHarWithOptions<br/>*Har]
+    Disp -- "default" --> Std[ParseHarWithOptions<br/>*Har]
 
     Opt --> P1((HARProvider))
     Lazy --> P1
     Std --> P1
-    P1 -->|".ToStandard()"| H[*Har 完整 API]
+    P1 -->|".ToStandard()"| H[Full *Har API]
 
     Opt:::green
     Lazy:::orange
@@ -230,53 +230,53 @@ func Parse(harFileBytes []byte, opts ...Option) (HARProvider, error) {
 }
 ```
 
-`parseWithStrategy` 的分发逻辑：
+The dispatch logic of `parseWithStrategy`:
 
 ```go
 func parseWithStrategy(b []byte, o options) (HARProvider, error) {
     if o.useStreaming {
-        return nil, NewUnsupportedError("...请使用 NewStreamingParser")
+        return nil, NewUnsupportedError("...please use NewStreamingParser")
     }
     if o.useMemoryOptimized {
-        return ParseHarOptimized(b)   // -> *OptimizedHar
+        return ParseHarOptimized(b)        // -> *OptimizedHar
     } else if o.useLazyLoading {
-        return ParseHarWithLazyLoading(b) // -> *LazyHar
+        return ParseHarWithLazyLoading(b)  // -> *LazyHar
     }
     return ParseHarWithOptions(b, o.toParseOptions()) // -> *Har
 }
 ```
 
-`ParseFile(path, opts...)` 是 `Parse` 的文件版封装：读文件后委托给 `Parse`，并在错误上附加文件路径上下文。
+`ParseFile(path, opts...)` is the file-based wrapper around `Parse`: it reads the file, delegates to `Parse`, and attaches file-path context to errors.
 
 ```go
-// 用函数式选项选择策略
+// Pick a strategy with functional options
 p, err := har.ParseFile("capture.har", har.WithMemoryOptimized(), har.WithSkipValidation())
 if err != nil {
     log.Fatal(err)
 }
-// p 是 HARProvider；需要完整 *Har API 时
+// p is HARProvider; when you need the full *Har API
 h := p.ToStandard()
 fmt.Println(h.Statistics().TotalEntries)
 ```
 
-## 选择决策表
+## Decision table
 
-| 文件大小 | 需要 body？ | 内存约束 | 推荐策略 | 推荐入口 |
-|---------|-----------|---------|---------|---------|
-| < 50 MB | 是 | 宽松 | standard | `ParseHarFile` |
-| 50 MB–500 MB | 否（只统计） | 中等 | optimized | `ParseFile(path, WithMemoryOptimized())` |
-| 50 MB–500 MB | 是（按需） | 中等 | lazy | `ParseHarFileWithLazyLoading` |
-| > 500 MB / GB 级 | 否（逐条处理） | 紧张 | streaming | `NewStreamingParserFromFile` |
-| 任意 | 是，且需最快 | 宽松 | standard + `OptFast` | `ParseFile(path, OptFast...)` |
+| File size | Need body? | Memory budget | Recommended strategy | Recommended entry |
+|-----------|-----------|---------------|----------------------|-------------------|
+| < 50 MB | yes | loose | standard | `ParseHarFile` |
+| 50 MB–500 MB | no (stats only) | medium | optimized | `ParseFile(path, WithMemoryOptimized())` |
+| 50 MB–500 MB | yes (on demand) | medium | lazy | `ParseHarFileWithLazyLoading` |
+| > 500 MB / GB-scale | no (one-by-one) | tight | streaming | `NewStreamingParserFromFile` |
+| any | yes, fastest | loose | standard + `OptFast` | `ParseFile(path, OptFast...)` |
 
-几条经验法则：
+A few rules of thumb:
 
-- **不确定就用 standard**。它是默认，正确性最容易推理，且所有分析方法都直接可用。
-- **要做大量统计分析且文件偏大**，优先 optimized。`SearchByMethod`/`SearchByURL`/`SearchByStatusCode` 这类方法在 map 与枚举上更快。
-- **body 很大但你大概率不会读**，用 lazy。注意：一旦你调用 `ToStandard()` 且遍历响应体，惰性收益就消失了。
-- **文件大到无法整体载入**，只能 streaming。代价是失去随机访问和大部分聚合方法；用 `iter.Next()` 逐条处理，自己累加统计。
+- **When in doubt, use standard.** It is the default, the easiest to reason about for correctness, and every analysis method works on it directly.
+- **For heavy statistical analysis on larger files**, prefer optimized. Methods like `SearchByMethod` / `SearchByURL` / `SearchByStatusCode` are faster on maps and enums.
+- **When bodies are huge but you probably will not read them**, use lazy. Note: once you call `ToStandard()` and walk the response bodies, the laziness benefit is gone.
+- **When the file is too large to load whole**, streaming is the only option. The cost is losing random access and most aggregation methods; process entries one at a time with `iter.Next()` and accumulate stats yourself.
 
-## 下一步
+## Next steps
 
-- 各策略返回的 `HARProvider`/`EntryProvider` 接口族细节，见 [Provider 接口](./providers)。
-- `WithMemoryOptimized`/`WithLazyLoading`/`WithStreaming` 等 Option 与预设组合，见 [函数式选项](./functional-options)。
+- For the `HARProvider` / `EntryProvider` interface family returned by each strategy, see [Provider interfaces](./providers).
+- For the `WithMemoryOptimized` / `WithLazyLoading` / `WithStreaming` options and preset combos, see [Functional options](./functional-options).

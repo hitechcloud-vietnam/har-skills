@@ -20,18 +20,18 @@ har -f testdata/full.har security
 Output looks like:
 
 ```text
-安全审计报告
+Security Audit Report
 ============
-评分: 72/100
-发现: 8 个问题
+Score: 72/100
+Findings: 8 issues
 
-[HIGH] 严重 (2)
+[HIGH] High (2)
 ------------------------------------------------------------
-  1. 缺失 HSTS 头
+  1. Missing HSTS header
      URL: http://example.com/login
-     类别: security-headers
-     描述: 响应未设置 Strict-Transport-Security，存在 SSL 剥离风险
-     修复: 在响应头中添加 HSTS，至少 max-age=31536000
+     Category: security-headers
+     Description: The response does not set Strict-Transport-Security, leaving it vulnerable to SSL stripping.
+     Remediation: Add HSTS to the response headers with at least max-age=31536000.
   ...
 ```
 

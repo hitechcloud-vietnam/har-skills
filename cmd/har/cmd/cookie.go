@@ -9,16 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cookieCmd 分析HAR文件中的Cookie
+// cookieCmd analyzes cookies in a HAR file.
 var cookieCmd = &cobra.Command{
 	Use:   "cookie",
-	Short: "分析HAR文件中的Cookie",
-	Long: `对HAR文件中的Cookie进行安全审计和演变分析。
+	Short: "Analyze cookies in a HAR file",
+	Long: `Audit cookie security and analyze cookie changes over time.
 
-安全审计检查Cookie的Secure、HttpOnly、SameSite等安全属性，
-演变分析追踪Cookie在不同请求中的变化情况。
+The security audit checks attributes such as Secure, HttpOnly, and SameSite.
+Evolution analysis tracks changes to cookies across requests.
 
-示例:
+Examples:
   har -f capture.har cookie
   har -f capture.har cookie --audit=false --evolution
   har -f capture.har cookie --name "session_id"
@@ -29,10 +29,10 @@ var cookieCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cookieCmd)
 
-	cookieCmd.Flags().Bool("audit", true, "执行Cookie安全审计")
-	cookieCmd.Flags().Bool("evolution", false, "显示Cookie演变时间线")
-	cookieCmd.Flags().String("name", "", "仅显示指定名称的Cookie")
-	cookieCmd.Flags().String("severity", "info", "最低严重性过滤 (info/low/medium/high)")
+	cookieCmd.Flags().Bool("audit", true, "Run the cookie security audit")
+	cookieCmd.Flags().Bool("evolution", false, "Show the cookie evolution timeline")
+	cookieCmd.Flags().String("name", "", "Show only the cookie with the specified name")
+	cookieCmd.Flags().String("severity", "info", "Minimum severity filter (info/low/medium/high)")
 }
 
 func runCookie(cmd *cobra.Command, args []string) error {
@@ -43,15 +43,15 @@ func runCookie(cmd *cobra.Command, args []string) error {
 	cookieName, _ := cmd.Flags().GetString("name")
 	severity, _ := cmd.Flags().GetString("severity")
 
-	// 如果没有指定演变分析，默认只做审计
+	// Run only the audit unless evolution analysis was requested.
 	if !doEvolution {
 		report := h.CookieAudit()
 
-		// 按严重性过滤
+		// Filter by severity.
 		filtered := filterCookieFindingsBySeverity(report.Findings, severity)
 		report.Findings = filtered
 
-		// 按Cookie名称过滤
+		// Filter by cookie name.
 		if cookieName != "" {
 			var nameFiltered []har.CookieFinding
 			for _, f := range report.Findings {
@@ -67,10 +67,10 @@ func runCookie(cmd *cobra.Command, args []string) error {
 		}, nil)
 	}
 
-	// Cookie演变分析
+	// Analyze cookie evolution.
 	evolution := h.CookieEvolution()
 
-	// 按名称过滤
+	// Filter by name.
 	if cookieName != "" {
 		if entries, ok := evolution[cookieName]; ok {
 			evolution = map[string][]har.CookieEvolutionEntry{
@@ -86,7 +86,7 @@ func runCookie(cmd *cobra.Command, args []string) error {
 	}, nil)
 }
 
-// filterCookieFindingsBySeverity 根据严重性过滤Cookie发现
+// filterCookieFindingsBySeverity filters cookie findings by severity.
 func filterCookieFindingsBySeverity(findings []har.CookieFinding, minSeverity string) []har.CookieFinding {
 	severityOrder := map[string]int{
 		"info":   1,
@@ -110,24 +110,24 @@ func filterCookieFindingsBySeverity(findings []har.CookieFinding, minSeverity st
 	return result
 }
 
-// formatCookieAuditReport 格式化Cookie审计报告为文本
+// formatCookieAuditReport formats the cookie audit report as text.
 func formatCookieAuditReport(report *har.CookieAuditReport) string {
 	var sb strings.Builder
 
-	sb.WriteString("Cookie安全审计报告\n")
+	sb.WriteString("Cookie Security Audit Report\n")
 	sb.WriteString("==================\n")
-	sb.WriteString(fmt.Sprintf("Cookie总数: %d (唯一: %d)\n", report.TotalCookies, report.UniqueCookies))
-	sb.WriteString(fmt.Sprintf("安全属性: Secure=%d, HttpOnly=%d, SameSite=%d\n\n",
+	sb.WriteString(fmt.Sprintf("Total cookies: %d (unique: %d)\n", report.TotalCookies, report.UniqueCookies))
+	sb.WriteString(fmt.Sprintf("Security attributes: Secure=%d, HttpOnly=%d, SameSite=%d\n\n",
 		report.SecureCount, report.HttpOnlyCount, report.SameSiteCount))
 
 	if len(report.Findings) == 0 {
-		sb.WriteString("未发现Cookie安全问题。\n")
+		sb.WriteString("No cookie security issues found.\n")
 		return sb.String()
 	}
 
-	sb.WriteString(fmt.Sprintf("发现 %d 个问题:\n", len(report.Findings)))
+	sb.WriteString(fmt.Sprintf("Found %d issues:\n", len(report.Findings)))
 	sb.WriteString(strings.Repeat("-", 80) + "\n")
-	sb.WriteString(fmt.Sprintf("%-8s %-15s %-20s %s\n", "严重性", "类别", "Cookie名称", "描述"))
+	sb.WriteString(fmt.Sprintf("%-8s %-15s %-20s %s\n", "Severity", "Category", "Cookie Name", "Description"))
 	sb.WriteString(strings.Repeat("-", 80) + "\n")
 
 	for _, f := range report.Findings {
@@ -138,15 +138,15 @@ func formatCookieAuditReport(report *har.CookieAuditReport) string {
 	return sb.String()
 }
 
-// formatCookieEvolution 格式化Cookie演变时间线为文本
+// formatCookieEvolution formats the cookie evolution timeline as text.
 func formatCookieEvolution(evolution map[string][]har.CookieEvolutionEntry) string {
 	var sb strings.Builder
 
-	sb.WriteString("Cookie演变时间线\n")
+	sb.WriteString("Cookie Evolution Timeline\n")
 	sb.WriteString("================\n\n")
 
 	if len(evolution) == 0 {
-		sb.WriteString("未发现Cookie变化。\n")
+		sb.WriteString("No cookie changes found.\n")
 		return sb.String()
 	}
 
@@ -170,7 +170,7 @@ func formatCookieEvolution(evolution map[string][]har.CookieEvolutionEntry) stri
 	return sb.String()
 }
 
-// truncateString 截断过长字符串
+// truncateString truncates strings that exceed the specified length.
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s

@@ -9,12 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// headersCmd 显示请求和响应头部
+// headersCmd displays request and response headers.
 var headersCmd = &cobra.Command{
 	Use:   "headers [url-pattern]",
-	Short: "显示请求和响应头部",
-	Long: `显示匹配条目的请求和响应头部信息。
-可以只显示请求头部或响应头部，也可以按头部名称过滤。`,
+	Short: "Show request and response headers",
+	Long: `Show request and response headers for matching entries.
+Choose request headers, response headers, or filter by header name.`,
 	Example: `  har -f capture.har headers
   har -f capture.har headers "api/users"
   har -f capture.har headers --request
@@ -23,7 +23,7 @@ var headersCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		h := internal.LoadHar(cmd, args)
 
-		// 获取参数
+		// Read the arguments.
 		urlPattern := ""
 		if len(args) > 0 {
 			urlPattern = args[0]
@@ -33,13 +33,13 @@ var headersCmd = &cobra.Command{
 		headerName, _ := cmd.Flags().GetString("name")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		// 默认同时显示请求和响应头部
+		// Show both request and response headers by default.
 		if !showRequest && !showResponse {
 			showRequest = true
 			showResponse = true
 		}
 
-		// 过滤条目
+		// Filter entries.
 		var entries []har.Entries
 		for _, entry := range h.Log.Entries {
 			if urlPattern != "" && !strings.Contains(entry.Request.URL, urlPattern) {
@@ -48,7 +48,7 @@ var headersCmd = &cobra.Command{
 			entries = append(entries, entry)
 		}
 
-		// 限制条数
+		// Limit the number of entries.
 		if limit > 0 && limit < len(entries) {
 			entries = entries[:limit]
 		}
@@ -62,13 +62,13 @@ var headersCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(headersCmd)
 
-	headersCmd.Flags().Bool("request", false, "仅显示请求头部")
-	headersCmd.Flags().Bool("response", false, "仅显示响应头部")
-	headersCmd.Flags().String("name", "", "按头部名称过滤(不区分大小写)")
-	headersCmd.Flags().IntP("limit", "n", 1, "显示的条目数 (默认1)")
+	headersCmd.Flags().Bool("request", false, "Show request headers only")
+	headersCmd.Flags().Bool("response", false, "Show response headers only")
+	headersCmd.Flags().String("name", "", "Filter by header name (case-insensitive)")
+	headersCmd.Flags().IntP("limit", "n", 1, "Number of entries to show (default: 1)")
 }
 
-// headerEntry 用于JSON输出的头部信息
+// headerEntry contains header information for JSON output.
 type headerEntry struct {
 	Index    int               `json:"index"`
 	URL      string            `json:"url"`
@@ -78,7 +78,7 @@ type headerEntry struct {
 	Response map[string]string `json:"responseHeaders,omitempty"`
 }
 
-// buildHeadersJSON 构建JSON输出数据
+// buildHeadersJSON builds the JSON output.
 func buildHeadersJSON(entries []har.Entries, showRequest, showResponse bool, headerName string) []headerEntry {
 	result := make([]headerEntry, 0, len(entries))
 	for i, entry := range entries {
@@ -99,7 +99,7 @@ func buildHeadersJSON(entries []har.Entries, showRequest, showResponse bool, hea
 	return result
 }
 
-// filterHeaders 过滤头部，按名称筛选
+// filterHeaders filters headers by name.
 func filterHeaders(headers []har.Headers, name string) map[string]string {
 	result := make(map[string]string)
 	for _, h := range headers {
@@ -111,17 +111,17 @@ func filterHeaders(headers []har.Headers, name string) map[string]string {
 	return result
 }
 
-// formatHeadersText 格式化头部信息为文本输出
+// formatHeadersText formats header information as text.
 func formatHeadersText(entries []har.Entries, showRequest, showResponse bool, headerName string) string {
 	var sb strings.Builder
 
 	for i, entry := range entries {
-		sb.WriteString(fmt.Sprintf("=== 条目 #%d ===\n", i))
+		sb.WriteString(fmt.Sprintf("=== Entry #%d ===\n", i))
 		sb.WriteString(fmt.Sprintf("URL: %s %s\n", entry.Request.Method, entry.Request.URL))
-		sb.WriteString(fmt.Sprintf("状态: %d %s\n", entry.Response.Status, entry.Response.StatusText))
+		sb.WriteString(fmt.Sprintf("Status: %d %s\n", entry.Response.Status, entry.Response.StatusText))
 
 		if showRequest {
-			sb.WriteString("\n请求头部:\n")
+			sb.WriteString("\nRequest Headers:\n")
 			for _, h := range entry.Request.Headers {
 				if headerName != "" && !strings.EqualFold(h.Name, headerName) {
 					continue
@@ -131,7 +131,7 @@ func formatHeadersText(entries []har.Entries, showRequest, showResponse bool, he
 		}
 
 		if showResponse {
-			sb.WriteString("\n响应头部:\n")
+			sb.WriteString("\nResponse Headers:\n")
 			for _, h := range entry.Response.Headers {
 				if headerName != "" && !strings.EqualFold(h.Name, headerName) {
 					continue

@@ -69,8 +69,8 @@ graph TD
 
 ```go
 // errors.go — Error() output resembles:
-// 字段 'log.entries[3].request.url': 无效的URL格式: ... - original error
-//   (部分错误: 无法解析第3个entry: ...; 字段 'log.entries[5]': ...)
+// field 'log.entries[3].request.url': invalid URL format: ... - original error
+//   (partial errors: unable to parse entry 3: ...; field 'log.entries[5]': ...)
 ```
 
 ### Constructors and JSON Error Wrapping
@@ -95,17 +95,17 @@ func WrapJSONUnmarshalError(err error) *HarError {
     switch e := err.(type) {
     case *json.UnmarshalTypeError:
         return NewJSONParseError(
-            fmt.Sprintf("类型不匹配: 预期 %s 类型，但得到 %s",
+            fmt.Sprintf("type mismatch: expected %s, got %s",
                 e.Type.String(), e.Value), err).
             WithField(e.Field).WithMetadata("offset", e.Offset)
     case *json.SyntaxError:
         return NewJSONParseError(
-            fmt.Sprintf("JSON语法错误: %s", e.Error()), err).
+            fmt.Sprintf("JSON syntax error: %s", e.Error()), err).
             WithMetadata("offset", e.Offset)
     }
     // Other "cannot unmarshal" shapes also get their message extracted
     if strings.Contains(err.Error(), "cannot unmarshal") { /* ... */ }
-    return NewJSONParseError("JSON解析错误", err)
+    return NewJSONParseError("JSON parsing error", err)
 }
 ```
 
@@ -123,7 +123,7 @@ if err := json.Unmarshal(logBytes, &logData); err != nil {
 }
 
 rootError := &HarError{Code: ErrCodeJSONParse,
-    Message: "HAR解析过程中发生错误，但部分内容已成功解析"}
+    Message: "errors occurred while parsing HAR, but some content was parsed successfully"}
 
 // version field: parse alone; failure only logs a partial
 if versionBytes, ok := logData["version"]; ok {
@@ -132,7 +132,7 @@ if versionBytes, ok := logData["version"]; ok {
         har.Log.Version = version          // success → put into Har
     } else {
         rootError.AddPartialError(
-            NewJSONParseError("无法解析version字段", err).
+            NewJSONParseError("unable to parse version field", err).
                 WithField("log.version"))
     }
 }
@@ -147,7 +147,7 @@ if entriesBytes, ok := logData["entries"]; ok {
             } else {
                 rootError.AddPartialError(
                     NewJSONParseError(
-                        fmt.Sprintf("无法解析第%d个entry", i+1), err).
+                        fmt.Sprintf("unable to parse entry %d", i+1), err).
                         WithField(fmt.Sprintf("log.entries[%d]", i)))
             }
         }

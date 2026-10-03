@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// CLI 命令速查表组件 —— 用于命令参考页统一渲染命令清单。
-// 数据驱动，避免在多处 Markdown 重复维护表格。
+// CLI command reference table for consistently rendering command lists.
+// Data-driven to avoid maintaining duplicate tables across Markdown pages.
 
 defineProps<{
   commands: Array<{
@@ -16,9 +16,9 @@ defineProps<{
     <table>
       <thead>
         <tr>
-          <th>命令</th>
-          <th>用途</th>
-          <th>分级</th>
+          <th>Command</th>
+          <th>Purpose</th>
+          <th>Level</th>
         </tr>
       </thead>
       <tbody>

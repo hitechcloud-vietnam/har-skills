@@ -13,55 +13,55 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// splitCmd 拆分HAR文件
+// splitCmd splits a HAR file.
 var splitCmd = &cobra.Command{
 	Use:   "split",
-	Short: "拆分HAR文件",
-	Long: `按各种条件拆分HAR文件为多个小文件。
+	Short: "Split a HAR file",
+	Long: `Split a HAR file into multiple smaller files using various criteria.
 
-支持的拆分方式:
-  --by page     按页面引用（pageref）拆分
-  --by domain   按请求域名拆分
-  --by time     按时间间隔拆分（配合 --interval）
-  --by size     按条目数量拆分（配合 --max-entries）
-  --by status   按状态码范围拆分（2xx/3xx/4xx/5xx）
-  --by method   按HTTP方法拆分
+Supported split modes:
+  --by page     Split by page reference (pageref)
+  --by domain   Split by request domain
+  --by time     Split by time interval (with --interval)
+  --by size     Split by entry count (with --max-entries)
+  --by status   Split by status code range (2xx/3xx/4xx/5xx)
+  --by method   Split by HTTP method
 
-示例:
-  har split -f capture.har --by domain                     # 按域名拆分
-  har split -f capture.har --by time --interval 30m        # 每30分钟拆分
-  har split -f capture.har --by size --max-entries 50      # 每50条拆分
-  har split -f capture.har --by status -o result           # 输出前缀为result`,
+Examples:
+  har split -f capture.har --by domain                     # Split by domain
+  har split -f capture.har --by time --interval 30m        # Split every 30 minutes
+  har split -f capture.har --by size --max-entries 50      # Split every 50 entries
+  har split -f capture.har --by status -o result           # Use "result" as the output prefix`,
 	RunE: runSplit,
 }
 
 func init() {
 	rootCmd.AddCommand(splitCmd)
 
-	splitCmd.Flags().String("by", "", "拆分方式 (page/domain/time/size/status/method)")
-	splitCmd.Flags().Duration("interval", 1*time.Hour, "时间间隔（配合 --by time）")
-	splitCmd.Flags().Int("max-entries", 100, "每组最大条目数（配合 --by size）")
-	splitCmd.Flags().StringP("output", "o", "split", "输出文件前缀")
+	splitCmd.Flags().String("by", "", "Split mode (page/domain/time/size/status/method)")
+	splitCmd.Flags().Duration("interval", 1*time.Hour, "Time interval (with --by time)")
+	splitCmd.Flags().Int("max-entries", 100, "Maximum entries per group (with --by size)")
+	splitCmd.Flags().StringP("output", "o", "split", "Output file prefix")
 }
 
-// runSplit 执行拆分命令
+// runSplit executes the split command.
 func runSplit(cmd *cobra.Command, args []string) error {
-	// 检查必需的 --by 标志
+	// Check that the required --by flag is set.
 	by, _ := cmd.Flags().GetString("by")
 	if by == "" {
-		return fmt.Errorf("必须指定 --by 标志 (page/domain/time/size/status/method)")
+		return fmt.Errorf("--by is required (page/domain/time/size/status/method)")
 	}
 
-	// 加载HAR文件
+	// Load the HAR file.
 	h := internal.LoadHar(cmd, args)
 
-	// 获取输出前缀（优先使用本地 -o，否则使用全局 --output）
+	// Get the output prefix (prefer the local -o flag over global --output).
 	prefix, _ := cmd.Flags().GetString("output")
 	if prefix == "" {
 		prefix = "split"
 	}
 
-	// 根据拆分方式执行拆分
+	// Split according to the selected mode.
 	var fileCount int
 	var err error
 
@@ -81,57 +81,57 @@ func runSplit(cmd *cobra.Command, args []string) error {
 	case "method":
 		fileCount, err = splitByMethod(h, prefix)
 	default:
-		return fmt.Errorf("不支持的拆分方式: %s (可选: page/domain/time/size/status/method)", by)
+		return fmt.Errorf("unsupported split mode: %s (choose from page/domain/time/size/status/method)", by)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "已拆分为 %d 个文件（前缀: %s）\n", fileCount, prefix)
+	fmt.Fprintf(os.Stderr, "Split into %d file(s) (prefix: %s)\n", fileCount, prefix)
 	return nil
 }
 
-// splitByPage 按页面引用拆分
+// splitByPage splits by page reference.
 func splitByPage(h *har.Har, prefix string) (int, error) {
 	parts := h.SplitByPage()
 	return writeSplitMap(parts, prefix, "page")
 }
 
-// splitByDomain 按域名拆分
+// splitByDomain splits by domain.
 func splitByDomain(h *har.Har, prefix string) (int, error) {
 	parts := h.SplitByDomain()
 	return writeSplitMap(parts, prefix, "domain")
 }
 
-// splitByTime 按时间间隔拆分
+// splitByTime splits by time interval.
 func splitByTime(h *har.Har, prefix string, interval time.Duration) (int, error) {
 	parts := h.SplitByTimeRange(interval)
 	return writeSplitSlice(parts, prefix, "time")
 }
 
-// splitBySize 按条目数量拆分
+// splitBySize splits by entry count.
 func splitBySize(h *har.Har, prefix string, maxEntries int) (int, error) {
 	parts := h.SplitBySize(maxEntries)
 	return writeSplitSlice(parts, prefix, "size")
 }
 
-// splitByStatus 按状态码范围拆分
+// splitByStatus splits by status code range.
 func splitByStatus(h *har.Har, prefix string) (int, error) {
 	parts := h.SplitByStatusCode()
 	return writeSplitMap(parts, prefix, "status")
 }
 
-// splitByMethod 按HTTP方法拆分
+// splitByMethod splits by HTTP method.
 func splitByMethod(h *har.Har, prefix string) (int, error) {
 	parts := h.SplitByMethod()
 	return writeSplitMap(parts, prefix, "method")
 }
 
-// writeSplitMap 将map形式的拆分结果写入文件
+// writeSplitMap writes map-based split results to files.
 func writeSplitMap(parts map[string]*har.Har, prefix, kind string) (int, error) {
 	for key, harData := range parts {
-		// 清理key中的特殊字符
+		// Sanitize special characters in the key.
 		safeKey := sanitizeFilename(key)
 		if safeKey == "" {
 			safeKey = "unnamed"
@@ -144,7 +144,7 @@ func writeSplitMap(parts map[string]*har.Har, prefix, kind string) (int, error) 
 	return len(parts), nil
 }
 
-// writeSplitSlice 将切片形式的拆分结果写入文件
+// writeSplitSlice writes slice-based split results to files.
 func writeSplitSlice(parts []*har.Har, prefix, kind string) (int, error) {
 	for i, harData := range parts {
 		filename := fmt.Sprintf("%s_%s_%03d.har", prefix, kind, i+1)
@@ -155,31 +155,31 @@ func writeSplitSlice(parts []*har.Har, prefix, kind string) (int, error) {
 	return len(parts), nil
 }
 
-// writeHarToFile 将HAR数据写入文件
+// writeHarToFile writes HAR data to a file.
 func writeHarToFile(h *har.Har, filename string) error {
 	output, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
-		return fmt.Errorf("JSON序列化失败: %w", err)
+		return fmt.Errorf("JSON serialization failed: %w", err)
 	}
 	output = append(output, '\n')
 
-	// 确保目录存在
+	// Ensure the directory exists.
 	dir := filepath.Dir(filename)
 	if dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("无法创建目录 '%s': %w", dir, err)
+			return fmt.Errorf("unable to create directory '%s': %w", dir, err)
 		}
 	}
 
 	if err := os.WriteFile(filename, output, 0644); err != nil {
-		return fmt.Errorf("无法写入文件 '%s': %w", filename, err)
+		return fmt.Errorf("unable to write file '%s': %w", filename, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "  写入: %s (%d 条目)\n", filename, len(h.Log.Entries))
+	fmt.Fprintf(os.Stderr, "  Wrote: %s (%d entries)\n", filename, len(h.Log.Entries))
 	return nil
 }
 
-// sanitizeFilename 清理文件名中的特殊字符
+// sanitizeFilename replaces special characters in a file name.
 func sanitizeFilename(name string) string {
 	replacer := strings.NewReplacer(
 		"/", "_",

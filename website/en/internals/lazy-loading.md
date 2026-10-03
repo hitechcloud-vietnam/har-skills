@@ -94,7 +94,7 @@ func (lc *LazyContent) Load() error {
     }
     var full FullContent
     if err := json.Unmarshal(lc.rawData, &full); err != nil {
-        return NewJSONParseError("无法加载延迟加载的内容", err)
+        return NewJSONParseError("unable to load lazy-loaded content", err)
     }
     lc.Text = full.Text
     lc.Encoding = full.Encoding

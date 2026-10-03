@@ -9,16 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// performanceCmd 对HAR文件进行性能评分
+// performanceCmd scores the performance of a HAR file.
 var performanceCmd = &cobra.Command{
 	Use:   "performance",
-	Short: "对HAR文件进行性能评分",
-	Long: `对HAR文件中的请求进行综合性能评分，生成评级和优化建议。
+	Short: "Score HAR file performance",
+	Long: `Score the performance of requests in a HAR file and generate a grade and optimization recommendations.
 
-评分维度包括：TTFB（首字节时间）、总加载时间、请求数量、
-传输大小、缓存效率和压缩率。
+Scoring categories include TTFB (time to first byte), total load time, request count,
+transfer size, cache efficiency, and compression ratio.
 
-示例:
+Examples:
   har -f capture.har performance
   har -f capture.har performance --format json`,
 	RunE: runPerformance,
@@ -38,54 +38,54 @@ func runPerformance(cmd *cobra.Command, args []string) error {
 	}, nil)
 }
 
-// formatPerformanceReport 格式化性能评分报告为文本
+// formatPerformanceReport formats the performance score report as text.
 func formatPerformanceReport(report *har.PerformanceReport) string {
 	var sb strings.Builder
 
-	sb.WriteString("性能评分报告\n")
+	sb.WriteString("Performance Score Report\n")
 	sb.WriteString("============\n")
 
-	// 总分和等级
-	sb.WriteString(fmt.Sprintf("总分: %.1f/100  等级: %s\n\n", report.OverallScore, report.Grade()))
+	// Overall score and grade.
+	sb.WriteString(fmt.Sprintf("Overall score: %.1f/100  Grade: %s\n\n", report.OverallScore, report.Grade()))
 
-	// 分类评分
-	sb.WriteString("分类评分:\n")
+	// Category scores.
+	sb.WriteString("Category Scores:\n")
 	sb.WriteString(strings.Repeat("-", 60) + "\n")
-	sb.WriteString(fmt.Sprintf("%-20s %-10s %-10s %s\n", "类别", "分数", "权重", "状态"))
+	sb.WriteString(fmt.Sprintf("%-20s %-10s %-10s %s\n", "Category", "Score", "Weight", "Status"))
 	sb.WriteString(strings.Repeat("-", 60) + "\n")
 
 	for _, cat := range report.Categories {
-		status := "优秀"
+		status := "Excellent"
 		if cat.Score < 50 {
-			status = "差"
+			status = "Poor"
 		} else if cat.Score < 70 {
-			status = "一般"
+			status = "Fair"
 		} else if cat.Score < 90 {
-			status = "良好"
+			status = "Good"
 		}
 		sb.WriteString(fmt.Sprintf("%-20s %-10.1f %-10.1f %s\n",
 			cat.Name, cat.Score, cat.Weight, status))
 	}
 
-	// 发现的问题
+	// Findings.
 	for _, cat := range report.Categories {
 		if len(cat.Findings) > 0 {
-			sb.WriteString(fmt.Sprintf("\n%s 详情:\n", cat.Name))
+			sb.WriteString(fmt.Sprintf("\n%s Details:\n", cat.Name))
 			for _, f := range cat.Findings {
 				sb.WriteString(fmt.Sprintf("  - [%s] %s\n", f.Type, f.Title))
 				if f.Description != "" {
 					sb.WriteString(fmt.Sprintf("    %s\n", f.Description))
 				}
 				if f.Impact != "" {
-					sb.WriteString(fmt.Sprintf("    影响: %s\n", f.Impact))
+					sb.WriteString(fmt.Sprintf("    Impact: %s\n", f.Impact))
 				}
 			}
 		}
 	}
 
-	// 优化建议
+	// Recommendations.
 	if len(report.Recommendations) > 0 {
-		sb.WriteString("\n优化建议:\n")
+		sb.WriteString("\nRecommendations:\n")
 		sb.WriteString(strings.Repeat("-", 60) + "\n")
 		for i, rec := range report.Recommendations {
 			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, rec))

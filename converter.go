@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// ConvertFormat 支持的转换格式
+// ConvertFormat identifies a supported conversion format.
 type ConvertFormat string
 
 const (
@@ -19,9 +19,9 @@ const (
 	FormatText     ConvertFormat = "text"
 )
 
-// ConvertOptions 转换选项
+// ConvertOptions configures conversion.
 type ConvertOptions struct {
-	// 包含的字段
+	// Fields to include.
 	IncludeURL         bool
 	IncludeMethod      bool
 	IncludeStatus      bool
@@ -31,17 +31,17 @@ type ConvertOptions struct {
 	IncludeTimings     bool
 	IncludeHeaders     bool
 	IncludeDateTime    bool
-	IncludePostData    bool // 是否包含POST数据
-	IncludeQueryString bool // 是否包含查询参数
+	IncludePostData    bool // Include POST data.
+	IncludeQueryString bool // Include query parameters.
 
-	// 自定义表头（可选，如果不指定则使用默认值）
+	// Custom headers (optional; defaults are used when omitted).
 	Headers []string
 
-	// 过滤选项（可选，用于在转换前先过滤数据）
+	// Filter options (optional; data is filtered before conversion).
 	Filter *FilterOptions
 }
 
-// DefaultConvertOptions 默认的转换选项
+// DefaultConvertOptions returns the default conversion options.
 func DefaultConvertOptions() ConvertOptions {
 	return ConvertOptions{
 		IncludeURL:         true,
@@ -56,13 +56,13 @@ func DefaultConvertOptions() ConvertOptions {
 	}
 }
 
-// Convert 将HAR转换为指定格式
+// Convert converts a HAR file to the specified format.
 func (h *Har) Convert(format ConvertFormat, options ConvertOptions) (string, error) {
 	if h == nil {
-		return "", NewInvalidFormatError("HAR对象为空")
+		return "", NewInvalidFormatError("HAR object is nil")
 	}
 
-	// 如果有过滤条件，先过滤
+	// Apply filters first, if any.
 	entries := h.Log.Entries
 	if options.Filter != nil {
 		filterResult := h.Filter(*options.Filter)
@@ -79,14 +79,14 @@ func (h *Har) Convert(format ConvertFormat, options ConvertOptions) (string, err
 	case FormatText:
 		return convertToText(entries, options)
 	default:
-		return "", NewUnsupportedError(fmt.Sprintf("不支持的转换格式: %s", format))
+		return "", NewUnsupportedError(fmt.Sprintf("unsupported conversion format: %s", format))
 	}
 }
 
-// 转换为CSV格式
+// convertToCSV converts entries to CSV.
 func convertToCSV(entries []Entries, options ConvertOptions) (string, error) {
 	buf := &bytes.Buffer{}
-	// bytes.Buffer.Write 永不失败，writeCSVToWriter 对其不会返回错误。
+	// bytes.Buffer.Write cannot fail, so writeCSVToWriter cannot return an error here.
 	_ = writeCSVToWriter(buf, entries, options)
 
 	return buf.String(), nil
@@ -102,41 +102,41 @@ func writeCSVToWriter(w io.Writer, entries []Entries, options ConvertOptions) er
 	// 写入表头
 	headers := getHeaders(options)
 	if err := writer.Write(headers); err != nil {
-		return NewFileSystemError("CSV写入失败", err)
+		return NewFileSystemError("failed to write CSV", err)
 	}
 
 	// 写入数据行
 	for _, entry := range entries {
 		row := createDataRow(entry, options)
 		if err := writer.Write(row); err != nil {
-			return NewFileSystemError("CSV写入失败", err)
+			return NewFileSystemError("failed to write CSV", err)
 		}
 	}
 
 	writer.Flush()
 	if err := writer.Error(); err != nil {
-		return NewFileSystemError("CSV写入失败", err)
+		return NewFileSystemError("failed to write CSV", err)
 	}
 
 	return nil
 }
 
-// 转换为Markdown表格
+// convertToMarkdown converts entries to a Markdown table.
 func convertToMarkdown(entries []Entries, options ConvertOptions) (string, error) {
 	buf := &bytes.Buffer{}
 
-	// 写入表头
+	// Write the header.
 	headers := getHeaders(options)
 	fmt.Fprintf(buf, "| %s |\n", strings.Join(headers, " | "))
 
-	// 写入分隔行
+	// Write the separator row.
 	fmt.Fprintf(buf, "|%s|\n", strings.Repeat(" --- |", len(headers)))
 
-	// 写入数据行
+	// Write the data rows.
 	for _, entry := range entries {
 		row := createDataRow(entry, options)
 		for i, cell := range row {
-			// 转义Markdown中的特殊字符
+			// Escape special Markdown characters.
 			row[i] = strings.ReplaceAll(cell, "|", "\\|")
 		}
 		fmt.Fprintf(buf, "| %s |\n", strings.Join(row, " | "))
@@ -145,14 +145,14 @@ func convertToMarkdown(entries []Entries, options ConvertOptions) (string, error
 	return buf.String(), nil
 }
 
-// 转换为HTML表格
+// convertToHTML converts entries to an HTML table.
 func convertToHTML(entries []Entries, options ConvertOptions) (string, error) {
 	buf := &bytes.Buffer{}
 
-	// 开始表格
+	// Start the table.
 	fmt.Fprintln(buf, "<table border=\"1\">")
 
-	// 写入表头
+	// Write the header.
 	headers := getHeaders(options)
 	fmt.Fprintln(buf, "  <thead>")
 	fmt.Fprintln(buf, "    <tr>")
@@ -162,7 +162,7 @@ func convertToHTML(entries []Entries, options ConvertOptions) (string, error) {
 	fmt.Fprintln(buf, "    </tr>")
 	fmt.Fprintln(buf, "  </thead>")
 
-	// 写入数据行
+	// Write the data rows.
 	fmt.Fprintln(buf, "  <tbody>")
 	for _, entry := range entries {
 		row := createDataRow(entry, options)
@@ -174,22 +174,22 @@ func convertToHTML(entries []Entries, options ConvertOptions) (string, error) {
 	}
 	fmt.Fprintln(buf, "  </tbody>")
 
-	// 结束表格
+	// End the table.
 	fmt.Fprintln(buf, "</table>")
 
 	return buf.String(), nil
 }
 
-// 转换为纯文本格式
+// convertToText converts entries to plain text.
 func convertToText(entries []Entries, options ConvertOptions) (string, error) {
 	buf := &bytes.Buffer{}
 
-	// 写入表头
+	// Write the header.
 	headers := getHeaders(options)
 	fmt.Fprintln(buf, strings.Join(headers, "\t"))
 	fmt.Fprintln(buf, strings.Repeat("-", 80))
 
-	// 写入数据行
+	// Write the data rows.
 	for _, entry := range entries {
 		row := createDataRow(entry, options)
 		fmt.Fprintln(buf, strings.Join(row, "\t"))
@@ -198,7 +198,7 @@ func convertToText(entries []Entries, options ConvertOptions) (string, error) {
 	return buf.String(), nil
 }
 
-// 获取表头
+// getHeaders returns the headers to include.
 func getHeaders(options ConvertOptions) []string {
 	if len(options.Headers) > 0 {
 		return options.Headers
@@ -207,82 +207,82 @@ func getHeaders(options ConvertOptions) []string {
 	var headers []string
 
 	if options.IncludeDateTime {
-		headers = append(headers, "日期时间")
+		headers = append(headers, "Date/Time")
 	}
 	if options.IncludeMethod {
-		headers = append(headers, "方法")
+		headers = append(headers, "Method")
 	}
 	if options.IncludeURL {
 		headers = append(headers, "URL")
 	}
 	if options.IncludeStatus {
-		headers = append(headers, "状态码")
+		headers = append(headers, "Status Code")
 	}
 	if options.IncludeContentType {
-		headers = append(headers, "内容类型")
+		headers = append(headers, "Content Type")
 	}
 	if options.IncludeSize {
-		headers = append(headers, "大小(字节)")
+		headers = append(headers, "Size (bytes)")
 	}
 	if options.IncludeTime {
-		headers = append(headers, "时间(ms)")
+		headers = append(headers, "Time (ms)")
 	}
 	if options.IncludeTimings {
-		headers = append(headers, "阻塞(ms)", "DNS(ms)", "连接(ms)", "发送(ms)", "等待(ms)", "接收(ms)")
+		headers = append(headers, "Blocked (ms)", "DNS (ms)", "Connect (ms)", "Send (ms)", "Wait (ms)", "Receive (ms)")
 	}
 	if options.IncludePostData {
-		headers = append(headers, "POST数据类型", "POST数据")
+		headers = append(headers, "POST Data Type", "POST Data")
 	}
 	if options.IncludeQueryString {
-		headers = append(headers, "查询参数")
+		headers = append(headers, "Query Parameters")
 	}
 	if options.IncludeHeaders {
-		headers = append(headers, "请求头", "响应头")
+		headers = append(headers, "Request Headers", "Response Headers")
 	}
 
 	return headers
 }
 
-// 创建数据行
+// createDataRow creates a data row.
 func createDataRow(entry Entries, options ConvertOptions) []string {
 	var row []string
 
-	// 日期时间
+	// Date and time.
 	if options.IncludeDateTime {
 		row = append(row, entry.StartedDateTime.Format(time.RFC3339))
 	}
 
-	// 请求方法
+	// Request method.
 	if options.IncludeMethod {
 		row = append(row, entry.Request.Method)
 	}
 
-	// URL
+	// URL.
 	if options.IncludeURL {
 		row = append(row, entry.Request.URL)
 	}
 
-	// 状态码
+	// Status code.
 	if options.IncludeStatus {
 		row = append(row, fmt.Sprintf("%d %s", entry.Response.Status, entry.Response.StatusText))
 	}
 
-	// 内容类型
+	// Content type.
 	if options.IncludeContentType {
 		row = append(row, entry.Response.Content.MimeType)
 	}
 
-	// 大小
+	// Size.
 	if options.IncludeSize {
 		row = append(row, fmt.Sprintf("%d", entry.Response.Content.Size))
 	}
 
-	// 总时间
+	// Total time.
 	if options.IncludeTime {
 		row = append(row, fmt.Sprintf("%.2f", entry.Time))
 	}
 
-	// 详细时间
+	// Detailed timings.
 	if options.IncludeTimings {
 		row = append(row,
 			fmt.Sprintf("%.2f", entry.Timings.Blocked),
@@ -294,7 +294,7 @@ func createDataRow(entry Entries, options ConvertOptions) []string {
 		)
 	}
 
-	// POST数据
+	// POST data.
 	if options.IncludePostData {
 		if entry.Request.PostData != nil {
 			row = append(row, entry.Request.PostData.MimeType, entry.Request.PostData.Text)
@@ -303,7 +303,7 @@ func createDataRow(entry Entries, options ConvertOptions) []string {
 		}
 	}
 
-	// 查询参数
+	// Query parameters.
 	if options.IncludeQueryString {
 		var qs []string
 		for _, param := range entry.Request.QueryString {
@@ -312,7 +312,7 @@ func createDataRow(entry Entries, options ConvertOptions) []string {
 		row = append(row, strings.Join(qs, "&"))
 	}
 
-	// 请求头和响应头
+	// Request and response headers.
 	if options.IncludeHeaders {
 		var reqHeaders []string
 		for _, h := range entry.Request.Headers {
@@ -328,7 +328,7 @@ func createDataRow(entry Entries, options ConvertOptions) []string {
 	return row
 }
 
-// 转义HTML特殊字符
+// escapeHTML escapes special HTML characters.
 func escapeHTML(s string) string {
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")

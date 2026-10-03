@@ -1,85 +1,85 @@
-# 贡献指南
+# Contributing Guide
 
-感谢您对 Go-HAR 项目的关注！我们欢迎所有形式的贡献，包括但不限于错误报告、功能请求、文档改进和代码贡献。本指南将帮助您了解如何参与项目开发。
+Thank you for your interest in Go-HAR! We welcome all kinds of contributions, including bug reports, feature requests, documentation improvements, and code. This guide explains how to participate in the project.
 
-## 报告问题
+## Reporting Issues
 
-如果您发现了 bug 或有功能请求，请先检查是否已经有相关的 issue 存在。如果没有，请创建一个新的 issue，并提供以下信息：
+If you find a bug or have a feature request, first check whether a related issue already exists. If not, open a new issue and include:
 
-- 对问题的清晰描述
-- 重现步骤（如适用）
-- 您期望的行为
-- 实际发生的行为
-- 相关的日志或错误消息
-- 环境信息（Go 版本、操作系统等）
+- A clear description of the problem
+- Steps to reproduce, if applicable
+- The behavior you expected
+- The behavior that actually occurred
+- Relevant logs or error messages
+- Environment details, such as the Go version and operating system
 
-## 开发流程
+## Development Workflow
 
-1. Fork 项目仓库
-2. 创建您的特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交您的更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建一个 Pull Request
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add some amazing feature'`).
+4. Push the branch (`git push origin feature/amazing-feature`).
+5. Open a pull request.
 
-## 代码规范
+## Code Style
 
-- 遵循标准的 Go 代码规范和最佳实践
-- 使用 `gofmt` 格式化代码
-- 确保所有测试通过
-- 添加适当的文档注释
+- Follow standard Go conventions and best practices.
+- Format code with `gofmt`.
+- Make sure all tests pass.
+- Add appropriate documentation comments.
 
-## 提交 Pull Request
+## Opening a Pull Request
 
-创建 Pull Request 时，请：
+When opening a pull request:
 
-- 提供清晰的标题和描述
-- 引用相关的 issue（如适用）
-- 确保所有自动检查都通过
-- 如果添加了新功能，请添加相应的测试和文档
+- Provide a clear title and description.
+- Reference related issues, if applicable.
+- Make sure all automated checks pass.
+- Add tests and documentation for any new features.
 
-## 测试
+## Testing
 
-对于代码贡献，我们要求：
+For code contributions, please:
 
-- 添加单元测试覆盖新功能
-- 确保现有测试仍然通过
-- 针对边缘情况进行测试
+- Add unit tests for new functionality.
+- Make sure existing tests still pass.
+- Test edge cases.
 
-运行测试：
+Run the tests with:
 
 ```bash
 go test ./...
 ```
 
-## 文档
+## Documentation
 
-文档是项目的重要组成部分。如果您添加或修改功能，请同时更新相关文档：
+Documentation is an important part of the project. When adding or changing a feature, update the relevant documentation as well:
 
-- 更新 README.md（如适用）
-- 更新 doc/ 目录下的相关文档
-- 添加或更新代码注释，特别是公共 API 函数
+- Update `README.md`, if applicable.
+- Update relevant documents in `doc/`.
+- Add or update code comments, especially for public API functions.
 
-## 代码审查
+## Code Review
 
-所有的提交都将经过代码审查。在审查过程中：
+All contributions go through code review. During review:
 
-- 请对评论保持开放的态度
-- 回应所有评论
-- 如果需要进行更改，请在同一 PR 中提交新的更改
+- Stay open to feedback.
+- Respond to all comments.
+- If changes are needed, push them to the same pull request.
 
-## 许可证
+## License
 
-通过贡献代码，您同意您的贡献将在项目的 MIT 许可证下发布。
+By contributing code, you agree that your contribution will be released under the project's MIT License.
 
-## 行为准则
+## Code of Conduct
 
-我们期望所有贡献者尊重彼此，保持专业和友好的交流环境。不当行为包括但不限于侮辱性评论、人身攻击、欺凌或骚扰，将不被容忍。
+We expect all contributors to treat one another respectfully and maintain a professional, welcoming environment. Abusive comments, personal attacks, bullying, and harassment are not tolerated.
 
-## 获取帮助
+## Getting Help
 
-如果您有任何问题或需要帮助，请：
+If you have questions or need help:
 
-- 在相关 issue 中提问
-- 创建新的 issue 请求帮助
+- Ask in a related issue.
+- Open a new issue to request help.
 
-感谢您的贡献！ 
+Thank you for contributing!

@@ -9,25 +9,26 @@ linters:
 
 issues:
   exclude-dirs:
-    # examples 是示例代码，非生产路径；其 import 根模块在 typecheck 缓存中
-    # 偶发误报，且不属于 SDK/CLI 交付范围，故排除。
+    # Examples are not production code. Their root-module imports can trigger
+    # intermittent typecheck-cache false positives and are outside the SDK/CLI deliverables.
     - examples
   skip-dirs:
     - examples
   exclude-rules:
-    # examples 是示例代码，非生产路径；typecheck 在 Go 版本错配时对根模块
-    # import 偶发误报，且 examples 不属于 SDK/CLI 交付范围。
+    # Examples are not production code. Typecheck can occasionally report false positives
+    # for root-module imports when Go versions are mismatched; examples are not SDK/CLI deliverables.
     - path: examples
       linters:
         - typecheck
-    # assertHarErrorCode 是测试断言辅助函数，返回 *HarError 仅供可选的链式
-    # 进一步断言使用；其内部已通过 t.Fatalf 保证断言失败即终止测试，
-    # 因此不检查其返回值是合理且安全的。
+    # assertHarErrorCode is a test assertion helper. Its *HarError return value is only
+    # used for optional chained assertions; t.Fatalf already stops the test on failure,
+    # so ignoring the return value is safe.
     - path: _test\.go
       linters:
         - errcheck
       source: "assertHarErrorCode\\("
-    # 测试清理路径中常见的文件权限/删除操作，返回值不影响测试结论
+    # File permission and removal calls are common in test cleanup; their return values
+    # do not affect the test outcome.
     - path: _test\.go
       linters:
         - errcheck

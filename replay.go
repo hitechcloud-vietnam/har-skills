@@ -12,17 +12,17 @@ import (
 	"time"
 )
 
-// ReplayOptions 重放请求的选项
+// ReplayOptions configures request replay.
 type ReplayOptions struct {
-	Timeout         time.Duration     // 请求超时时间
-	FollowRedirects bool              // 是否跟随重定向
-	MaxRedirects    int               // 最大重定向次数
-	SkipSSLVerify   bool              // 跳过SSL证书验证
-	OverrideHeaders map[string]string // 覆盖指定请求头
-	Transport       http.RoundTripper // 自定义Transport
+	Timeout         time.Duration     // Request timeout.
+	FollowRedirects bool              // Whether to follow redirects.
+	MaxRedirects    int               // Maximum number of redirects.
+	SkipSSLVerify   bool              // Whether to skip SSL certificate verification.
+	OverrideHeaders map[string]string // Request headers to override.
+	Transport       http.RoundTripper // Custom transport.
 }
 
-// DefaultReplayOptions 返回默认的重放选项
+// DefaultReplayOptions returns the default replay options.
 func DefaultReplayOptions() ReplayOptions {
 	return ReplayOptions{
 		Timeout:         30 * time.Second,
@@ -32,50 +32,50 @@ func DefaultReplayOptions() ReplayOptions {
 	}
 }
 
-// ReplayResult 表示重放单个请求的结果
+// ReplayResult represents the result of replaying a single request.
 type ReplayResult struct {
-	Entry    *Entries       // 原始HAR条目
-	Response *http.Response // HTTP响应
-	Duration time.Duration  // 请求耗时
-	Error    error          // 错误信息
-	Index    int            // 条目索引
+	Entry    *Entries       // Original HAR entry.
+	Response *http.Response // HTTP response.
+	Duration time.Duration  // Request duration.
+	Error    error          // Error, if any.
+	Index    int            // Entry index.
 }
 
-// ToHTTPRequest 将HAR条目转换为标准库的http.Request对象
+// ToHTTPRequest converts a HAR entry to a standard-library http.Request.
 //
-// 该方法根据HAR条目中的请求信息构建一个完整的http.Request，
-// 包括方法、URL、头部、Cookie和请求体。
+// It builds a complete http.Request from the request information in the HAR entry,
+// including the method, URL, headers, cookies, and body.
 func (e *Entries) ToHTTPRequest() (*http.Request, error) {
 	if e == nil {
-		return nil, NewInvalidFormatError("条目为空")
+		return nil, NewInvalidFormatError("entry is nil")
 	}
 
-	// 解析URL
+	// Parse the URL.
 	parsedURL, err := url.Parse(e.Request.URL)
 	if err != nil {
 		return nil, NewInvalidValueError("request.url", e.Request.URL,
-			fmt.Sprintf("URL解析失败: %v", err))
+			fmt.Sprintf("failed to parse URL: %v", err))
 	}
 
-	// 构建请求体
+	// Build the request body.
 	var body io.Reader
 	if e.Request.PostData != nil && e.Request.PostData.Text != "" {
 		body = strings.NewReader(e.Request.PostData.Text)
 	}
 
-	// 创建请求
+	// Create the request.
 	req, err := http.NewRequest(e.Request.Method, parsedURL.String(), body)
 	if err != nil {
 		return nil, NewHarError(ErrCodeInvalidFormat,
-			fmt.Sprintf("创建HTTP请求失败: %v", err), err)
+			fmt.Sprintf("failed to create HTTP request: %v", err), err)
 	}
 
-	// 设置请求头
+	// Set request headers.
 	for _, header := range e.Request.Headers {
 		req.Header.Set(header.Name, header.Value)
 	}
 
-	// 设置Cookie
+	// Set cookies.
 	for _, cookie := range e.Request.Cookies {
 		req.AddCookie(&http.Cookie{
 			Name:     cookie.Name,
@@ -87,7 +87,7 @@ func (e *Entries) ToHTTPRequest() (*http.Request, error) {
 		})
 	}
 
-	// 设置Content-Type（如果有PostData）
+	// Set Content-Type if PostData is present.
 	if e.Request.PostData != nil && e.Request.PostData.MimeType != "" {
 		req.Header.Set("Content-Type", e.Request.PostData.MimeType)
 	}
@@ -95,29 +95,29 @@ func (e *Entries) ToHTTPRequest() (*http.Request, error) {
 	return req, nil
 }
 
-// Replay 重放单个HAR条目的HTTP请求
+// Replay replays the HTTP request from a single HAR entry.
 //
-// 该方法将HAR条目转换为HTTP请求并执行，返回重放结果。
+// It converts the HAR entry to an HTTP request, executes it, and returns the replay result.
 func (e *Entries) Replay(options ReplayOptions) (*ReplayResult, error) {
 	if e == nil {
-		return nil, NewInvalidFormatError("条目为空")
+		return nil, NewInvalidFormatError("entry is nil")
 	}
 
-	// 构建HTTP请求
+	// Build the HTTP request.
 	req, err := e.ToHTTPRequest()
 	if err != nil {
 		return nil, err
 	}
 
-	// 应用头部覆盖
+	// Apply header overrides.
 	for name, value := range options.OverrideHeaders {
 		req.Header.Set(name, value)
 	}
 
-	// 创建HTTP客户端
+	// Create the HTTP client.
 	client := createHTTPClient(options)
 
-	// 执行请求并计时
+	// Execute and time the request.
 	start := time.Now()
 	resp, err := client.Do(req)
 	duration := time.Since(start)
@@ -138,12 +138,12 @@ func (e *Entries) Replay(options ReplayOptions) (*ReplayResult, error) {
 	}, nil
 }
 
-// ReplayAll 重放HAR文件中所有条目的HTTP请求
+// ReplayAll replays the HTTP requests from every entry in the HAR file.
 //
-// 该方法依次执行所有条目的请求，返回每个条目的重放结果。
+// It executes requests sequentially and returns the replay result for each entry.
 func (h *Har) ReplayAll(options ReplayOptions) ([]*ReplayResult, error) {
 	if h == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
 	results := make([]*ReplayResult, len(h.Log.Entries))
@@ -168,10 +168,10 @@ func (h *Har) ReplayAll(options ReplayOptions) ([]*ReplayResult, error) {
 	return results, firstErr
 }
 
-// ReplaySelective 选择性重放符合条件的条目
+// ReplaySelective replays entries that match the specified criteria.
 func (h *Har) ReplaySelective(options ReplayOptions, filterOptions FilterOptions) ([]*ReplayResult, error) {
 	if h == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
 	filtered := h.Filter(filterOptions)
@@ -201,10 +201,10 @@ func (h *Har) ReplaySelective(options ReplayOptions, filterOptions FilterOptions
 	return results, firstErr
 }
 
-// HTTPResponseToEntries 将http.Response转换为HAR Entries
+// HTTPResponseToEntries converts an http.Response to HAR Entries.
 //
-// 这是一个辅助函数，将标准库的HTTP响应转换为HAR格式的条目，
-// 方便与重放功能配合使用。
+// This helper converts a standard-library HTTP response to a HAR entry
+// for use with the replay functionality.
 func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Duration) *Entries {
 	if resp == nil {
 		return nil
@@ -218,7 +218,7 @@ func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Dura
 		entry.Request = req.Request
 	}
 
-	// 构建响应
+	// Build the response.
 	entry.Response = Response{
 		Status:      resp.StatusCode,
 		StatusText:  resp.Status,
@@ -227,7 +227,7 @@ func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Dura
 		BodySize:    -1,
 	}
 
-	// 读取响应头
+	// Read response headers.
 	for key, values := range resp.Header {
 		for _, value := range values {
 			entry.Response.Headers = append(entry.Response.Headers, Headers{
@@ -237,7 +237,7 @@ func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Dura
 		}
 	}
 
-	// 读取响应Cookie
+	// Read response cookies.
 	for _, cookie := range resp.Cookies() {
 		entry.Response.Cookies = append(entry.Response.Cookies, Cookie{
 			Name:     cookie.Name,
@@ -249,7 +249,7 @@ func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Dura
 		})
 	}
 
-	// 读取响应体
+	// Read the response body.
 	if !isNilReader(resp.Body) {
 		bodyBytes, readErr, closeErr := readAndCloseResponseBody(resp.Body)
 		if bodyErr := responseBodyErrorMessage(readErr, closeErr); bodyErr != "" {
@@ -268,7 +268,7 @@ func HTTPResponseToEntries(req *Entries, resp *http.Response, duration time.Dura
 	return entry
 }
 
-// createHTTPClient 根据选项创建HTTP客户端
+// createHTTPClient creates an HTTP client using the specified options.
 func createHTTPClient(options ReplayOptions) *http.Client {
 	transport := options.Transport
 	if isNilReplayTransport(transport) {
@@ -320,7 +320,7 @@ func newMaxRedirectsError(maxRedirects int) *HarError {
 	).WithMetadata("maxRedirects", maxRedirects)
 }
 
-// ReplayResultToHar 将重放结果转换回HAR对象
+// ReplayResultsToHar converts replay results back to a HAR object.
 func ReplayResultsToHar(results []*ReplayResult) *Har {
 	h := NewHar()
 	h.SetCreator("go-har-replay", "1.0")
@@ -334,7 +334,7 @@ func ReplayResultsToHar(results []*ReplayResult) *Har {
 			entry := HTTPResponseToEntries(result.Entry, result.Response, result.Duration)
 			h.Log.Entries = append(h.Log.Entries, *entry)
 		} else if result.Entry != nil {
-			// 即使请求失败，也保留原始条目
+			// Preserve the original entry even if the request failed.
 			h.Log.Entries = append(h.Log.Entries, *result.Entry)
 		}
 	}
@@ -342,7 +342,7 @@ func ReplayResultsToHar(results []*ReplayResult) *Har {
 	return h
 }
 
-// BuildQueryStringFromURL 从URL字符串解析查询参数
+// BuildQueryStringFromURL parses query parameters from a URL string.
 func BuildQueryStringFromURL(rawURL string) []QueryString {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
@@ -362,7 +362,7 @@ func BuildQueryStringFromURL(rawURL string) []QueryString {
 	return params
 }
 
-// ParseResponseHeaders 解析原始HTTP响应头字符串
+// ParseResponseHeaders parses a raw HTTP response header string.
 func ParseResponseHeaders(headerStr string) []Headers {
 	var headers []Headers
 	lines := strings.Split(headerStr, "\n")
@@ -382,7 +382,7 @@ func ParseResponseHeaders(headerStr string) []Headers {
 	return headers
 }
 
-// EstimateHeaderSize 估算HTTP头部大小
+// EstimateHeaderSize estimates the size of HTTP headers.
 func EstimateHeaderSize(headers []Headers) int {
 	size := 0
 	for _, h := range headers {
@@ -391,7 +391,7 @@ func EstimateHeaderSize(headers []Headers) int {
 	return size
 }
 
-// FormatBytes 格式化字节数
+// FormatBytes formats a byte count.
 func FormatBytes(size int) string {
 	const (
 		KB = 1024
@@ -410,7 +410,7 @@ func FormatBytes(size int) string {
 	}
 }
 
-// ReadBody 读取请求体内容
+// ReadBody reads the request body content.
 func ReadBody(entry *Entries) ([]byte, error) {
 	if entry == nil || entry.Request.PostData == nil {
 		return nil, nil
@@ -418,10 +418,10 @@ func ReadBody(entry *Entries) ([]byte, error) {
 	return []byte(entry.Request.PostData.Text), nil
 }
 
-// WriteToWriter 将HTTP请求写入io.Writer（用于调试）
+// WriteRequestToWriter writes an HTTP request to an io.Writer for debugging.
 func WriteRequestToWriter(entry *Entries, w io.Writer) error {
 	if entry == nil {
-		return NewInvalidFormatError("条目为空")
+		return NewInvalidFormatError("entry is nil")
 	}
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -443,7 +443,7 @@ func WriteRequestToWriter(entry *Entries, w io.Writer) error {
 	return writeAllToWriter(w, []byte(builder.String()), "failed to write HTTP request")
 }
 
-// CloneEntry 深度复制HAR条目
+// CloneEntry makes a deep copy of a HAR entry.
 func CloneEntry(entry *Entries) *Entries {
 	if entry == nil {
 		return nil
@@ -451,7 +451,7 @@ func CloneEntry(entry *Entries) *Entries {
 
 	cloned := *entry
 
-	// 复制切片
+	// Copy slices.
 	cloned.Request.Headers = make([]Headers, len(entry.Request.Headers))
 	copy(cloned.Request.Headers, entry.Request.Headers)
 

@@ -1,48 +1,48 @@
 ---
-title: 转换与脱敏
+title: Transform & Redact
 titleTemplate: false
 ---
 
-# 转换与脱敏
+# Transform & Redact
 
-SDK 提供两类改写 HAR 的能力：**转换**（`transform.go`）按规则改写请求结构，**脱敏**（`redact.go`）抹掉敏感数据。两者都遵循"克隆语义"——默认返回新的 `*Har`，原对象保持不变，便于在流水线中保留原始快照。
+The SDK provides two ways to rewrite a HAR: **transform** (`transform.go`) applies rule-based edits to request structure, while **redact** (`redact.go`) scrubs sensitive data. Both follow a "clone semantics" — they return a new `*Har` by default and leave the original untouched, so you can keep the raw snapshot in a pipeline.
 
-所有示例均可在仓库根目录运行，使用 `testdata/full.har` 或 `testdata/example.har`。
+All examples run from the repo root against `testdata/full.har` or `testdata/example.har`.
 
-## 转换规则
+## Transform Rules
 
-### TransformRule 结构
+### The TransformRule struct
 
-一条规则由 `Type` 和若干字段组成。不同 `Type` 读取不同字段，未用到的字段可留空。
+A rule is a `Type` plus a few fields. Different `Type` values read different fields; unused ones can stay empty.
 
 ```go
 type TransformRule struct {
-    Type        TransformType // 转换类型
-    Pattern     string        // 匹配模式（正则或前缀/主机名/协议）
-    Replacement string        // 替换字符串
-    HeaderName  string        // 头部名称（用于 Header* 与 QueryParamAdd）
-    HeaderValue string        // 头部值（用于 HeaderAdd/HeaderReplace/QueryParamAdd）
+    Type        TransformType // transform type
+    Pattern     string        // match pattern (regex, prefix, host, or scheme)
+    Replacement string        // replacement string
+    HeaderName  string        // header name (Header* and QueryParamAdd)
+    HeaderValue string        // header value (HeaderAdd/HeaderReplace/QueryParamAdd)
 }
 ```
 
-### 十种 TransformType
+### The ten TransformType values
 
-| 常量 | 用途 | 读取字段 |
+| Constant | Purpose | Fields read |
 | --- | --- | --- |
-| `TransformURLRewrite` | 替换 URL 前缀（同时重建 QueryString 与 Host 头） | `Pattern`/`Replacement` |
-| `TransformHostReplace` | 按主机名精确匹配后替换 | `Pattern`/`Replacement` |
-| `TransformSchemeChange` | 切换协议（如 `http`→`https`） | `Pattern`/`Replacement` |
-| `TransformHeaderAdd` | 向请求与响应同时追加头部 | `HeaderName`/`HeaderValue` |
-| `TransformHeaderRemove` | 按名称移除请求与响应中的头部 | `HeaderName` |
-| `TransformHeaderReplace` | 替换指定名称头部值 | `HeaderName`/`HeaderValue` |
-| `TransformQueryParamRemove` | 按名称移除查询参数并重建 URL | `Pattern` |
-| `TransformQueryParamAdd` | 追加一个查询参数并重建 URL | `HeaderName`/`HeaderValue` |
-| `TransformCookieDomainRewrite` | 重写请求与响应 Cookie 的 Domain 字段 | `Pattern`/`Replacement` |
-| `TransformBodyReplace` | 正则替换 PostData.Text（非法正则退化为字符串替换） | `Pattern`/`Replacement` |
+| `TransformURLRewrite` | Replace URL prefix (also rebuilds QueryString and Host header) | `Pattern`/`Replacement` |
+| `TransformHostReplace` | Replace the host when it exactly matches | `Pattern`/`Replacement` |
+| `TransformSchemeChange` | Switch the scheme (e.g. `http`->`https`) | `Pattern`/`Replacement` |
+| `TransformHeaderAdd` | Append a header to both request and response | `HeaderName`/`HeaderValue` |
+| `TransformHeaderRemove` | Remove a header by name from request and response | `HeaderName` |
+| `TransformHeaderReplace` | Replace the value of a named header | `HeaderName`/`HeaderValue` |
+| `TransformQueryParamRemove` | Remove a query parameter by name and rebuild the URL | `Pattern` |
+| `TransformQueryParamAdd` | Append a query parameter and rebuild the URL | `HeaderName`/`HeaderValue` |
+| `TransformCookieDomainRewrite` | Rewrite the Domain field of request and response cookies | `Pattern`/`Replacement` |
+| `TransformBodyReplace` | Regex-replace PostData.Text (falls back to plain string replace on invalid regex) | `Pattern`/`Replacement` |
 
-### Transform 与 TransformInPlace
+### Transform and TransformInPlace
 
-`Transform` 先深拷贝再在副本上应用规则，返回新 `*Har`；`TransformInPlace` 直接修改原对象，无返回值。
+`Transform` deep-clones then applies the rules to the clone, returning a new `*Har`. `TransformInPlace` mutates the receiver directly and returns nothing.
 
 ```go
 package main
@@ -61,25 +61,25 @@ func main() {
     }
 
     rules := []har.TransformRule{
-        // 1. 重写 URL 前缀（staging -> prod）
+        // 1. Rewrite URL prefix (staging -> prod)
         {Type: har.TransformURLRewrite, Pattern: "http://localhost:8080", Replacement: "https://api.example.com"},
-        // 2. 移除敏感头
+        // 2. Remove sensitive headers
         {Type: har.TransformHeaderRemove, HeaderName: "Authorization"},
         {Type: har.TransformHeaderRemove, HeaderName: "Cookie"},
-        // 3. 添加自定义头
+        // 3. Add a custom header
         {Type: har.TransformHeaderAdd, HeaderName: "X-Env", HeaderValue: "production"},
-        // 4. 改协议 http -> https
+        // 4. Change scheme http -> https
         {Type: har.TransformSchemeChange, Pattern: "http", Replacement: "https"},
-        // 5. 移除查询参数（缓存破坏参数）
+        // 5. Remove a query parameter (cache buster)
         {Type: har.TransformQueryParamRemove, Pattern: "_"},
-        // 6. 重写 Cookie 域
+        // 6. Rewrite cookie domain
         {Type: har.TransformCookieDomainRewrite, Pattern: "staging.local", Replacement: "example.com"},
     }
 
-    // 克隆语义：原 h 不变
+    // Clone semantics: h is unchanged
     transformed := h.Transform(rules)
 
-    // 原地版本：直接修改 h
+    // In-place version: mutates h directly
     // h.TransformInPlace(rules)
 
     if err := transformed.SaveToFile("transformed.har", true); err != nil {
@@ -89,49 +89,49 @@ func main() {
 }
 ```
 
-## 便捷方法
+## Convenience methods
 
-对于最常见的三类操作，SDK 提供了封装好的便捷方法，内部仍是构造 `TransformRule` 后调用 `Transform`：
+For the three most common operations the SDK wraps `Transform` with a single-rule shortcut:
 
 ```go
-// RewriteURL 替换 URL 前缀，返回新 *Har
+// RewriteURL replaces a URL prefix and returns a new *Har
 prod := h.RewriteURL("http://localhost:8080", "https://api.example.com")
 
-// RemoveHeaders 从请求与响应中移除多个头，返回新 *Har
+// RemoveHeaders drops multiple headers from request and response
 cleaned := h.RemoveHeaders([]string{"Authorization", "Cookie", "Set-Cookie"})
 
-// AddHeaders 向请求和/或响应添加头，target 取 "request"/"response"/"both"
-// 便捷版内部直接追加到对应切片，不经过 TransformInPlace
+// AddHeaders appends headers to request and/or response; target is "request"/"response"/"both"
+// This convenience appends directly to the slices, bypassing TransformInPlace.
 withEnv := h.AddHeaders(map[string]string{
     "X-Env":   "production",
     "X-Trace": "abc123",
 }, "request")
 ```
 
-| 方法 | 签名 | 说明 |
+| Method | Signature | Notes |
 | --- | --- | --- |
-| `RewriteURL` | `(from, to string) *Har` | URL 前缀替换，等价单条 `TransformURLRewrite` |
-| `RemoveHeaders` | `(names []string) *Har` | 批量移除头，每个名称生成一条 `TransformHeaderRemove` |
-| `AddHeaders` | `(headers map[string]string, target string) *Har` | 按 target 追加到 request/response/both |
+| `RewriteURL` | `(from, to string) *Har` | URL prefix replacement, equivalent to a single `TransformURLRewrite` |
+| `RemoveHeaders` | `(names []string) *Har` | Batch header removal, one `TransformHeaderRemove` per name |
+| `AddHeaders` | `(headers map[string]string, target string) *Har` | Appends to request/response/both per `target` |
 
-## 脱敏 Redact
+## Redact
 
-脱敏用于在分享 HAR 前抹掉密码、令牌、API Key 等敏感字段。与转换一样，`Redact` 返回新 `*Har`（先 `Clone` 再脱敏），`RedactInPlace` 原地修改。
+Redaction scrubs passwords, tokens, and API keys before sharing a HAR. Like transform, `Redact` returns a new `*Har` (it `Clone`s first) and `RedactInPlace` mutates in place.
 
-### DefaultRedactOptions 默认清单
+### DefaultRedactOptions targets
 
-`DefaultRedactOptions()` 内置了 HTTP 流量中常见的敏感字段，可直接使用或在其基础上追加：
+`DefaultRedactOptions()` ships with sensible defaults for common sensitive fields — use it as-is or append to it:
 
-| 类别 | 默认目标 |
+| Category | Default targets |
 | --- | --- |
-| Headers | `Authorization`、`Proxy-Authorization`、`WWW-Authenticate`、`Cookie`、`Set-Cookie`、`X-Api-Key`、`X-Auth-Token`、`X-CSRF-Token` |
-| Cookies | `session`、`token`、`auth`、`password`、`secret`、`api_key`、`access_token`、`refresh_token` |
-| QueryParams | `password`、`token`、`api_key`、`secret`、`access_token`、`refresh_token`、`private_key`、`client_secret` |
-| PostDataFields | 同 QueryParams |
+| Headers | `Authorization`, `Proxy-Authorization`, `WWW-Authenticate`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-CSRF-Token` |
+| Cookies | `session`, `token`, `auth`, `password`, `secret`, `api_key`, `access_token`, `refresh_token` |
+| QueryParams | `password`, `token`, `api_key`, `secret`, `access_token`, `refresh_token`, `private_key`, `client_secret` |
+| PostDataFields | same as QueryParams |
 
-默认替换文本为 `[REDACTED]`，`RedactIPs` 默认 `false`。
+The default replacement text is `[REDACTED]` and `RedactIPs` defaults to `false`.
 
-### RedactOptions 字段
+### RedactOptions fields
 
 ```go
 type RedactOptions struct {
@@ -139,21 +139,21 @@ type RedactOptions struct {
     Cookies        []string
     QueryParams    []string
     PostDataFields []string
-    Replacement    string                                                   // 默认 "[REDACTED]"
-    RedactIPs      bool                                                     // 是否匿名化 ServerIPAddress
-    RedactURLs     []RedactURLRule                                          // URL 路径段正则脱敏
-    CustomRedactor func(fieldType, name, value string) string              // 自定义回调
+    Replacement    string                                                   // default "[REDACTED]"
+    RedactIPs      bool                                                     // anonymize ServerIPAddress
+    RedactURLs     []RedactURLRule                                          // URL path-segment redaction
+    CustomRedactor func(fieldType, name, value string) string              // custom callback
 }
 
 type RedactURLRule struct {
-    Pattern     string // 匹配 URL 路径段的正则
-    Replacement string // 替换文本
+    Pattern     string // regex matching a URL path segment
+    Replacement string // replacement text
 }
 ```
 
-`CustomRedactor` 在命中任意目标时被调用，参数 `fieldType` 取值为 `header`/`cookie`/`queryparam`/`postdatafield`，返回值即脱敏后的值。设置后默认的 `[REDACTED]` 替换被覆盖。
+`CustomRedactor` is invoked whenever any target is hit. Its `fieldType` argument is one of `header`/`cookie`/`queryparam`/`postdatafield`, and its return value replaces the original. When set, it overrides the default `[REDACTED]` replacement.
 
-### 完整脱敏示例
+### Full redaction example
 
 ```go
 package main
@@ -173,22 +173,22 @@ func main() {
 
     opts := har.DefaultRedactOptions()
 
-    // 追加自定义头与查询参数
+    // Append custom headers and query params
     opts.Headers = append(opts.Headers, "X-Custom-Key", "X-Internal-Token")
     opts.QueryParams = append(opts.QueryParams, "sig")
 
-    // 自定义替换文本
+    // Custom replacement text
     opts.Replacement = "***REDACTED***"
 
-    // 匿名化服务器 IP（IPv4 末位段置 .0，IPv6 末段置 :0）
+    // Anonymize server IP (IPv4 last octet -> .0, IPv6 last segment -> :0)
     opts.RedactIPs = true
 
-    // 脱敏 URL 路径中的数字 ID 段，例如 /users/12345 -> /users/[id]
+    // Redact numeric ID path segments, e.g. /users/12345 -> /users/[id]
     opts.RedactURLs = []har.RedactURLRule{
         {Pattern: `^\d+$`, Replacement: "[id]"},
     }
 
-    // 自定义回调：对 token 做部分遮罩，保留前 4 位
+    // Custom callback: partially mask tokens, keeping the first 4 chars
     opts.CustomRedactor = func(fieldType, name, value string) string {
         if name == "token" && len(value) > 4 {
             return value[:4] + "****"
@@ -196,7 +196,7 @@ func main() {
         return "***REDACTED***"
     }
 
-    // 克隆语义：原 h 不变
+    // Clone semantics: h is unchanged
     redacted := h.Redact(opts)
 
     if err := redacted.SaveToFile("redacted.har", true); err != nil {
@@ -206,21 +206,21 @@ func main() {
 }
 ```
 
-### 脱敏覆盖范围
+### Redaction coverage
 
-`RedactInPlace` 会遍历每个 Entry 的下列位置：
+`RedactInPlace` walks each Entry and scrubs the following locations:
 
-- 请求头与响应头（按名称匹配，大小写不敏感）
-- 请求 Cookie 与响应 Cookie 的 `Value`
-- `QueryString` 参数值
-- URL 字符串中的查询参数（重新解析 URL 后重写 `RawQuery`）
-- URL 路径段（应用 `RedactURLs` 规则）
-- PostData：`Params` 字段值 + `Text` 中的 `key=value` 表单或 JSON `"key": "value"` 模式
-- `ServerIPAddress`（当 `RedactIPs=true`）
+- Request and response headers (matched by name, case-insensitive)
+- `Value` of request and response cookies
+- `QueryString` parameter values
+- Query parameters embedded in the URL string (parses the URL and rewrites `RawQuery`)
+- URL path segments (via `RedactURLs` rules)
+- PostData: `Params` field values plus `Text` matching `key=value` form bodies or JSON `"key": "value"` patterns
+- `ServerIPAddress` (when `RedactIPs=true`)
 
-## 设计要点
+## Design notes
 
-- **克隆语义**：`Transform`、`RewriteURL`、`RemoveHeaders`、`AddHeaders`、`Redact` 都先 `Clone()` 再改，原始 `*Har` 保持不变，便于对比与回滚。
-- **URL 一致性**：URL 类转换在改写后会同步重建 `QueryString` 与 `Host` 头，避免三者不一致。
-- **大小写不敏感**：头部与 Cookie 名称匹配均为大小写不敏感，与 HTTP 语义一致。
-- **正则容错**：`TransformBodyReplace` 在正则编译失败时退化为普通字符串替换，不会中断整批规则。
+- **Clone semantics**: `Transform`, `RewriteURL`, `RemoveHeaders`, `AddHeaders`, and `Redact` all `Clone()` first, so the original `*Har` is preserved for diffing or rollback.
+- **URL consistency**: URL-rewriting transforms rebuild `QueryString` and the `Host` header alongside the URL so the three never drift apart.
+- **Case-insensitive matching**: header and cookie names match case-insensitively, consistent with HTTP semantics.
+- **Regex tolerance**: `TransformBodyReplace` falls back to plain string replacement when the regex fails to compile, so a bad pattern never aborts the whole rule batch.

@@ -11,7 +11,7 @@ import (
 var (
 	cfgFile string
 
-	// 构建时注入的版本信息（由 GoReleaser 通过 -ldflags 注入）
+	// Build-time version information injected by GoReleaser through -ldflags.
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
@@ -19,18 +19,18 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "har",
-	Short: "HAR (HTTP Archive) 文件分析工具",
+	Short: "HAR (HTTP Archive) analysis tool",
 	Long: `HAR Skills CLI — AI Agent Skill for HAR File Analysis
 
-支持 HAR 文件的解析、过滤、统计、安全审计、性能评分、
-数据脱敏、请求转换、差异比较、合并拆分、导出等多种操作。
+Parse, filter, and analyze HAR files; audit security, score performance, redact data,
+transform requests, compare captures, merge and split files, and export results.
 
-示例:
-  har -f capture.har info              # 查看HAR文件概要
-  har -f capture.har find "api/users"  # 搜索请求
-  har -f capture.har security          # 安全审计
-  har -f capture.har performance       # 性能评分
-  har -f capture.har export curl       # 导出为curl命令`,
+Examples:
+  har -f capture.har info              # Show a HAR file summary
+  har -f capture.har find "api/users"  # Search requests
+  har -f capture.har security          # Run a security audit
+  har -f capture.har performance       # Score performance
+  har -f capture.har export curl       # Export as curl commands`,
 	Version: version,
 }
 
@@ -44,7 +44,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// 自定义版本输出格式
+	// Customize the version output format.
 	rootCmd.SetVersionTemplate(`HAR Skills {{.Version}}
 commit:  {{.Annotations.commit}}
 date:    {{.Annotations.date}}
@@ -54,17 +54,17 @@ date:    {{.Annotations.date}}
 		"date":   date,
 	}
 
-	rootCmd.PersistentFlags().StringP("file", "f", "", "HAR文件路径 (使用 - 读取stdin)")
-	rootCmd.PersistentFlags().String("format", "text", "输出格式 (text, json, csv, yaml)")
-	rootCmd.PersistentFlags().StringP("output", "o", "", "输出文件路径")
-	rootCmd.PersistentFlags().Bool("no-header", false, "在text/csv输出中隐藏表头")
+	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the HAR file (use - to read stdin)")
+	rootCmd.PersistentFlags().String("format", "text", "Output format (text, json, csv, yaml)")
+	rootCmd.PersistentFlags().StringP("output", "o", "", "Output file path")
+	rootCmd.PersistentFlags().Bool("no-header", false, "Hide table headers in text/CSV output")
 
 	_ = viper.BindPFlag("file", rootCmd.PersistentFlags().Lookup("file"))
 	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 	_ = viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	_ = viper.BindPFlag("no-header", rootCmd.PersistentFlags().Lookup("no-header"))
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "配置文件路径 (默认 $HOME/.har.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file path (default: $HOME/.har.yaml)")
 }
 
 func initConfig() {

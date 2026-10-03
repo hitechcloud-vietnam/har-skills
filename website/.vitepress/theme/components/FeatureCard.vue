@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// 特性卡片 —— 用能力树六色作为分类语义色，每张卡片绑定一个能力域。
-// 左侧色条编码分类，hover 时色条延伸。
+// Feature card using one of the capability tree's six semantic colors.
+// The left accent bar identifies the category and expands on hover.
 
 defineProps<{
   color?: string // hex
-  tag?: string   // 分类标签
+  tag?: string   // Category label
   title: string
   desc: string
   link?: string

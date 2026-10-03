@@ -1,26 +1,27 @@
 ---
-title: 数据清洗与分享
+title: Data Cleaning & Sharing
 ---
 
-# 数据清洗与分享工作流
+# Data Cleaning & Sharing Workflow
 
-把一份原始、杂乱、含敏感信息且体积庞大的抓包，清洗成"去重、脱敏、按域拆分、可导入
-Postman"的工单友好产物。本工作流串联 dedup、redact、split、export 四步，每步都给 CLI
-与对应 SDK 方法。
+Turn a raw, noisy, sensitive, and bulky capture into a deduplicated, redacted,
+per-domain-split, Postman-importable set of artifacts. This workflow chains
+dedup, redact, split, and export — each step with its CLI command and SDK
+equivalent.
 
-## 工作流总览
+## Workflow Overview
 
 ```mermaid
 flowchart LR
-    RAW["raw.har<br/>体积大/重复多/含密钥"]:::input
-    DD["① dedup --remove<br/>去重"]:::step
+    RAW["raw.har<br/>bulky/dupes/secrets"]:::input
+    DD["1. dedup --remove<br/>deduplicate"]:::step
     DED["deduped.har"]:::art
-    RD["② redact --redact-ips<br/>脱敏"]:::step
+    RD["2. redact --redact-ips<br/>redact"]:::step
     CL["clean.har"]:::art
-    SP["③ split --by domain<br/>按域拆分"]:::step
-    SH["per-domain_*.har<br/>按域分文件"]:::art
-    EX["④ export postman<br/>导出集合"]:::step
-    COL["collection.json<br/>（Postman）"]:::done
+    SP["3. split --by domain<br/>split per domain"]:::step
+    SH["per-domain_*.har<br/>per-domain files"]:::art
+    EX["4. export postman<br/>export collection"]:::step
+    COL["collection.json<br/>(Postman)"]:::done
 
     RAW --> DD --> DED --> RD --> CL --> SP --> SH --> EX --> COL
 
@@ -30,45 +31,46 @@ flowchart LR
     classDef done fill:#e6f4ea,stroke:#1e8e3e,color:#0d652d
 ```
 
-::: tip 工作流目标
-把一份原始、杂乱、含敏感信息且体积庞大的抓包，清洗成"去重、脱敏、按域拆分、可导入 Postman"的工单友好产物。
+::: tip Workflow goal
+Turn a raw, noisy, sensitive, and bulky capture into a deduplicated, redacted, per-domain-split, Postman-importable set of artifacts.
 :::
 
-| 步骤 | CLI 命令                                         | SDK 方法                          |
-|------|--------------------------------------------------|-----------------------------------|
-| 1    | `har -f raw.har dedup --remove -o deduped.har`   | `h.Deduplicate(opts)`             |
-| 2    | `har -f deduped.har redact --redact-ips -o ...`  | `h.Redact(opts)`                  |
-| 3    | `har -f clean.har split --by domain -o per-domain` | `h.SplitByDomain()`             |
-| 4    | `har -f clean.har export postman -o collection.json` | `h.ToPostmanCollection()`     |
+| Step | CLI command                                       | SDK method                        |
+|------|---------------------------------------------------|-----------------------------------|
+| 1    | `har -f raw.har dedup --remove -o deduped.har`    | `h.Deduplicate(opts)`             |
+| 2    | `har -f deduped.har redact --redact-ips -o ...`   | `h.Redact(opts)`                  |
+| 3    | `har -f clean.har split --by domain -o per-domain`| `h.SplitByDomain()`               |
+| 4    | `har -f clean.har export postman -o collection.json` | `h.ToPostmanCollection()`      |
 
-## 第 1 步：去重
+## Step 1: Deduplicate
 
 ### CLI
 
 ```bash
-# 默认 pattern 策略，忽略缓存破坏器参数（_、cb、timestamp…），保留首次出现
+# Default pattern strategy, ignoring cache-buster params (_, cb, timestamp…),
+# keeping the first occurrence
 har -f raw.har dedup --remove -o deduped.har
 
-# 仅查找不删除（预览重复情况）
+# Find only, don't remove (preview duplicates)
 har -f raw.har dedup
 
-# 精确 URL 匹配
+# Exact URL matching
 har -f raw.har dedup --strategy exact
 
-# 内容哈希匹配（含响应体）
+# Content-hash matching (includes response body)
 har -f raw.har dedup --strategy content-hash --compare-body
 ```
 
-三种策略对比：
+Strategy comparison:
 
-::: info 三种去重策略
-| 策略               | 匹配键                      | 适用场景                       |
-|--------------------|-----------------------------|--------------------------------|
-| `exact`            | 完整 URL 串                 | 严格相同请求（含所有参数）    |
-| `pattern`（默认）  | URL + 去掉忽略参数          | 排除缓存破坏器后的同义请求    |
-| `content-hash`     | URL+headers+body 的 SHA-256 | 完全相同的请求/响应对          |
+::: info Three dedup strategies
+| Strategy           | Match key                        | Use case                              |
+|--------------------|----------------------------------|---------------------------------------|
+| `exact`            | full URL string                  | strictly identical requests           |
+| `pattern` (default)| URL minus ignored params         | same request ignoring cache busters   |
+| `content-hash`     | SHA-256 of URL+headers+body      | identical request/response pairs      |
 
-`--ignore-param` 可追加要忽略的参数；`--compare-headers`/`--compare-body` 扩大比较面。
+`--ignore-param` adds params to ignore; `--compare-headers`/`--compare-body` broaden the comparison.
 :::
 
 ### SDK
@@ -76,27 +78,28 @@ har -f raw.har dedup --strategy content-hash --compare-body
 ```go
 h, _ := har.ParseHarFile("raw.har")
 
-// 默认：pattern 策略 + 常见缓存破坏器
+// Default: pattern strategy + common cache busters
 deduped := h.Deduplicate(har.DefaultDeduplicateOptions())
 
-// 自定义：精确 URL，忽略 ts 参数
+// Custom: exact URL, ignore ts
 opts := har.DeduplicateOptions{
     Strategy:     har.DedupExactURL,
     IgnoreParams: []string{"ts"},
 }
 deduped = h.Deduplicate(opts)
 
-// 只查找不删除
+// Find only, don't remove
 groups := h.FindDuplicates(opts)
 for _, g := range groups {
-    fmt.Printf("重复 %d 次: %s (entries: %v)\n", g.Count, g.Key, g.EntryIndices)
+    fmt.Printf("dup %d times: %s (entries: %v)\n", g.Count, g.Key, g.EntryIndices)
 }
 ```
 
-`Deduplicate` 返回**克隆后的新 `*Har`**，保留每组重复里**首次出现**的 entry；
-`FindDuplicates` 只分析不动数据，返回 `[]DuplicateGroup`。
+`Deduplicate` returns a **cloned `*Har`** keeping the **first** entry of each
+duplicate group; `FindDuplicates` analyzes without mutating, returning
+`[]DuplicateGroup`.
 
-## 第 2 步：脱敏
+## Step 2: Redact
 
 ### CLI
 
@@ -104,41 +107,41 @@ for _, g := range groups {
 har -f deduped.har redact --redact-ips -o clean.har
 ```
 
-可选：`--header X-Custom`、`--cookie session`、`--query-param token`、
-`--post-field secret`、`--replacement "***"`。
+Optional: `--header X-Custom`, `--cookie session`, `--query-param token`,
+`--post-field secret`, `--replacement "***"`.
 
-### 默认脱敏目标
+### Default redaction targets
 
-| 类别           | 默认匹配项（大小写不敏感）                                   |
-|----------------|--------------------------------------------------------------|
-| Headers        | Authorization、Proxy-Authorization、WWW-Authenticate、Cookie、Set-Cookie、X-Api-Key、X-Auth-Token、X-CSRF-Token |
-| Cookies        | session、token、auth、password、secret、api_key、access_token、refresh_token |
-| QueryParams    | password、token、api_key、secret、access_token、refresh_token、private_key、client_secret |
-| PostDataFields | 同 QueryParams                                               |
-| IPs            | `--redact-ips`：IPv4 末段 `.0`，IPv6 末段 `:0`               |
+| Category       | Default matches (case-insensitive)                          |
+|----------------|-------------------------------------------------------------|
+| Headers        | Authorization, Proxy-Authorization, WWW-Authenticate, Cookie, Set-Cookie, X-Api-Key, X-Auth-Token, X-CSRF-Token |
+| Cookies        | session, token, auth, password, secret, api_key, access_token, refresh_token |
+| QueryParams    | password, token, api_key, secret, access_token, refresh_token, private_key, client_secret |
+| PostDataFields | same as QueryParams                                         |
+| IPs            | `--redact-ips`: IPv4 last octet `.0`, IPv6 last segment `:0`|
 
 ### SDK
 
 ```go
 opts := har.DefaultRedactOptions()
 opts.RedactIPs = true
-clean := deduped.Redact(opts)   // 返回新 *Har，deduped 不变
+clean := deduped.Redact(opts)   // returns a new *Har; deduped untouched
 data, _ := clean.ToJSON(true)
 os.WriteFile("clean.har", data, 0644)
 ```
 
-`Redact` 内部 `Clone()` + `RedactInPlace`，原件安全。详见
-[安全审计工作流](/zh/workflows/security-audit) 第三步。
+`Redact` does `Clone()` + `RedactInPlace` internally, so the source is safe. See
+[Security Audit Workflow](/en/workflows/security-audit) step 3 for details.
 
-## 第 3 步：按域拆分
+## Step 3: Split by Domain
 
 ### CLI
 
 ```bash
-# 按域拆分，输出 per-domain_api.example.com.har / per-domain_static.example.com.har ...
+# Split by domain; outputs per-domain_api.example.com.har, per-domain_static.example.com.har, ...
 har -f clean.har split --by domain -o per-domain
 
-# 其他维度
+# Other dimensions
 har -f clean.har split --by page
 har -f clean.har split --by time --interval 30m
 har -f clean.har split --by size --max-entries 50
@@ -146,7 +149,7 @@ har -f clean.har split --by status
 har -f clean.har split --by method
 ```
 
-`-o` 是输出前缀，每个分片文件名形如 `<prefix>_<key>.har`。
+`-o` is the output prefix; each shard is named `<prefix>_<key>.har`.
 
 ### SDK
 
@@ -158,7 +161,7 @@ for domain, sub := range byDomain {
     os.WriteFile(name, data, 0644)
 }
 
-// 其他拆分维度
+// Other split dimensions
 _ = clean.SplitByPage()                    // map[string]*Har
 _ = clean.SplitByTimeRange(time.Hour)      // []*Har
 _ = clean.SplitBySize(50)                  // []*Har
@@ -166,10 +169,11 @@ _ = clean.SplitByStatusCode()              // map[string]*Har
 _ = clean.SplitByMethod()                  // map[string]*Har
 ```
 
-`SplitByDomain` 把 entries 按 `Request.URL` 的 host 分组，每个分组是一个独立的
-`*Har`（带原 HAR 的 creator/version 元数据），适合分发给不同团队。
+`SplitByDomain` groups entries by the host of `Request.URL`; each group becomes
+an independent `*Har` (carrying the original creator/version metadata), ideal for
+distributing to different teams.
 
-## 第 4 步：导出为 Postman 集合
+## Step 4: Export as a Postman Collection
 
 ### CLI
 
@@ -177,13 +181,13 @@ _ = clean.SplitByMethod()                  // map[string]*Har
 har -f clean.har export postman -o collection.json
 ```
 
-其他导出格式：`curl`、`wget`、`python`、`xml`、`yaml`、`json`、`jsonl`、`csv`、
-`markdown`、`html`、`text`。
+Other export formats: `curl`, `wget`, `python`, `xml`, `yaml`, `json`, `jsonl`,
+`csv`, `markdown`, `html`, `text`.
 
 ### SDK
 
 ```go
-// ToPostmanCollection 返回 Postman v2.1 集合的 []byte
+// ToPostmanCollection returns a Postman v2.1 collection as []byte
 data, err := clean.ToPostmanCollection()
 if err != nil {
     log.Fatal(err)
@@ -191,17 +195,18 @@ if err != nil {
 os.WriteFile("collection.json", data, 0644)
 ```
 
-导出的集合可直接 `Import` 进 Postman，每条 entry 变成一个 request，带 method、URL、
-headers、body。配合第 2 步的脱敏，分享给团队是安全的。
+The exported collection can be `Import`ed straight into Postman; each entry
+becomes a request with method, URL, headers, body. Combined with step 2's
+redaction, sharing it with the team is safe.
 
-## 完整端到端脚本
+## End-to-End Script
 
 ```bash
 #!/usr/bin/env bash
-# data-cleaning.sh — 去重 → 脱敏 → 按域拆分 → 导出 Postman
+# data-cleaning.sh — dedup → redact → split by domain → export Postman
 set -euo pipefail
 
-RAW="${1:?用法: data-cleaning.sh <raw.har>}"
+RAW="${1:?usage: data-cleaning.sh <raw.har>}"
 WORKDIR="$(mktemp -d)"
 OUTDIR="./cleaned-$(date +%Y%m%d-%H%M%S)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -209,37 +214,36 @@ trap 'rm -rf "$WORKDIR"' EXIT
 DEDUPED="$WORKDIR/deduped.har"
 CLEAN="$WORKDIR/clean.har"
 
-echo "==> 1/4 去重 (pattern 策略, 保留首次)"
-# 先预览重复情况
-echo "  重复组数: $(har -f "$RAW" dedup | grep -c '^' || echo 0)"
+echo "==> 1/4 dedup (pattern strategy, keep first)"
+echo "  duplicate groups: $(har -f "$RAW" dedup | grep -c '^' || echo 0)"
 har -f "$RAW" dedup --remove -o "$DEDUPED"
-echo "  去重后 entry 数: $(har -f "$DEDUPED" info --format json | jq -r '.request_count // empty')"
+echo "  entries after dedup: $(har -f "$DEDUPED" info --format json | jq -r '.request_count // empty')"
 
-echo "==> 2/4 脱敏 (+ IP 匿名)"
+echo "==> 2/4 redact (+ IP anonymization)"
 har -f "$DEDUPED" redact --redact-ips -o "$CLEAN"
 
-echo "==> 3/4 按域拆分"
+echo "==> 3/4 split by domain"
 mkdir -p "$OUTDIR"
 har -f "$CLEAN" split --by domain -o "$OUTDIR/per-domain"
-echo "  分片文件:"
+echo "  shard files:"
 ls -1 "$OUTDIR"/per-domain_*.har 2>/dev/null | sed 's/^/    /'
 
-echo "==> 4/4 导出 Postman 集合"
+echo "==> 4/4 export Postman collection"
 har -f "$CLEAN" export postman -o "$OUTDIR/collection.json"
 
 echo "----------------------------------------"
-echo "产物目录: $OUTDIR"
+echo "artifacts dir: $OUTDIR"
 ls -1 "$OUTDIR"
 ```
 
-运行：
+Run it:
 
 ```bash
 chmod +x data-cleaning.sh
 ./data-cleaning.sh raw.har
 ```
 
-## SDK 等价端到端
+## SDK End-to-End Equivalent
 
 ```go
 package main
@@ -258,15 +262,15 @@ func main() {
         log.Fatal(err)
     }
 
-    // 1. 去重（pattern 策略 + 默认缓存破坏器）
+    // 1. Dedup (pattern strategy + default cache busters)
     deduped := h.Deduplicate(har.DefaultDeduplicateOptions())
 
-    // 2. 脱敏
+    // 2. Redact
     redactOpts := har.DefaultRedactOptions()
     redactOpts.RedactIPs = true
     clean := deduped.Redact(redactOpts)
 
-    // 3. 按域拆分
+    // 3. Split by domain
     outDir := "cleaned"
     os.MkdirAll(outDir, 0755)
     for domain, sub := range clean.SplitByDomain() {
@@ -275,46 +279,46 @@ func main() {
         os.WriteFile(name, data, 0644)
     }
 
-    // 4. 导出 Postman
+    // 4. Export Postman
     data, err := clean.ToPostmanCollection()
     if err != nil {
         log.Fatal(err)
     }
     os.WriteFile(filepath.Join(outDir, "collection.json"), data, 0644)
-    fmt.Println("cleaned/ 目录已生成")
+    fmt.Println("cleaned/ directory produced")
 }
 ```
 
-## 输出物清单
+## Output Artifacts
 
-| 文件                          | 来源                    | 用途                          |
-|-------------------------------|-------------------------|-------------------------------|
-| `deduped.har`                 | `dedup --remove`        | 去重后的中间产物              |
-| `clean.har`                   | `redact --redact-ips`   | 可安全分享的 HAR              |
-| `per-domain_<host>.har`       | `split --by domain`     | 按团队/域名分发的分片         |
-| `collection.json`             | `export postman`        | Postman 可导入集合            |
+| File                          | Source                  | Use                              |
+|-------------------------------|-------------------------|----------------------------------|
+| `deduped.har`                 | `dedup --remove`        | Deduplicated intermediate        |
+| `clean.har`                   | `redact --redact-ips`   | Safe-to-share HAR                |
+| `per-domain_<host>.har`       | `split --by domain`     | Per-team/domain shards           |
+| `collection.json`             | `export postman`        | Postman-importable collection    |
 
-## 小结
+## Summary
 
 ```mermaid
 flowchart LR
-    DD["dedup<br/>去重"]:::step --> RD["redact<br/>脱敏"]:::step
-    RD --> SP["split --by domain<br/>按域分发"]:::step
+    DD["dedup<br/>dedupe"]:::step --> RD["redact<br/>redact"]:::step
+    RD --> SP["split --by domain<br/>per-domain"]:::step
     SP --> EX["export postman<br/>Postman"]:::step
-    DD -.-> O1["小而精"]:::out
-    RD -.-> O2["无密钥"]:::out
-    SP -.-> O3["分团队"]:::out
-    EX -.-> O4["可重放/可分享"]:::out
+    DD -.-> O1["smaller"]:::out
+    RD -.-> O2["no secrets"]:::out
+    SP -.-> O3["per-team"]:::out
+    EX -.-> O4["replayable/shareable"]:::out
 
     classDef step fill:#fff7e6,stroke:#f59e0b,color:#7c4a03
     classDef out fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
 ```
 
-::: tip 四步前置流程
-- **dedup** 用 pattern 策略滤掉缓存破坏器导致的伪重复，体积先减半；
-- **redact** 抹掉 Authorization/Cookie/令牌/IP，原件克隆不改；
-- **split --by domain** 把大文件切成各团队关心的切片；
-- **export postman** 把 HAR 转成 Postman 集合，便于团队重放与回归。
+::: tip Four-step preflight
+- **dedup** uses the pattern strategy to filter out cache-buster-induced false duplicates — halving size first.
+- **redact** strips Authorization/Cookie/tokens/IPs, cloning so the original is untouched.
+- **split --by domain** carves the big file into slices each team cares about.
+- **export postman** turns the HAR into a Postman collection for team replay and regression.
 
-四步组合，把"一份脏而大的抓包"变成"一组干净、分权、可重放的产物"，是数据分享与回归测试的标准前置流程。
+Together they turn "one dirty, huge capture" into "a set of clean, least-privilege, replayable artifacts" — the standard preflight for data sharing and regression testing.
 :::

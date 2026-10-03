@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// findCmd 搜索HAR条目
+// findCmd searches HAR entries.
 var findCmd = &cobra.Command{
 	Use:   "find [pattern]",
 	Short: "Search HAR entries",
@@ -38,7 +38,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 	RunE: func(cmd *cobra.Command, args []string) error {
 		h := internal.LoadHar(cmd, args)
 
-		// 获取所有过滤参数
+		// Read all filter parameters.
 		pattern := ""
 		if len(args) > 0 {
 			pattern = args[0]
@@ -67,10 +67,10 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 		largest, _ := cmd.Flags().GetInt("largest")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		// 构建过滤选项
+		// Build filter options.
 		opts := []har.FilterOption{}
 
-		// URL模式匹配
+		// Match URL patterns.
 		if pattern != "" {
 			if useRegex {
 				opts = append(opts, har.WithFilterURL(pattern))
@@ -80,42 +80,42 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			}
 		}
 
-		// 方法过滤
+		// Filter by method.
 		if method != "" {
 			opts = append(opts, har.WithFilterMethod(method))
 		}
 
-		// 状态码过滤
+		// Filter by status code.
 		if statusCode > 0 {
 			opts = append(opts, har.WithFilterStatusCode(statusCode))
 		}
 
-		// 状态码范围过滤
+		// Filter by status code range.
 		if statusMin > 0 || statusMax > 0 {
 			opts = append(opts, har.WithFilterStatusCodeRange(statusMin, statusMax))
 		}
 
-		// 内容类型过滤
+		// Filter by content type.
 		if contentType != "" {
 			opts = append(opts, har.WithFilterContentType(contentType))
 		}
 
-		// 错误过滤
+		// Filter errors.
 		if errors {
 			opts = append(opts, har.WithFilterHasError())
 		}
 
-		// 资源类型过滤
+		// Filter by resource type.
 		if resourceType != "" {
 			opts = append(opts, har.WithFilterResourceType(resourceType))
 		}
 
-		// 慢请求过滤
+		// Filter slow requests.
 		if slow > 0 {
 			opts = append(opts, har.WithFilterDuration(slow, 0))
 		}
 
-		// 请求头过滤
+		// Filter by request headers.
 		for _, h := range headers {
 			parts := strings.SplitN(h, ":", 2)
 			name := parts[0]
@@ -126,7 +126,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			opts = append(opts, har.WithFilterHeader(name, value))
 		}
 
-		// 执行过滤
+		// Apply filters.
 		var result *har.FilterResult
 		if len(opts) > 0 {
 			result = h.FilterWith(opts...)
@@ -134,7 +134,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			result = &har.FilterResult{Entries: h.Log.Entries}
 		}
 
-		// 按域名过滤（需单独处理）
+		// Filter by domain (handled separately).
 		if domain != "" {
 			var filtered []har.Entries
 			for _, entry := range result.Entries {
@@ -145,7 +145,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			result = &har.FilterResult{Entries: filtered}
 		}
 
-		// 响应头过滤
+		// Filter by response headers.
 		if len(responseHeaders) > 0 {
 			for _, rh := range responseHeaders {
 				parts := strings.SplitN(rh, ":", 2)
@@ -159,13 +159,13 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			}
 		}
 
-		// Cookie过滤
+		// Filter by cookie.
 		if cookieName != "" {
 			cookieResult := h.FindByCookie(cookieName)
 			result = intersectResults(result, cookieResult)
 		}
 
-		// 时间范围过滤
+		// Filter by time range.
 		if startTimeStr != "" || endTimeStr != "" {
 			startTime := time.Time{}
 			endTime := time.Now()
@@ -187,25 +187,25 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			result = intersectResults(result, timeResult)
 		}
 
-		// Server IP过滤
+		// Filter by server IP.
 		if serverIP != "" {
 			ipResult := h.FindByServerIP(serverIP)
 			result = intersectResults(result, ipResult)
 		}
 
-		// Connection过滤
+		// Filter by connection.
 		if connection != "" {
 			connResult := h.FindByConnection(connection)
 			result = intersectResults(result, connResult)
 		}
 
-		// 缓存命中过滤
+		// Filter cache hits.
 		if cacheHits {
 			cacheResult := h.FindCacheHits()
 			result = intersectResults(result, cacheResult)
 		}
 
-		// 重定向过滤
+		// Filter redirects.
 		if redirects {
 			redirectResult := h.FindRedirects()
 			result = intersectResults(result, redirectResult)
@@ -229,7 +229,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 			result = intersectResults(result, &har.FilterResult{Entries: largestEntries})
 		}
 
-		// 限制条数
+		// Limit the number of entries.
 		if limit > 0 {
 			result.Limit(limit)
 		}
@@ -240,7 +240,7 @@ time range, server IP, connection ID, cache hits, slow/fast/largest requests, et
 	},
 }
 
-// intersectResults 取两个FilterResult的交集
+// intersectResults returns the intersection of two FilterResults.
 func intersectResults(a, b *har.FilterResult) *har.FilterResult {
 	if a == nil {
 		return b
@@ -298,7 +298,7 @@ func init() {
 	findCmd.Flags().IntP("limit", "n", 0, "Limit output to N entries (0=all)")
 }
 
-// formatFindTable 格式化搜索结果为tabwriter表格
+// formatFindTable formats search results as a tabwriter table.
 func formatFindTable(result *har.FilterResult) string {
 	var sb tabWriterBuf
 

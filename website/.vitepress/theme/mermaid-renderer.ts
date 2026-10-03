@@ -1,12 +1,12 @@
-// Mermaid 客户端渲染器
-// 接管 .mermaid-host 容器：解码 data-mermaid 源码 → mermaid.render → 替换骨架屏为真 SVG
-// 与 vitepress-plugin-mermaid 的 Mermaid.vue 方案不同，本渲染器：
-//   1. 不依赖 Suspense，首屏由骨架屏 .mermaid-skeleton 占位（构建时已内联进 HTML）
-//   2. 按 documentElement.classList.contains('dark') 选 light/dark 主题
-//   3. 路由切换后（VitePress SPA）重新扫描未渲染的 host
+// Client-side Mermaid renderer.
+// Takes over .mermaid-host containers: decode data-mermaid source, render it, and
+// replace the skeleton with a real SVG. Unlike vitepress-plugin-mermaid's Mermaid.vue:
+//   1. It does not use Suspense; the skeleton is inlined into the HTML at build time.
+//   2. It selects the light or dark theme from documentElement.classList.contains('dark').
+//   3. It rescans unrendered hosts after VitePress SPA route changes.
 //
-// mermaid 包动态 import：避免 VitePress SSR 阶段加载它（mermaid 顶层访问 document），
-// 同时让 mermaid 进入独立 chunk，按需加载，不拖慢首屏 JS。
+// Dynamically import mermaid to avoid loading it during VitePress SSR (mermaid accesses
+// document at the top level) and put it in a separate chunk that does not delay initial JS.
 let _mermaid = null
 async function getMermaid() {
   if (_mermaid) return _mermaid
@@ -47,12 +47,12 @@ async function renderOne(host) {
       real.innerHTML = svg
       host.dataset.rendered = '1'
       host.classList.add('mermaid-rendered')
-      // 隐藏骨架
+      // Hide the skeleton.
       const skel = host.querySelector('.mermaid-skeleton')
       if (skel) skel.style.display = 'none'
     }
   } catch (e) {
-    // 渲染失败：保留骨架，标记错误，把源码+错误信息作为 fallback 展示
+    // On failure, keep the skeleton, mark the error, and show the source and error as a fallback.
     const errMsg = (e && (e.message || String(e))) || 'unknown error'
     host.classList.add('mermaid-error')
     host.dataset.error = errMsg.slice(0, 500)
@@ -78,7 +78,7 @@ async function scan(root = document) {
   if (!hosts.length) return
   scanning = true
   try {
-    // 主题可能变化，重新 initialize
+    // The theme may have changed; initialize again.
     const isDark = document.documentElement.classList.contains('dark')
     if (booted) {
       const mermaid = await getMermaid()
@@ -95,12 +95,12 @@ async function scan(root = document) {
 }
 
 let darkObserver = null
-let scanning = false // 防止 scan 重入：渲染会触发 MutationObserver，避免循环
+let scanning = false // Prevent reentrant scans: rendering triggers MutationObserver.
 
 export function setupMermaidRenderer() {
-  if (typeof document === 'undefined') return // SSR 跳过
+  if (typeof document === 'undefined') return // Skip during SSR.
 
-  // 路由切换后扫描（VitePress SPA，每次路由切换重挂内容）
+  // Scan after route changes (VitePress SPA remounts content on every route change).
   let routeTimer = null
   const onRouteChange = () => {
     clearTimeout(routeTimer)
@@ -110,16 +110,16 @@ export function setupMermaidRenderer() {
     }, 80)
   }
   window.addEventListener('hashchange', onRouteChange)
-  // 兜底：MutationObserver 观察 main 内容区新增节点（路由切换重挂内容）
-  // 注意：renderOne 也会改 DOM 触发本 observer，靠 scanning flag + :not([rendered]) 选择器收敛
+  // Fallback: observe added nodes in the main content area after route changes.
+  // renderOne also modifies the DOM, so the scanning flag and :not([rendered]) prevent loops.
   const mo = new MutationObserver((muts) => {
-    // 只在有新增节点时触发，过滤纯属性变化（避免 dark 切换重复触发）
+    // Trigger only for added nodes; ignore attribute-only changes such as dark-mode toggles.
     const hasAdded = muts.some(m => m.addedNodes.length > 0)
     if (hasAdded) onRouteChange()
   })
   mo.observe(document.body, { childList: true, subtree: true })
 
-  // 深浅色切换时重新渲染（dark class 变化）
+  // Rerender when the dark-mode class changes.
   darkObserver = new MutationObserver(() => {
     document
       .querySelectorAll('.mermaid-host[data-rendered="1"]')
@@ -138,7 +138,7 @@ export function setupMermaidRenderer() {
     attributeFilter: ['class']
   })
 
-  // 首次扫描
+  // Perform the initial scan.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => scan())
   } else {

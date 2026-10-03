@@ -1,66 +1,66 @@
 ---
-title: CLI 接入
+title: CLI Access
 ---
 
-# CLI 接入
+# CLI Access
 
-`har` 是一个单文件命令行工具，把 HAR Skills SDK 的全部能力暴露给终端。零运行时依赖、JSON 优先、可管道组合，适合脚本、CI 与交互式排查。
+`har` is a single-binary CLI that exposes the entire HAR Skills SDK to the terminal. Zero runtime dependencies, JSON-first, pipe-friendly — suitable for scripts, CI, and interactive triage.
 
-## CLI 概览
+## CLI overview
 
-- **24 个 Cobra 子命令**，覆盖 HAR 分析全生命周期。
-- **统一入参**：`-f/--file` 指定 HAR 文件，`-` 表示从 stdin 读取。
-- **统一出参**：`--format` 选 `text`（默认）/`json`/`csv`/`yaml`，`-o` 写文件。
-- **环境变量**：`HAR_FILE`、`HAR_FORMAT`、`HAR_OUTPUT`（经 Viper 读取）。
+- **24 Cobra subcommands** spanning the full HAR analysis lifecycle.
+- **Uniform input**: `-f/--file` points at the HAR file; `-` reads from stdin.
+- **Uniform output**: `--format` selects `text` (default) / `json` / `csv` / `yaml`; `-o` writes to a file.
+- **Env vars**: `HAR_FILE`, `HAR_FORMAT`, `HAR_OUTPUT` (read via Viper).
 
-安装：
+Install:
 
 ```bash
 go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest
-# 或从 https://github.com/hitechcloud-vietnam/har-skills/releases/latest 下载预编译二进制
+# or download a prebuilt binary from https://github.com/hitechcloud-vietnam/har-skills/releases/latest
 ```
 
-全局参数的完整说明见 [全局参数](../cli/global-flags.md)。
+See [Global Flags](../cli/global-flags.md) for the full flag reference.
 
-## 命令分级
+## Command levels
 
-`har` 把 24 个命令分成 5 级，从最常用到最高级：
+`har` groups its 24 commands into 5 levels, from most-used to most-advanced:
 
-| 级别 | 主题 | 命令 | 详见 |
-|------|------|------|------|
-| Level 1 | 基础操作 | `info` `list` `find` `headers` `timing` `extract` | [基础操作](../cli/basic.md) |
-| Level 2 | 文件操作 | `diff` `merge` `split` `validate` | [文件操作](../cli/files.md) |
-| Level 3 | 安全与隐私 | `security` `redact` | [安全与隐私](../cli/security.md) |
-| Level 4 | 深度分析 | `performance` `cookie` `cache` `index` `domains` `content` `connections` `waterfall` | [深度分析](../cli/analysis.md) |
-| Level 5 | 转换与导出 | `transform` `export` `dedup` `replay` | [转换与导出](../cli/transform.md) |
+| Level | Theme | Commands | See |
+|-------|-------|----------|-----|
+| Level 1 | Basic operations | `info` `list` `find` `headers` `timing` `extract` | [Basic Operations](../cli/basic.md) |
+| Level 2 | File operations | `diff` `merge` `split` `validate` | [File Operations](../cli/files.md) |
+| Level 3 | Security & privacy | `security` `redact` | [Security & Privacy](../cli/security.md) |
+| Level 4 | Deep analysis | `performance` `cookie` `cache` `index` `domains` `content` `connections` `waterfall` | [Deep Analysis](../cli/analysis.md) |
+| Level 5 | Transform & export | `transform` `export` `dedup` `replay` | [Transform & Export](../cli/transform.md) |
 
-::: tip 分级不是难度门槛
-分级只反映「使用频率与概念纵深」。Level 1 的 `find --errors` 一样能解决大问题；Level 5 的 `replay` 也能写进一行脚本。按任务挑命令即可。
+::: tip Levels aren't a difficulty gate
+A level only reflects "usage frequency and conceptual depth." A Level 1 `find --errors` solves big problems too; a Level 5 `replay` fits in a one-liner. Pick the command that matches the task.
 :::
 
-## 典型管道用法
+## Typical pipeline usage
 
-CLI 的 `--format json` 输出天然适合 `jq` 二次加工：
+The CLI's `--format json` output is a natural fit for `jq` post-processing:
 
 ```bash
-# 找出所有 4xx/5xx，提取 URL 与状态码
+# Find all 4xx/5xx, project URL and status
 har -f capture.har find --errors --format json \
   | jq '.entries[] | {url: .request.url, status: .response.status}'
 
-# 按域统计请求数，降序取前 10
+# Requests per domain, top 10 by count
 har -f capture.har domains --format json \
   | jq 'to_entries | sort_by(-.value.count) | .[0:10]'
 
-# 安全审计只看 HIGH
+# Security audit, HIGH only
 har -f capture.har security --format json \
   | jq '.findings[] | select(.severity=="high")'
 ```
 
-一条管道完成「过滤 → 投影 → 排序」，无需写中间文件。
+One pipeline does "filter → project → sort" with no intermediate files.
 
-## stdin 管道
+## stdin pipeline
 
-`-f -` 或省略 `-f`（配合 stdin）即可从管道读 HAR：
+`-f -` (or omitting `-f` with stdin) reads the HAR from a pipe:
 
 ```bash
 cat capture.har | har info
@@ -68,13 +68,13 @@ curl -sL https://example.com/capture.har | har -f - find --slow 1000
 zcat capture.har.gz | har -f - info --format json
 ```
 
-::: tip 自动解压
-`ParseHarFileAuto` 会按扩展名与 gzip magic bytes 自动判断压缩格式，CLI 读取时同样透明支持 `.har.gz`。
+::: tip Auto-decompress
+`ParseHarFileAuto` detects gzip by extension and magic bytes; the CLI transparently supports `.har.gz` the same way.
 :::
 
-## 与脚本集成
+## Script integration
 
-### bash 循环批处理
+### bash batch loop
 
 ```bash
 #!/usr/bin/env bash
@@ -87,35 +87,35 @@ for f in captures/*.har; do
 done
 ```
 
-### cron 定时审计
+### cron scheduled audit
 
 ```bash
-# 每天凌晨审计当天抓包，分数低于 60 就告警
+# Audit today's capture at 02:00; alert if score < 60
 0 2 * * * har -f /data/$(date +\%F).har security --format json \
   | jq -e '.score >= 60' >/dev/null \
-  || /usr/local/bin/notify-slack "HAR 安全分数告警：$(date +\%F)"
+  || /usr/local/bin/notify-slack "HAR security alert: $(date +\%F)"
 ```
 
-### CI 集成
+### CI integration
 
 ```bash
-# 回归测试：对比 staging 与 prod 抓包，差异超阈值则失败
+# Regression: diff staging vs prod captures, fail if they diverge
 har diff staging.har prod.har --compare-by-url --ignore-timings -o diff.txt
-test ! -s diff.txt || { echo "API 行为有差异"; cat diff.txt; exit 1; }
+test ! -s diff.txt || { echo "API behavior diverged"; cat diff.txt; exit 1; }
 ```
 
-## 输出格式速查
+## Output format cheat sheet
 
-| `--format` | 适用 | 特点 |
-|------------|------|------|
-| `text` | 人看、终端 | 默认；表格带表头，`--no-header` 可关 |
-| `json` | Agent / jq / 程序 | 完整结构，适合管道二次加工 |
-| `csv` | Excel / 表格工具 | 适合 `list`、`timing` 等表格型命令 |
-| `yaml` | 配置 / 评审 | 可读性好，适合 `info`、`security` |
+| `--format` | Good for | Notes |
+|------------|-----------|-------|
+| `text` | humans, terminals | default; tables have headers, `--no-header` suppresses them |
+| `json` | Agents / jq / programs | full structure, ideal for pipe post-processing |
+| `csv` | Excel / spreadsheets | fits table-style commands like `list`, `timing` |
+| `yaml` | config / review | readable, good for `info`, `security` |
 
-## 下一步
+## Next steps
 
-- [全局参数](../cli/global-flags.md) —— 所有命令共享的 flag 详解
-- [AI Agent Skill 接入](./skill.md) —— 让 Agent 直接驱动 CLI
-- [Go SDK 接入](./sdk.md) —— 需要嵌入程序时改用 SDK
-- [MCP 封装](./mcp.md) —— 把 CLI 包装成 MCP tools
+- [Global Flags](../cli/global-flags.md) — the flags every command shares
+- [AI Agent Skill access](./skill.md) — let an Agent drive the CLI
+- [Go SDK access](./sdk.md) — embed in a program when the SDK fits better
+- [MCP wrapper](./mcp.md) — wrap the CLI as MCP tools

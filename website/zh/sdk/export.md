@@ -1,15 +1,15 @@
 ---
-title: 导出能力
+title: Export
 titleTemplate: false
 ---
 
-# 导出能力
+# Export
 
-SDK 的导出能力分布在四个模块：`converter.go`（表格类格式 CSV/Markdown/HTML/Text）、`export.go`（重放命令与结构化格式 cURL/Wget/Python/Postman/XML）、`format.go`（YAML）、`util.go`（JSON 与文件写入）。所有方法都挂在 `*Har` 上，部分也提供单条目 `*Entries` 版本。
+The SDK's export surface spans four modules: `converter.go` (tabular formats CSV/Markdown/HTML/Text), `export.go` (replay commands and structured formats cURL/Wget/Python/Postman/XML), `format.go` (YAML), and `util.go` (JSON and file writing). All methods hang off `*Har`, and some have single-entry `*Entries` counterparts.
 
-## Convert：表格类格式
+## Convert: tabular formats
 
-`Convert(format, opts)` 将 HAR 转为表格文本，适合做报告或电子表格导入。`ConvertFormat` 常量定义在 `converter.go`，`FormatYAML` 定义在 `format.go` 但与前三者同属 `ConvertFormat` 类型。
+`Convert(format, opts)` turns the HAR into tabular text, suitable for reports or spreadsheet import. `ConvertFormat` constants are defined in `converter.go`; `FormatYAML` lives in `format.go` but shares the same `ConvertFormat` type.
 
 ```go
 const (
@@ -21,9 +21,9 @@ const (
 const FormatYAML ConvertFormat = "yaml"
 ```
 
-### ConvertOptions 字段裁剪
+### ConvertOptions field selection
 
-通过布尔开关决定导出哪些列，未启用的字段不会出现在结果里：
+Boolean toggles decide which columns are exported; disabled fields do not appear in the output:
 
 ```go
 type ConvertOptions struct {
@@ -33,21 +33,21 @@ type ConvertOptions struct {
     IncludeContentType bool
     IncludeSize        bool
     IncludeTime        bool
-    IncludeTimings     bool   // 阻塞/DNS/连接/发送/等待/接收 六列
-    IncludeHeaders     bool   // 请求头 + 响应头
+    IncludeTimings     bool   // six columns: blocked/DNS/connect/send/wait/receive
+    IncludeHeaders     bool   // request + response headers
     IncludeDateTime    bool
-    IncludePostData    bool   // POST 类型 + 文本
+    IncludePostData    bool   // POST type + text
     IncludeQueryString bool
-    Headers            []string       // 自定义表头（覆盖默认）
-    Filter             *FilterOptions // 转换前先过滤
+    Headers            []string       // custom headers (overrides defaults)
+    Filter             *FilterOptions // filter before converting
 }
 ```
 
-`DefaultConvertOptions()` 默认开启 URL/Method/Status/ContentType/Size/Time/DateTime，其余关闭。
+`DefaultConvertOptions()` enables URL/Method/Status/ContentType/Size/Time/DateTime by default and leaves the rest off.
 
-### Convert 与 ConvertWith
+### Convert and ConvertWith
 
-`Convert(format, opts)` 接收结构体选项；`ConvertWith(format, opts...)` 接收函数式选项，更适合链式调用：
+`Convert(format, opts)` takes a struct; `ConvertWith(format, opts...)` takes functional options, which is nicer for chaining:
 
 ```go
 package main
@@ -64,7 +64,7 @@ func main() {
         panic(err)
     }
 
-    // 结构体选项：导出含 timings 的 CSV
+    // Struct options: CSV with timings
     opts := har.DefaultConvertOptions()
     opts.IncludeTimings = true
     opts.IncludeHeaders = false
@@ -74,7 +74,7 @@ func main() {
     }
     fmt.Println(csv)
 
-    // 函数式选项：导出 Markdown
+    // Functional options: Markdown
     md, err := h.ConvertWith(har.FormatMarkdown,
         har.WithConvertIncludeTimings(true),
         har.WithConvertIncludeURL(true),
@@ -88,11 +88,11 @@ func main() {
 }
 ```
 
-可用的 `WithConvert*` 选项：`IncludeHeaders/Timings/Bodies/Cookies/QueryStrings/Status/Size/URL/Method/Time/MimeType`、`Headers`、`Filter`。
+Available `WithConvert*` options: `IncludeHeaders/Timings/Bodies/Cookies/QueryStrings/Status/Size/URL/Method/Time/MimeType`, `Headers`, `Filter`.
 
-## 重放命令导出
+## Replay command export
 
-这三个方法返回 `string`，把 HAR 条目转成可在终端直接执行的命令脚本：
+These three methods return `string`, producing scripts you can run in a terminal:
 
 ```go
 curl    := h.ToCurl()              // curl -H '...' --data '...' 'URL'
@@ -100,13 +100,13 @@ wget    := h.ToWget()              // wget --header='...' --post-data='...' -qO-
 python  := h.ToPythonRequests()    // import requests + requests.get/post(...)
 ```
 
-生成时的小细节：
+Generation details:
 
-- `ToCurl` 跳过 `Host` 头（curl 自动添加）；非 GET 方法加 `-X`；检测到 `Accept-Encoding: gzip/deflate` 时追加 `--compressed`；HTTPS 且响应有错误时追加 `-k`。
-- `ToWget` 跳过 `Host`；非 GET 用 `--method=`；HTTPS 加 `--no-check-certificate`；默认 `-qO-` 输出到 stdout。
-- `ToPythonRequests` 输出 `import requests` 头部，逐条目生成 `headers = {...}` 与 `response = requests.<method>(...)`。
+- `ToCurl` skips the `Host` header (curl adds it); non-GET methods get `-X`; `Accept-Encoding: gzip/deflate` triggers `--compressed`; HTTPS with a response error triggers `-k`.
+- `ToWget` skips `Host`; non-GET uses `--method=`; HTTPS gets `--no-check-certificate`; defaults to `-qO-` (stdout).
+- `ToPythonRequests` emits `import requests`, then per entry a `headers = {...}` block and `response = requests.<method>(...)`.
 
-每个方法在 `*Entries` 上也有同名版本，只导出单条目：
+Each method also has a same-named `*Entries` form for a single entry:
 
 ```go
 first := &h.Log.Entries[0]
@@ -114,18 +114,18 @@ fmt.Println(first.ToCurl())
 fmt.Println(first.ToPythonRequests())
 ```
 
-## 结构化格式导出
+## Structured format export
 
 ### Postman Collection v2.1
 
-`ToPostmanCollection()` 返回 `([]byte, error)`，生成符合 Postman v2.1 schema 的 JSON，可直接导入 Postman。`SaveAsPostmanCollection(path)` 是其写文件便捷方法。
+`ToPostmanCollection()` returns `([]byte, error)`, producing JSON that conforms to the Postman v2.1 schema and imports directly into Postman. `SaveAsPostmanCollection(path)` is the file-writing convenience.
 
 ```go
 data, err := h.ToPostmanCollection()
 if err != nil {
     panic(err)
 }
-// 直接写文件
+// Write straight to disk
 if err := h.SaveAsPostmanCollection("collection.json"); err != nil {
     panic(err)
 }
@@ -133,7 +133,7 @@ if err := h.SaveAsPostmanCollection("collection.json"); err != nil {
 
 ### XML
 
-`ToXML()` 返回 `(string, error)`，输出带 `<?xml ...?>` 头的标准 XML。内部用 `encoding/xml` 的结构体映射，覆盖 version/creator/entries/request/response/headers/content/postData。
+`ToXML()` returns `(string, error)` and emits standard XML with an `<?xml ...?>` header. It uses `encoding/xml` struct mapping covering version/creator/entries/request/response/headers/content/postData.
 
 ```go
 xmlStr, err := h.ToXML()
@@ -147,7 +147,7 @@ if err := h.SaveAsXML("capture.xml"); err != nil {
 
 ### YAML
 
-`ToYAML()` 返回 `(string, error)`。实现不依赖外部 YAML 库——先 `ToJSON(true)` 再走内置 JSON→YAML 转换器，对字符串特殊字符做了转义。
+`ToYAML()` returns `(string, error)`. The implementation depends on no external YAML library — it calls `ToJSON(true)` then runs a built-in JSON-to-YAML converter with special-character escaping for strings.
 
 ```go
 yamlStr, err := h.ToYAML()
@@ -161,31 +161,31 @@ if err := h.SaveAsYAML("capture.yaml"); err != nil {
 
 ### JSON
 
-`ToJSON(indent bool)` 返回 `([]byte, error)`，是其他结构化格式的基础。`indent=true` 时输出带缩进的 JSON。
+`ToJSON(indent bool)` returns `([]byte, error)` and underpins the other structured formats. With `indent=true` the output is pretty-printed.
 
 ```go
-data, err := h.ToJSON(true) // 缩进
+data, err := h.ToJSON(true) // pretty-printed
 if err != nil {
     panic(err)
 }
 ```
 
-## 写文件
+## Writing files
 
-`util.go` 与各导出模块提供了写文件的便捷方法：
+`util.go` and the export modules provide file-writing conveniences:
 
-| 方法 | 签名 | 说明 |
+| Method | Signature | Notes |
 | --- | --- | --- |
-| `SaveToFile` | `(filePath string, indent bool) error` | 写 JSON，控制缩进 |
-| `SaveToFileGzipped` | `(filePath string, indent bool) error` | 写 gzip 压缩 JSON |
-| `SaveToWriter` | `(w io.Writer, indent bool) error` | 写 JSON 到任意 Writer |
-| `SaveAsPostmanCollection` | `(filePath string) error` | 写 Postman v2.1 JSON |
-| `SaveAsXML` | `(filePath string) error` | 写 XML |
-| `SaveAsYAML` | `(filePath string) error` | 写 YAML |
+| `SaveToFile` | `(filePath string, indent bool) error` | Write JSON, control indentation |
+| `SaveToFileGzipped` | `(filePath string, indent bool) error` | Write gzip-compressed JSON |
+| `SaveToWriter` | `(w io.Writer, indent bool) error` | Write JSON to any Writer |
+| `SaveAsPostmanCollection` | `(filePath string) error` | Write Postman v2.1 JSON |
+| `SaveAsXML` | `(filePath string) error` | Write XML |
+| `SaveAsYAML` | `(filePath string) error` | Write YAML |
 
-## 流式导出 ConvertTo
+## Streaming export with ConvertTo
 
-`ConvertTo(format, w, opts)` 把转换结果直接写入 `io.Writer`，避免在内存中持有完整字符串，适合大文件导出到文件或 HTTP 响应体：
+`ConvertTo(format, w, opts)` writes the converted output directly to an `io.Writer`, avoiding a full in-memory string — ideal for exporting large files to disk or an HTTP response body:
 
 ```go
 package main
@@ -211,16 +211,16 @@ func main() {
     opts := har.DefaultConvertOptions()
     opts.IncludeTimings = true
 
-    // 流式写入，不生成中间字符串
+    // Streamed write, no intermediate string
     if err := h.ConvertTo(har.FormatCSV, f, opts); err != nil {
         panic(err)
     }
 }
 ```
 
-`ConvertTo` 支持 `FormatYAML`、`FormatCSV`、`FormatMarkdown`、`FormatHTML`、`FormatText`，其它值会退化为带缩进的 JSON 输出。它会对 `nil` writer 做检查并返回 `*HarError`。
+`ConvertTo` accepts `FormatYAML`, `FormatCSV`, `FormatMarkdown`, `FormatHTML`, and `FormatText`; any other value falls back to indented JSON. It nil-checks the writer and returns a `*HarError` on failure.
 
-## 综合示例：从 HAR 生成 cURL 重放脚本
+## Putting it together: generate a cURL replay script from a HAR
 
 ```go
 package main
@@ -237,7 +237,7 @@ func main() {
         panic(err)
     }
 
-    // 只重放 API 请求
+    // Replay only API requests
     api := h.FindByDomain("api.example.com")
     replays := api.ToHar().ToCurl()
 

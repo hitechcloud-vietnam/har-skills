@@ -9,48 +9,48 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// redactCmd 脱敏HAR文件中的敏感数据
+// redactCmd redacts sensitive data in a HAR file.
 var redactCmd = &cobra.Command{
 	Use:   "redact",
-	Short: "脱敏敏感数据",
-	Long: `将HAR文件中的敏感数据（如密码、令牌、API密钥等）替换为占位符。
+	Short: "Redact sensitive data",
+	Long: `Replace sensitive data in a HAR file, such as passwords, tokens, and API keys, with placeholders.
 
-支持自定义脱敏字段：
-  - 指定头部字段名（如 Authorization、X-Api-Key）
-  - 指定Cookie名称（如 session、token）
-  - 指定查询参数名（如 password、api_key）
-  - 指定POST字段名（如 password、secret）
-  - IP地址匿名化（将最后一段替换为0）
+Custom redaction targets are supported:
+  - Header names (such as Authorization and X-Api-Key)
+  - Cookie names (such as session and token)
+  - Query parameter names (such as password and api_key)
+  - POST field names (such as password and secret)
+  - IP address anonymization (replace the last segment with 0)
 
-示例:
-  har redact -f capture.har                             # 使用默认脱敏规则
-  har redact -f capture.har --defaults=false            # 不使用默认规则
-  har redact -f capture.har --header=X-Custom-Key      # 添加自定义头部
-  har redact -f capture.har --redact-ips                # 匿名化IP地址
-  har redact -f capture.har --replacement="***"          # 自定义替换文本
-  har redact -f capture.har --in-place                  # 原地修改文件`,
+Examples:
+  har redact -f capture.har                             # Use the default redaction rules
+  har redact -f capture.har --defaults=false            # Do not use the default rules
+  har redact -f capture.har --header=X-Custom-Key      # Add a custom header
+  har redact -f capture.har --redact-ips                # Anonymize IP addresses
+  har redact -f capture.har --replacement="***"          # Set a custom replacement string
+  har redact -f capture.har --in-place                  # Modify the file in place`,
 	RunE: runRedact,
 }
 
 func init() {
 	rootCmd.AddCommand(redactCmd)
 
-	redactCmd.Flags().Bool("defaults", true, "使用默认脱敏规则")
-	redactCmd.Flags().StringSlice("header", nil, "额外脱敏的头部字段名")
-	redactCmd.Flags().StringSlice("cookie", nil, "额外脱敏的Cookie名称")
-	redactCmd.Flags().StringSlice("query-param", nil, "额外脱敏的查询参数名")
-	redactCmd.Flags().StringSlice("post-field", nil, "额外脱敏的POST字段名")
-	redactCmd.Flags().String("replacement", "[REDACTED]", "替换文本")
-	redactCmd.Flags().Bool("redact-ips", false, "匿名化IP地址")
-	redactCmd.Flags().Bool("in-place", false, "原地修改文件")
+	redactCmd.Flags().Bool("defaults", true, "Use the default redaction rules")
+	redactCmd.Flags().StringSlice("header", nil, "Additional header names to redact")
+	redactCmd.Flags().StringSlice("cookie", nil, "Additional cookie names to redact")
+	redactCmd.Flags().StringSlice("query-param", nil, "Additional query parameter names to redact")
+	redactCmd.Flags().StringSlice("post-field", nil, "Additional POST field names to redact")
+	redactCmd.Flags().String("replacement", "[REDACTED]", "Replacement text")
+	redactCmd.Flags().Bool("redact-ips", false, "Anonymize IP addresses")
+	redactCmd.Flags().Bool("in-place", false, "Modify the file in place")
 }
 
-// runRedact 执行脱敏命令
+// runRedact executes the redact command.
 func runRedact(cmd *cobra.Command, args []string) error {
-	// 加载HAR文件
+	// Load the HAR file.
 	h := internal.LoadHar(cmd, args)
 
-	// 构建脱敏选项
+	// Build redaction options.
 	var opts har.RedactOptions
 
 	useDefaults, _ := cmd.Flags().GetBool("defaults")
@@ -62,7 +62,7 @@ func runRedact(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 读取命令行标志
+	// Read command-line flags.
 	extraHeaders, _ := cmd.Flags().GetStringSlice("header")
 	extraCookies, _ := cmd.Flags().GetStringSlice("cookie")
 	extraQueryParams, _ := cmd.Flags().GetStringSlice("query-param")
@@ -71,7 +71,7 @@ func runRedact(cmd *cobra.Command, args []string) error {
 	redactIPs, _ := cmd.Flags().GetBool("redact-ips")
 	inPlace, _ := cmd.Flags().GetBool("in-place")
 
-	// 合并额外的脱敏字段
+	// Merge additional redaction targets.
 	opts.Headers = append(opts.Headers, extraHeaders...)
 	opts.Cookies = append(opts.Cookies, extraCookies...)
 	opts.QueryParams = append(opts.QueryParams, extraQueryParams...)
@@ -79,7 +79,7 @@ func runRedact(cmd *cobra.Command, args []string) error {
 	opts.Replacement = replacement
 	opts.RedactIPs = redactIPs
 
-	// 执行脱敏
+	// Redact the data.
 	var result *har.Har
 	if inPlace {
 		h.RedactInPlace(opts)
@@ -88,17 +88,17 @@ func runRedact(cmd *cobra.Command, args []string) error {
 		result = h.Redact(opts)
 	}
 
-	// 序列化为JSON
+	// Serialize as JSON.
 	output, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return fmt.Errorf("JSON序列化失败: %w", err)
+		return fmt.Errorf("JSON serialization failed: %w", err)
 	}
 	output = append(output, '\n')
 
-	// 写入输出
+	// Write the output.
 	outputPath := internal.GetOutputPath(cmd)
 	if inPlace && outputPath == "" {
-		// 原地修改模式：需要从 --file 获取路径并写回
+		// In-place mode writes back to the path provided with --file.
 		filePath, _ := cmd.Flags().GetString("file")
 		if filePath != "" && filePath != "-" {
 			outputPath = filePath

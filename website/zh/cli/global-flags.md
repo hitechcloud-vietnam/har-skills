@@ -1,139 +1,139 @@
 ---
-title: 全局参数
+title: Global Flags
 titleTemplate: false
 ---
 
-# 全局参数
+# Global Flags
 
-所有 `har` 子命令共享一组 persistent flag，由根命令统一注册、经 Viper 绑定。本文集中说明这些全局 flag 的取值、配置覆盖优先级、stdin 管道用法，以及它们背后的内部加载与输出架构。文末附 24 个命令的一览表，便于从分级视角快速定位。
+Every `har` subcommand shares a set of persistent flags registered by the root command and bound through Viper. This page covers their values, the configuration-override precedence, stdin piping, and the internal load/output architecture behind them. A full table of all 24 commands at the end gives a quick map by level.
 
-所有示例都可在仓库根目录直接运行，使用 `testdata/example.har` 或 `testdata/full.har`。
+Every example below runs from the repository root against `testdata/example.har` or `testdata/full.har`.
 
-## 全局 persistent flags
+## Global persistent flags
 
-| Flag | 简写 | 默认值 | 含义 |
-|------|------|--------|------|
-| `--file` | `-f` | 空 | HAR 文件路径，`-` 表示从 stdin 读取 |
-| `--format` | 无 | `text` | 输出格式：`text` / `json` / `csv` / `yaml` |
-| `--output` | `-o` | 空 | 输出文件路径（为空则写 stdout） |
-| `--no-header` | 无 | `false` | 隐藏 `text`/`csv` 输出的表头 |
-| `--config` | 无 | 空 | 配置文件路径，默认 `$HOME/.har.yaml` |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--file` | `-f` | empty | HAR file path; `-` reads from stdin |
+| `--format` | none | `text` | Output format: `text` / `json` / `csv` / `yaml` |
+| `--output` | `-o` | empty | Output file path (empty writes to stdout) |
+| `--no-header` | none | `false` | Suppress the header row in `text`/`csv` output |
+| `--config` | none | empty | Config file path; defaults to `$HOME/.har.yaml` |
 
-`--file` 是绝大多数命令的输入源；但 `diff`、`merge` 这类多文件命令走位置参数、不走 `-f`（见各自页面）。`--format` 控制序列化形态：`text` 走各命令自带的格式化函数（多为表格或分节文本），`json` 走 `MarshalIndent`，`csv` 走专用 csv 函数（缺省回退到 JSON），`yaml` 优先调用数据的 `ToYAML()`，否则回退到缩进 JSON。
+`--file` is the input source for most commands; multi-file commands like `diff` and `merge` take positional args instead and bypass `-f` (see their own pages). `--format` selects the serializer: `text` calls each command's own formatter (usually a table or sectioned text), `json` uses `MarshalIndent`, `csv` calls a dedicated csv function (falling back to JSON), and `yaml` prefers the data's `ToYAML()` and otherwise falls back to indented JSON.
 
-## Viper 集成
+## Viper integration
 
-CLI 用 `spf13/viper` 把 flag、环境变量、配置文件三者打通，遵循 Viper 的覆盖优先级（高 → 低）：
+The CLI wires flags, environment variables, and a config file together with `spf13/viper`, following Viper's precedence (high to low):
 
-1. **命令行 flag**（最高）
-2. **环境变量**
-3. **配置文件**
-4. **flag 默认值**（最低）
+1. **Command-line flag** (highest)
+2. **Environment variable**
+3. **Config file**
+4. **Flag default** (lowest)
 
-注册时调 `viper.BindPFlag` 把 `file` / `format` / `output` / `no-header` 绑到对应 flag；初始化时 `viper.SetEnvPrefix("HAR")` + `viper.AutomaticEnv()` 让下列环境变量生效：
+Registration calls `viper.BindPFlag` to bind `file` / `format` / `output` / `no-header` to their flags; initialization sets `viper.SetEnvPrefix("HAR")` + `viper.AutomaticEnv()`, making these environment variables effective:
 
-| 环境变量 | 对应 flag |
-|----------|-----------|
+| Environment variable | Flag |
+|----------------------|------|
 | `HAR_FILE` | `--file` |
 | `HAR_FORMAT` | `--format` |
 | `HAR_OUTPUT` | `--output` |
 
-::: tip 配置文件查找顺序
-未显式传 `--config` 时，Viper 依次在 `$HOME` 与当前目录查找名为 `.har.yaml` 的配置文件，命中即读入。可在 `~/.har.yaml` 里写长期偏好，例如 `format: json`，每次跑命令默认输出 JSON。
+::: tip Config file lookup order
+When `--config` is not passed, Viper looks for a file named `.har.yaml` in `$HOME` and then the current directory, reading the first hit. Put long-running preferences in `~/.har.yaml`, e.g. `format: json`, to default every command to JSON output.
 :::
 
-## stdin 支持
+## stdin support
 
-`--file` 留空且 stdin 有数据时，加载器会自动从 stdin 读取——便于把 `curl`、`cat`、管道上游工具的输出直接喂给 `har`：
+When `--file` is empty and stdin has data, the loader automatically reads from stdin — handy for piping output from `curl`, `cat`, or upstream tools straight into `har`:
 
 ```bash
 cat capture.har | har info
 ```
 
-显式用 `-` 也能强制走 stdin，常用于 stdin 看起来像终端（被误判）的边缘场景：
+Passing `-` explicitly also forces stdin, useful for the edge case where stdin looks like a terminal and is misdetected:
 
 ```bash
 har -f - info < capture.har
 ```
 
-stdin 路径走 `har.ParseHar(data)`（已读入内存的字节），文件路径走 `har.ParseHarFileAuto(path)`（自动检测 gzip）。两者最终都得到 `*har.Har`。
+The stdin path calls `har.ParseHar(data)` (bytes already in memory); the file path calls `har.ParseHarFileAuto(path)` (auto-detects gzip). Both ultimately return a `*har.Har`.
 
-## 内部架构
+## Internal architecture
 
-每个子命令的执行路径高度一致，可拆成「加载 → 调 SDK → 分发输出」三步：
+Every subcommand follows the same execution path, split into "load → call SDK → dispatch output":
 
 ```
-internal.LoadHar(cmd, args)          → *har.Har   （gzip 自动检测 / stdin 回退）
+internal.LoadHar(cmd, args)          → *har.Har   (gzip auto-detect / stdin fallback)
         │
         ▼
-SDK 调用（Statistics / FilterWith / SecurityAudit / ...）
+SDK call (Statistics / FilterWith / SecurityAudit / ...)
         │
         ▼
-internal.WriteOutput(cmd, data, textFunc, csvFunc)   → stdout / 文件
+internal.WriteOutput(cmd, data, textFunc, csvFunc)   → stdout / file
 ```
 
-**加载层** `internal.LoadHar`：读 `--file`；为空或 `-` 时走 stdin；为空且 stdin 无数据时直接报错退出。`diff`/`merge` 等多文件命令改用 `internal.LoadHarFromArg(arg)`，对每个位置参数独立加载并各自报错。
+**Load layer** `internal.LoadHar`: reads `--file`; when empty or `-`, it goes to stdin; when empty and stdin has no data, it errors out. Multi-file commands (`diff`/`merge`) use `internal.LoadHarFromArg(arg)` instead, loading each positional arg independently and reporting errors per file.
 
-**输出层** `internal.WriteOutput`：按 `--format` 选择序列化分支，最终落到 `WriteToFileOrStdout(path, data)`。两条关键的 stdout/stderr 约定：
+**Output layer** `internal.WriteOutput`: picks a serialization branch by `--format` and ultimately lands in `WriteToFileOrStdout(path, data)`. Two stdout/stderr conventions matter:
 
-- **数据走 stdout**——便于接入管道（`| jq`、`| grep`、`> file`）。
-- **进度与提示走 stderr**——例如 `已写入 1234 字节到 report.json`，避免污染数据流。
+- **Data goes to stdout** — so it can be piped (`| jq`, `| grep`, `> file`).
+- **Progress and notices go to stderr** — e.g. `wrote 1234 bytes to report.json`, so it never pollutes the data stream.
 
-因此 `har -f t.har info --format json | jq '.totalRequests'` 能干净地取到字段值，而 `已写入...` 这类提示不会混进管道。
+That is why `har -f t.har info --format json | jq '.totalRequests'` cleanly returns the field value, while the `wrote ...` notice stays out of the pipe.
 
-`--no-header` 由 `internal.NoHeader(cmd)` 读取，仅在 `text`/`csv` 表格输出里生效（抑制 `INDEX METHOD STATUS ...` 这类表头行）；JSON/YAML 不受影响。
+`--no-header` is read by `internal.NoHeader(cmd)` and only affects `text`/`csv` table output (suppressing the `INDEX METHOD STATUS ...` header row); JSON/YAML are unaffected.
 
-## 命令一览表
+## Command overview
 
-24 个命令按分级（Level 1–5）编排，分级越高能力越深：
+The 24 commands are organized by level (Level 1–5); the higher the level, the deeper the capability:
 
-### 基础操作（Level 1）
+### Basic operations (Level 1)
 
-| 命令 | 用途 | 分级 |
-|------|------|------|
-| `info` | 显示 HAR 概要统计 | 基础操作 |
-| `list` | 列出条目 | 基础操作 |
-| `find` | 多维搜索条目 | 基础操作 |
-| `headers` | 显示请求/响应头部 | 基础操作 |
-| `timing` | 计时分解 | 基础操作 |
-| `extract` | 提取响应内容 | 基础操作 |
+| Command | Purpose | Level |
+|---------|---------|-------|
+| `info` | HAR summary statistics | Basic |
+| `list` | List entries | Basic |
+| `find` | Multi-dimensional search | Basic |
+| `headers` | Show request/response headers | Basic |
+| `timing` | Timing breakdown | Basic |
+| `extract` | Extract response content | Basic |
 
-### 文件操作（Level 2）
+### File operations (Level 2)
 
-| 命令 | 用途 | 分级 |
-|------|------|------|
-| `diff` | 对比两个 HAR | 文件操作 |
-| `merge` | 合并多 HAR | 文件操作 |
-| `split` | 拆分 HAR | 文件操作 |
-| `validate` | 验证 HAR 规范 | 文件操作 |
+| Command | Purpose | Level |
+|---------|---------|-------|
+| `diff` | Compare two HAR files | File |
+| `merge` | Merge multiple HAR files | File |
+| `split` | Split a HAR file | File |
+| `validate` | Validate HAR spec compliance | File |
 
-### 安全隐私（Level 3）
+### Security & privacy (Level 3)
 
-| 命令 | 用途 | 分级 |
-|------|------|------|
-| `security` | 安全审计 | 安全隐私 |
-| `redact` | 脱敏 | 安全隐私 |
+| Command | Purpose | Level |
+|---------|---------|-------|
+| `security` | Security audit | Security |
+| `redact` | Redact sensitive data | Security |
 
-### 深度分析（Level 4）
+### Deep analysis (Level 4)
 
-| 命令 | 用途 | 分级 |
-|------|------|------|
-| `performance` | 性能评分 | 深度分析 |
-| `cookie` | Cookie 审计 | 深度分析 |
-| `cache` | 缓存分析 | 深度分析 |
-| `index` | 索引查询 | 深度分析 |
-| `domains` | 域名统计 | 深度分析 |
-| `content` | 内容类型 | 深度分析 |
-| `connections` | 连接复用 | 深度分析 |
-| `waterfall` | 瀑布流 | 深度分析 |
+| Command | Purpose | Level |
+|---------|---------|-------|
+| `performance` | Performance scoring | Deep analysis |
+| `cookie` | Cookie audit | Deep analysis |
+| `cache` | Cache analysis | Deep analysis |
+| `index` | Index queries | Deep analysis |
+| `domains` | Per-domain statistics | Deep analysis |
+| `content` | Content-type analysis | Deep analysis |
+| `connections` | Connection reuse | Deep analysis |
+| `waterfall` | Waterfall & timeline | Deep analysis |
 
-### 转换导出（Level 5）
+### Transform & export (Level 5)
 
-| 命令 | 用途 | 分级 |
-|------|------|------|
-| `transform` | 转换请求 | 转换导出 |
-| `export` | 导出格式 | 转换导出 |
-| `dedup` | 去重 | 转换导出 |
-| `replay` | 重放请求 | 转换导出 |
+| Command | Purpose | Level |
+|---------|---------|-------|
+| `transform` | Transform requests | Transform & export |
+| `export` | Export to other formats | Transform & export |
+| `dedup` | Find/remove duplicates | Transform & export |
+| `replay` | Replay HTTP requests | Transform & export |
 
-各命令详解按分级组织：基础操作见 [基础操作](./basic.md)，文件操作见 [文件操作](./files.md)，安全隐私见 [安全与隐私](./security.md)，深度分析见 [深度分析](./analysis.md)，转换导出见 [转换与导出](./transform.md)。
+Per-command detail is organized by level: basic operations in [Basic Operations](./basic.md), file operations in [File Operations](./files.md), security & privacy in [Security & Privacy](./security.md), deep analysis in [Deep Analysis](./analysis.md), and transform & export in [Transform & Export](./transform.md).

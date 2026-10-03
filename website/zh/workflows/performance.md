@@ -1,25 +1,26 @@
 ---
-title: 性能优化工作流
+title: Performance Optimization Workflow
 ---
 
-# 性能优化工作流
+# Performance Optimization Workflow
 
-本工作流用 har-skills 给一份抓包打性能分、定位慢请求、诊断缓存缺口、再用水fall 关键
-路径收口。Lighthouse 风格的评分 + 钻取式定位，适合回归门禁和性能优化迭代。
+This workflow scores a capture, locates slow requests, diagnoses cache gaps, and
+closes the loop with the waterfall critical path. Lighthouse-style scoring plus
+drill-down localization — well suited to regression gates and perf iterations.
 
-## 工作流总览
+## Workflow Overview
 
 ```mermaid
 flowchart LR
     HAR["capture.har"]:::input
-    P["① performance<br/>评分 A/B/C/D"]:::step --> F["② find --slow<br/>定位慢请求"]:::step
-    F --> C["③ cache --non-cacheable<br/>查缓存缺口"]:::step
-    C --> W["④ waterfall --critical-path<br/>关键路径收口"]:::step
-    W --> OUT["优化建议"]:::done
+    P["1. performance<br/>grade A/B/C/D"]:::step --> F["2. find --slow<br/>locate slow requests"]:::step
+    F --> C["3. cache --non-cacheable<br/>find cache gaps"]:::step
+    C --> W["4. waterfall --critical-path<br/>close the loop"]:::step
+    W --> OUT["optimization advice"]:::done
     P -.-> PO["Score + Recommendations"]:::out
-    F -.-> FO["慢请求清单（按耗时排序）"]:::out
-    C -.-> CO["不可缓存清单 + 原因"]:::out
-    W -.-> WO["渲染阻塞链（LCP 瓶颈）"]:::out
+    F -.-> FO["slow list (by duration)"]:::out
+    C -.-> CO["non-cacheable list + reasons"]:::out
+    W -.-> WO["render-blocking chain (LCP)"]:::out
 
     classDef input fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
     classDef step fill:#fff7e6,stroke:#f59e0b,color:#7c4a03
@@ -27,23 +28,23 @@ flowchart LR
     classDef done fill:#e6f4ea,stroke:#1e8e3e,color:#0d652d
 ```
 
-::: tip 工作流定位
-Lighthouse 风格评分 + 钻取式定位，适合回归门禁和性能优化迭代。
+::: tip Workflow fit
+Lighthouse-style scoring plus drill-down localization — well suited to regression gates and perf iterations.
 :::
 
-| 步骤 | CLI 命令                                              | SDK 方法                          |
-|------|-------------------------------------------------------|-----------------------------------|
-| 1    | `har -f capture.har performance`                      | `h.PerformanceScore()`            |
-| 2    | `har -f capture.har find --slow 1000`                 | `h.FindSlowRequests(1000)`        |
-| 3    | `har -f capture.har cache --non-cacheable`            | `h.CacheAnalysis()`               |
+| Step | CLI command                                            | SDK method                                    |
+|------|--------------------------------------------------------|-----------------------------------------------|
+| 1    | `har -f capture.har performance`                       | `h.PerformanceScore()`                        |
+| 2    | `har -f capture.har find --slow 1000`                  | `h.FindSlowRequests(1000)`                    |
+| 3    | `har -f capture.har cache --non-cacheable`             | `h.CacheAnalysis()`                           |
 | 4    | `har -f capture.har waterfall --critical-path --page-timings` | `h.Waterfall()` / `h.CriticalPath()` / `h.PageTimingMetrics()` |
 
-## 第 1 步：性能评分
+## Step 1: Performance Score
 
 ### CLI
 
 ```bash
-har -f capture.har performance              # 文本：评分 + 建议
+har -f capture.har performance              # text: score + advice
 har -f capture.har performance --format json
 ```
 
@@ -52,67 +53,68 @@ har -f capture.har performance --format json
 ```go
 h, _ := har.ParseHarFile("capture.har")
 perf := h.PerformanceScore()        // *PerformanceReport
-fmt.Println("等级:", perf.Grade())  // "A" / "B" / "C" / "D"
-fmt.Println("评分:", perf.Score)
+fmt.Println("Grade:", perf.Grade()) // "A" / "B" / "C" / "D"
+fmt.Println("Score:", perf.Score)
 ```
 
-### 评分构成
+### Score Composition
 
-Lighthouse 风格，按权重加权：
+Lighthouse-style, weighted:
 
 ```mermaid
 pie showData
-    title 性能评分六维权重（满分 100）
-    "TTFB（20%）" : 20
-    "总加载时间（20%）" : 20
-    "请求数（15%）" : 15
-    "传输大小（15%）" : 15
-    "缓存效率（15%）" : 15
-    "压缩率（15%）" : 15
+    title Performance score: six-dimension weights (total 100)
+    "TTFB (20%)" : 20
+    "Total load time (20%)" : 20
+    "Request count (15%)" : 15
+    "Transfer size (15%)" : 15
+    "Cache efficiency (15%)" : 15
+    "Compression (15%)" : 15
 ```
 
-| 维度              | 权重 | 关注点                                |
-|-------------------|------|---------------------------------------|
-| TTFB              | 20%  | 首字节时间                            |
-| 总加载时间        | 20%  | 最早 start → 最晚 end                 |
-| 请求数            | 15%  | 请求总数                              |
-| 传输大小          | 15%  | 总字节数                              |
-| 缓存效率          | 15%  | 可缓存比例                            |
-| 压缩              | 15%  | 文本资源是否启用 gzip/br              |
+| Dimension         | Weight | Concern                              |
+|-------------------|--------|--------------------------------------|
+| TTFB              | 20%    | Time to first byte                   |
+| Total load time   | 20%    | earliest start → latest end          |
+| Request count     | 15%    | total requests                       |
+| Transfer size     | 15%    | total bytes                          |
+| Cache efficiency  | 15%    | cacheable fraction                   |
+| Compression       | 15%    | gzip/br on text resources            |
 
-`Grade()` 把数值映射到 A/B/C/D 等级，`Recommendations` 给出可执行的改进建议。
+`Grade()` maps the numeric score to A/B/C/D; `Recommendations` lists actionable
+improvements.
 
-## 第 2 步：定位慢请求
+## Step 2: Locate Slow Requests
 
 ### CLI
 
 ```bash
-# 慢于 1s 的请求
+# Slower than 1s
 har -f capture.har find --slow 1000
 
-# 最慢的 10 条
+# Top 10 slowest
 har -f capture.har find --slowest 10
 ```
 
 ### SDK
 
 ```go
-slow := h.FindSlowRequests(1000)   // *FilterResult, 阈值单位 ms
+slow := h.FindSlowRequests(1000)   // *FilterResult; threshold in ms
 for _, e := range slow.SortByDurationDesc().Limit(10).GetAll() {
     fmt.Printf("%-60s %dms\n", e.Request.URL, int64(e.Time))
 }
 ```
 
-`FindSlowRequests(minDuration float64)` 返回 `*FilterResult`，可链式
-`SortByDurationDesc().Limit(n)`。这是 har-skills 过滤结果的标准链式 API。
+`FindSlowRequests(minDuration float64)` returns a `*FilterResult` that chains with
+`SortByDurationDesc().Limit(n)` — har-skills' standard chained filter API.
 
-## 第 3 步：缓存分析
+## Step 3: Cache Analysis
 
 ### CLI
 
 ```bash
-har -f capture.har cache                    # 全量缓存分析
-har -f capture.har cache --non-cacheable    # 只看不可缓存的
+har -f capture.har cache                    # full cache analysis
+har -f capture.har cache --non-cacheable    # non-cacheable only
 ```
 
 ### SDK
@@ -120,20 +122,21 @@ har -f capture.har cache --non-cacheable    # 只看不可缓存的
 ```go
 cache := h.CacheAnalysis()         // *CacheReport
 for _, item := range cache.NonCacheable {
-    fmt.Printf("不可缓存: %s  原因: %s\n", item.URL, item.Reason)
+    fmt.Printf("non-cacheable: %s  reason: %s\n", item.URL, item.Reason)
 }
 ```
 
-### 它检查什么
+### What it checks
 
-逐条评估 `Cache-Control`、`Expires`、`ETag`、`Last-Modified`、`Vary`，判定可缓存
-性（`public`/`private`/`no-store`/`no-cache`/`max-age` 等），并标记：
+Per entry it evaluates `Cache-Control`, `Expires`, `ETag`, `Last-Modified`,
+`Vary` to determine cacheability (`public`/`private`/`no-store`/`no-cache`/
+`max-age`, ...), flagging:
 
-- 应缓存却 `no-store` 的资源；
-- 缺 `Cache-Control` 的静态资源；
-- `Vary` 配置不当导致缓存命中率下降。
+- resources that should be cached but use `no-store`;
+- static assets missing `Cache-Control`;
+- `Vary` misconfiguration hurting hit rate.
 
-## 第 4 步：关键路径与页面计时
+## Step 4: Critical Path & Page Timings
 
 ### CLI
 
@@ -144,112 +147,113 @@ har -f capture.har waterfall --critical-path --page-timings
 ### SDK
 
 ```go
-// 瀑布图（带 Depth 分层）
+// Waterfall (with Depth layering)
 for _, w := range h.Waterfall() {
     fmt.Printf("%*s[%d] %v\n", w.Depth*2, "", w.Index, w.Duration)
 }
 
-// 关键渲染路径
+// Critical rendering path
 cp := h.CriticalPath()
 
-// 页面计时
+// Page timings
 m := h.PageTimingMetrics()
 fmt.Printf("TTFB=%v  DCL=%v  OnLoad=%v  Total=%v\n",
     m.TTFB, m.DOMContentLoaded, m.OnLoad, m.TotalTime)
 ```
 
-### 关键路径是什么
+### What the critical path is
 
-`CriticalPath()` 用启发式挑出**阻塞渲染**的请求链：
+`CriticalPath()` heuristically selects the **render-blocking** chain:
 
 ```mermaid
 flowchart LR
     DOC["doc ★"]:::crit --> CSS["style.css ★"]:::crit
     CSS --> FONT["font.woff2 ★"]:::crit
-    CSS --> APPJS["app.js(同步) ★"]:::crit
+    CSS --> APPJS["app.js(sync) ★"]:::crit
     APPJS --> ANA["analytics.js(async) ·"]:::noncrit
-    subgraph legend["图例"]
-        L1["★ 关键（阻塞渲染）"]:::crit
-        L2["· 非关键（async/defer/图片）"]:::noncrit
+    subgraph legend["Legend"]
+        L1["★ critical (render-blocking)"]:::crit
+        L2["· non-critical (async/defer/image)"]:::noncrit
     end
 
     classDef crit fill:#fce8e6,stroke:#d93025,color:#a50e0e
     classDef noncrit fill:#f6f8fa,stroke:#6b7280,color:#24292f
 ```
 
-::: info 启发式判定
-- **CSS** (`text/css`) → 关键；
-- **同步 JS**（无 `async`/`defer`）→ 关键；
-- **字体** → 关键（CSS 引用）；
-- 图片、`async`/`defer` 脚本 → 非关键。
+::: info Heuristics
+- **CSS** (`text/css`) → critical;
+- **sync JS** (no `async`/`defer`) → critical;
+- **fonts** → critical (CSS-referenced);
+- images, `async`/`defer` scripts → non-critical.
 :::
 
-`Waterfall()` 还给每条 entry 算 `Depth`：重叠请求分到不同层，避免可视化压盖。详见
-[Waterfall 分层算法](/zh/internals/waterfall)。
+`Waterfall()` also computes a `Depth` per entry so overlapping requests land on
+different layers and don't paint over each other. See
+[Waterfall Layering Algorithm](/en/internals/waterfall).
 
-## 完整端到端脚本
+## End-to-End Script
 
 ```bash
 #!/usr/bin/env bash
-# performance.sh — 性能评分 + 慢请求 + 缓存 + 关键路径
+# performance.sh — score + slow requests + cache + critical path
 set -euo pipefail
 
-HAR="${1:?用法: performance.sh <capture.har>}"
+HAR="${1:?usage: performance.sh <capture.har>}"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
-echo "==> 1/4 性能评分"
+echo "==> 1/4 performance score"
 har -f "$HAR" performance --format json -o "$WORKDIR/perf.json"
-har -f "$HAR" performance        # 控制台文本摘要
+har -f "$HAR" performance        # console text summary
 
-echo "==> 2/4 慢请求 (>1000ms), 取最慢 15 条"
+echo "==> 2/4 slow requests (>1000ms), top 15"
 har -f "$HAR" find --slowest 15 -o "$WORKDIR/slow.txt"
 
-echo "==> 3/4 不可缓存资源"
+echo "==> 3/4 non-cacheable resources"
 har -f "$HAR" cache --non-cacheable -o "$WORKDIR/non-cacheable.txt"
 
-echo "==> 4/4 关键路径 + 页面计时"
+echo "==> 4/4 critical path + page timings"
 har -f "$HAR" waterfall --critical-path --page-timings -o "$WORKDIR/waterfall.txt"
 
 echo "----------------------------------------"
-echo "产物:"
+echo "artifacts:"
 ls -1 "$WORKDIR"
 cp "$WORKDIR"/* ./ 2>/dev/null || true
-echo "perf.json 含 Score/Grade/Recommendations，可用于 CI 门禁"
+echo "perf.json holds Score/Grade/Recommendations — usable as a CI gate"
 ```
 
-运行：
+Run it:
 
 ```bash
 chmod +x performance.sh
 ./performance.sh capture.har
 ```
 
-## CI 门禁示例
+## CI Gate Example
 
-把性能评分接入 CI，退化即失败：
+Wire the score into CI so regressions fail the build:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-HAR="${1:?HAR 文件路径}"
+HAR="${1:?path to HAR file}"
 
-# 1. 评分不能低于 B
+# 1. Grade must be at least B
 GRADE=$(har -f "$HAR" performance --format json | jq -r '.grade // empty')
 case "$GRADE" in
-    A|B) echo "性能等级 $GRADE，通过" ;;
-    *)   echo "性能等级 $GRADE，未达 B 级，CI 失败" >&2; exit 1 ;;
+    A|B) echo "perf grade $GRADE, passing" ;;
+    *)   echo "perf grade $GRADE, below B, CI failing" >&2; exit 1 ;;
 esac
 
-# 2. 不允许有 >2s 的请求
+# 2. No request slower than 2s
 SLOW=$(har -f "$HAR" find --slow 2000 --format json | jq 'length')
 if [ "$SLOW" -gt 0 ]; then
-    echo "发现 $SLOW 条 >2s 的请求" >&2
+    echo "found $SLOW request(s) slower than 2s" >&2
     exit 1
 fi
 ```
 
-## SDK 等价端到端
+## SDK End-to-End Equivalent
 
 ```go
 package main
@@ -266,56 +270,56 @@ func main() {
         log.Fatal(err)
     }
 
-    // 1. 评分
+    // 1. Score
     perf := h.PerformanceScore()
     fmt.Printf("Grade=%s Score=%d\n", perf.Grade(), perf.Score)
 
-    // 2. 慢请求
+    // 2. Slow requests
     for _, e := range h.FindSlowRequests(1000).SortByDurationDesc().Limit(10).GetAll() {
         fmt.Printf("  slow: %s %dms\n", e.Request.URL, int64(e.Time))
     }
 
-    // 3. 缓存
+    // 3. Cache
     cache := h.CacheAnalysis()
-    fmt.Printf("不可缓存: %d 条\n", len(cache.NonCacheable))
+    fmt.Printf("non-cacheable: %d\n", len(cache.NonCacheable))
 
-    // 4. 关键路径 + 页面计时
+    // 4. Critical path + page timings
     cp := h.CriticalPath()
     m := h.PageTimingMetrics()
-    fmt.Printf("关键路径 %d 条, TTFB=%v, OnLoad=%v\n",
+    fmt.Printf("critical path %d requests, TTFB=%v, OnLoad=%v\n",
         len(cp), m.TTFB, m.OnLoad)
 }
 ```
 
-## 输出物清单
+## Output Artifacts
 
-| 文件                 | 内容                              | 用途               |
-|----------------------|-----------------------------------|--------------------|
-| `perf.json`          | Score/Grade/Recommendations       | CI 门禁、趋势对比  |
-| `slow.txt`           | 最慢 N 条请求                     | 优化目标排序       |
-| `non-cacheable.txt`  | 不可缓存资源 + 原因               | 缓存策略补漏       |
-| `waterfall.txt`      | 瀑布图 + 关键路径 + 页面计时      | 可视化、汇报       |
+| File                 | Content                              | Use                |
+|----------------------|--------------------------------------|--------------------|
+| `perf.json`          | Score/Grade/Recommendations          | CI gate, trends    |
+| `slow.txt`           | Top-N slowest requests               | Optimization targets |
+| `non-cacheable.txt`  | Non-cacheable resources + reasons    | Cache-policy gaps  |
+| `waterfall.txt`      | Waterfall + critical path + timings  | Visualization, reporting |
 
-## 小结
+## Summary
 
 ```mermaid
 flowchart LR
-    P["performance<br/>评分"]:::step --> F["find --slow<br/>定位"]:::step
-    F --> C["cache<br/>归因"]:::step --> W["waterfall --critical-path<br/>收口"]:::step
-    P -.-> O1["量化"]:::out
-    F -.-> O2["钻取"]:::out
-    C -.-> O3["根因"]:::out
-    W -.-> O4["渲染链"]:::out
+    P["performance<br/>score"]:::step --> F["find --slow<br/>locate"]:::step
+    F --> C["cache<br/>explain"]:::step --> W["waterfall --critical-path<br/>close"]:::step
+    P -.-> O1["quantify"]:::out
+    F -.-> O2["drill down"]:::out
+    C -.-> O3["root cause"]:::out
+    W -.-> O4["render chain"]:::out
 
     classDef step fill:#fff7e6,stroke:#f59e0b,color:#7c4a03
     classDef out fill:#e8f0fe,stroke:#1a73e8,color:#0b3d91
 ```
 
-::: tip 四步闭环
-- **打分**给出整体水位和等级，适合做门禁；
-- **find --slow** 把抽象分数落到具体 URL；
-- **cache** 解释"为什么慢"里跟缓存相关的部分；
-- **waterfall --critical-path** 收口到渲染阻塞链，是 LCP/FCP 优化的直接抓手。
+::: tip Four-step loop
+- **Score** sets the overall level and grade — good for gating.
+- **find --slow** grounds the abstract score in concrete URLs.
+- **cache** explains the cache-related portion of "why slow".
+- **waterfall --critical-path** closes the loop on the render-blocking chain — the direct lever for LCP/FCP.
 
-四步走完，从"分数不行"到"改哪几条请求"形成完整闭环。
+Walking the four steps takes you from "the score is bad" to "fix these specific requests" as a complete loop.
 :::

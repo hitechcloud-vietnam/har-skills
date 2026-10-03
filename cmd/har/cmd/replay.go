@@ -11,16 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// replayCmd 重放HAR文件中的HTTP请求
+// replayCmd replays HTTP requests recorded in a HAR file.
 var replayCmd = &cobra.Command{
 	Use:   "replay",
-	Short: "重放HAR文件中的HTTP请求",
-	Long: `重新执行HAR文件中记录的HTTP请求，并显示响应结果。
+	Short: "Replay HTTP requests from a HAR file",
+	Long: `Re-execute HTTP requests recorded in a HAR file and display the responses.
 
-支持设置超时、重定向、SSL验证等选项，也支持
-仅预览而不实际执行的干跑模式。
+Options include timeouts, redirects, and SSL verification. Dry-run mode previews
+the requests without executing them.
 
-示例:
+Examples:
   har -f capture.har replay
   har -f capture.har replay --dry-run
   har -f capture.har replay --timeout 10s --skip-ssl
@@ -32,21 +32,21 @@ var replayCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(replayCmd)
 
-	replayCmd.Flags().Duration("timeout", 30*time.Second, "请求超时时间")
-	replayCmd.Flags().Bool("no-follow-redirects", false, "不跟随重定向")
-	replayCmd.Flags().Int("max-redirects", 10, "最大重定向次数")
-	replayCmd.Flags().Bool("skip-ssl", false, "跳过SSL证书验证")
-	replayCmd.Flags().StringSlice("header", nil, "覆盖请求头 (格式: name:value)")
-	replayCmd.Flags().Int("index", -1, "仅重放指定索引的条目")
-	replayCmd.Flags().String("filter", "", "URL过滤模式 (仅重放匹配的条目)")
-	replayCmd.Flags().Bool("dry-run", false, "仅预览将重放的请求，不实际执行")
+	replayCmd.Flags().Duration("timeout", 30*time.Second, "Request timeout")
+	replayCmd.Flags().Bool("no-follow-redirects", false, "Do not follow redirects")
+	replayCmd.Flags().Int("max-redirects", 10, "Maximum number of redirects")
+	replayCmd.Flags().Bool("skip-ssl", false, "Skip SSL certificate verification")
+	replayCmd.Flags().StringSlice("header", nil, "Override request headers (format: name:value)")
+	replayCmd.Flags().Int("index", -1, "Replay only the entry at the specified index")
+	replayCmd.Flags().String("filter", "", "URL filter pattern (replay matching entries only)")
+	replayCmd.Flags().Bool("dry-run", false, "Preview requests without executing them")
 	replayCmd.Flags().String("save-har", "", "Save replay results as a new HAR file")
 }
 
 func runReplay(cmd *cobra.Command, args []string) error {
 	h := internal.LoadHar(cmd, args)
 
-	// 解析选项
+	// Read options.
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	noFollowRedirects, _ := cmd.Flags().GetBool("no-follow-redirects")
 	maxRedirects, _ := cmd.Flags().GetInt("max-redirects")
@@ -56,17 +56,17 @@ func runReplay(cmd *cobra.Command, args []string) error {
 	filterPattern, _ := cmd.Flags().GetString("filter")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-	// 解析覆盖请求头
+	// Parse header overrides.
 	overrideHeaders := make(map[string]string)
 	for _, h := range overrideHeadersSlice {
 		name, value, err := parseColonKeyValue(h)
 		if err != nil {
-			return fmt.Errorf("无效的header参数 '%s': %w", h, err)
+			return fmt.Errorf("invalid header argument '%s': %w", h, err)
 		}
 		overrideHeaders[name] = value
 	}
 
-	// 构建重放选项
+	// Build replay options.
 	opts := har.ReplayOptions{
 		Timeout:         timeout,
 		FollowRedirects: !noFollowRedirects,
@@ -75,23 +75,23 @@ func runReplay(cmd *cobra.Command, args []string) error {
 		OverrideHeaders: overrideHeaders,
 	}
 
-	// 按索引或过滤筛选条目
+	// Select entries by index or filter.
 	entries := selectReplayEntries(h, idx, filterPattern)
 
-	// 干跑模式：仅显示将重放的请求
+	// Dry-run mode displays the requests without replaying them.
 	if dryRun {
 		return internal.WriteOutput(cmd, formatDryRunEntries(entries), func() string {
 			return formatDryRunText(entries)
 		}, nil)
 	}
 
-	// 实际执行重放
+	// Replay the requests.
 	results, err := replayEntries(entries, opts)
 	if err != nil {
-		return fmt.Errorf("重放请求失败: %w", err)
+		return fmt.Errorf("failed to replay requests: %w", err)
 	}
 
-	// 保存重放结果为HAR文件
+	// Save replay results to a HAR file.
 	saveHarPath, _ := cmd.Flags().GetString("save-har")
 	if saveHarPath != "" {
 		// Collect raw ReplayResults for ReplayResultsToHar
@@ -106,7 +106,7 @@ func runReplay(cmd *cobra.Command, args []string) error {
 		}
 		replayHar := har.ReplayResultsToHar(replayResults)
 		if saveErr := replayHar.SaveToFile(saveHarPath, true); saveErr != nil {
-			return fmt.Errorf("保存重放结果HAR失败: %w", saveErr)
+			return fmt.Errorf("failed to save replay results as HAR: %w", saveErr)
 		}
 	}
 
@@ -115,7 +115,7 @@ func runReplay(cmd *cobra.Command, args []string) error {
 	}, nil)
 }
 
-// replayEntryInfo 用于干跑模式和结果展示的条目信息
+// replayEntryInfo contains entry information for dry-run mode and result display.
 type replayEntryInfo struct {
 	Index   int    `json:"index"`
 	Method  string `json:"method"`
@@ -124,7 +124,7 @@ type replayEntryInfo struct {
 	HasBody bool   `json:"hasBody"`
 }
 
-// replayResultInfo 用于JSON输出的重放结果
+// replayResultInfo contains replay results for JSON output.
 type replayResultInfo struct {
 	Index      int    `json:"index"`
 	Method     string `json:"method"`
@@ -135,7 +135,7 @@ type replayResultInfo struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// selectReplayEntries 根据索引或过滤模式选择要重放的条目
+// selectReplayEntries selects entries to replay by index or filter pattern.
 func selectReplayEntries(h *har.Har, idx int, filter string) []har.Entries {
 	if idx >= 0 {
 		if idx >= len(h.Log.Entries) {
@@ -158,7 +158,7 @@ func selectReplayEntries(h *har.Har, idx int, filter string) []har.Entries {
 	return h.Log.Entries
 }
 
-// formatDryRunEntries 生成干跑模式条目信息
+// formatDryRunEntries creates entry information for dry-run mode.
 func formatDryRunEntries(entries []har.Entries) []replayEntryInfo {
 	var infos []replayEntryInfo
 	for i, entry := range entries {
@@ -173,27 +173,27 @@ func formatDryRunEntries(entries []har.Entries) []replayEntryInfo {
 	return infos
 }
 
-// formatDryRunText 格式化干跑模式为文本
+// formatDryRunText formats dry-run output as text.
 func formatDryRunText(entries []har.Entries) string {
 	var sb strings.Builder
 
-	sb.WriteString("干跑模式 - 将重放以下请求:\n")
+	sb.WriteString("Dry run — requests to be replayed:\n")
 	sb.WriteString(strings.Repeat("=", 60) + "\n\n")
 
 	for i, entry := range entries {
 		sb.WriteString(fmt.Sprintf("#%d %s %s\n", i, entry.Request.Method, entry.Request.URL))
-		sb.WriteString(fmt.Sprintf("   请求头: %d个", len(entry.Request.Headers)))
+		sb.WriteString(fmt.Sprintf("   Headers: %d", len(entry.Request.Headers)))
 		if entry.Request.PostData != nil && entry.Request.PostData.Text != "" {
-			sb.WriteString(", 有请求体")
+			sb.WriteString(", body present")
 		}
 		sb.WriteString("\n\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("共 %d 个请求待重放\n", len(entries)))
+	sb.WriteString(fmt.Sprintf("%d request(s) to replay\n", len(entries)))
 	return sb.String()
 }
 
-// replayEntries 执行重放
+// replayEntries replays the entries.
 func replayEntries(entries []har.Entries, opts har.ReplayOptions) ([]replayResultInfo, error) {
 	results := make([]replayResultInfo, len(entries))
 	var firstErr error
@@ -215,7 +215,7 @@ func replayEntries(entries []har.Entries, opts har.ReplayOptions) ([]replayResul
 		} else if result.Response != nil {
 			info.StatusCode = result.Response.StatusCode
 			info.Status = result.Response.Status
-			// 读取并丢弃响应体以释放连接
+			// Read and discard the response body to release the connection.
 			_, _ = io.Copy(io.Discard, result.Response.Body)
 			result.Response.Body.Close()
 		}
@@ -226,11 +226,11 @@ func replayEntries(entries []har.Entries, opts har.ReplayOptions) ([]replayResul
 	return results, firstErr
 }
 
-// formatReplayResults 格式化重放结果为文本
+// formatReplayResults formats replay results as text.
 func formatReplayResults(results []replayResultInfo) string {
 	var sb strings.Builder
 
-	sb.WriteString("重放结果\n")
+	sb.WriteString("Replay Results\n")
 	sb.WriteString(strings.Repeat("=", 60) + "\n\n")
 
 	successCount := 0
@@ -248,17 +248,17 @@ func formatReplayResults(results []replayResultInfo) string {
 		sb.WriteString(fmt.Sprintf("#%d %s %s\n", r.Index, r.Method, r.URL))
 
 		if r.StatusCode > 0 {
-			sb.WriteString(fmt.Sprintf("   状态: %d %s  耗时: %s\n", r.StatusCode, r.Status, r.Duration))
+			sb.WriteString(fmt.Sprintf("   Status: %d %s  Duration: %s\n", r.StatusCode, r.Status, r.Duration))
 		} else {
-			sb.WriteString(fmt.Sprintf("   状态: %s  耗时: %s\n", status, r.Duration))
+			sb.WriteString(fmt.Sprintf("   Status: %s  Duration: %s\n", status, r.Duration))
 		}
 
 		if r.Error != "" {
-			sb.WriteString(fmt.Sprintf("   错误: %s\n", r.Error))
+			sb.WriteString(fmt.Sprintf("   Error: %s\n", r.Error))
 		}
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("总计: %d 成功, %d 失败\n", successCount, failCount))
+	sb.WriteString(fmt.Sprintf("Total: %d succeeded, %d failed\n", successCount, failCount))
 	return sb.String()
 }

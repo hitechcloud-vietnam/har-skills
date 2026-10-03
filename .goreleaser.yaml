@@ -1,4 +1,4 @@
-# GoReleaser 配置 — HAR Skills CLI 多平台构建
+# GoReleaser configuration — multi-platform builds for the HAR Skills CLI
 # https://goreleaser.com
 
 version: 2
@@ -85,16 +85,16 @@ changelog:
       - Merge pull request
       - Merge branch
   groups:
-    - title: "🚀 新功能"
+    - title: "🚀 Features"
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
       order: 0
-    - title: "🐛 Bug 修复"
+    - title: "🐛 Bug Fixes"
       regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
       order: 1
-    - title: "⚡ 性能优化"
+    - title: "⚡ Performance"
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
-    - title: "🔧 其他改动"
+    - title: "🔧 Other Changes"
       order: 999
 
 release:
@@ -107,15 +107,15 @@ release:
   header: |
     ## HAR Skills - AI Agent Skill for HAR File Analysis
 
-    🤖 作为 AI Agent Skill 使用：阅读 [CLAUDE.md](https://github.com/hitechcloud-vietnam/har-skills/blob/main/CLAUDE.md)
+    🤖 Use as an AI Agent Skill: read [CLAUDE.md](https://github.com/hitechcloud-vietnam/har-skills/blob/main/CLAUDE.md)
 
-    📦 安装：`go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest`
+    📦 Install: `go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest`
   footer: |
     ---
 
-    **完整安装说明**：参见 [README](https://github.com/hitechcloud-vietnam/har-skills#readme)
+    **Complete installation instructions**: see the [README](https://github.com/hitechcloud-vietnam/har-skills#readme)
 
-# Homebrew 和 Scoop 配置需在对应 tap/bucket 仓库创建后启用
+# Enable Homebrew and Scoop configurations after creating the corresponding tap/bucket repositories.
 # brews:
 #   - name: har
 #     homepage: "https://github.com/hitechcloud-vietnam/har-skills"

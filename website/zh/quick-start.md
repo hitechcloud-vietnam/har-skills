@@ -1,25 +1,25 @@
 ---
-title: 快速开始
+title: Quick Start
 titleTemplate: false
 ---
 
-# 快速开始
+# Quick Start
 
-用三步就能跑通 HAR Skills：装好 `har` 二进制 → 对一个真实 HAR 跑概要命令 → 切换输出格式或走 stdin。下面所有命令都可在仓库根目录直接执行。
+You can drive HAR Skills in three steps: install the `har` binary → run a summary command on a real HAR → switch output formats or pipe via stdin. Every command below works from the repository root.
 
 ```mermaid
 flowchart LR
-  A["1️⃣ 安装<br/>三种方式任选"] --> B["2️⃣ 第一条命令<br/>har info / list"]
-  B --> C{"看哪种结果？"}
-  C -->|"概要统计"| D1["info"]
-  C -->|"逐条请求"| D2["list / find"]
-  C -->|"格式化输出"| D3["--format json/csv/yaml"]
-  D1 & D2 & D3 --> E["3️⃣ 进阶<br/>安全·性能·脱敏·重放·导出"]
+  A["1️⃣ Install<br/>pick one of three"] --> B["2️⃣ First command<br/>har info / list"]
+  B --> C{"What do you want?"}
+  C -->|"Summary stats"| D1["info"]
+  C -->|"Per-entry"| D2["list / find"]
+  C -->|"Formatted output"| D3["--format json/csv/yaml"]
+  D1 & D2 & D3 --> E["3️⃣ Go further<br/>security · performance · redact · replay · export"]
 ```
 
-## 第一步：安装
+## Step 1: Install
 
-任选一种方式，详细对比见 [安装详解](./install.md)。
+Pick any one — full comparison in [Installation](./install.md).
 
 ::: code-group
 
@@ -27,13 +27,13 @@ flowchart LR
 go install github.com/hitechcloud-vietnam/har-skills/cmd/har@latest
 ```
 
-```bash [预编译二进制（推荐）]
+```bash [Pre-built binary (recommended)]
 # Linux x86_64
 curl -sL https://github.com/hitechcloud-vietnam/har-skills/releases/latest/download/har-skills_0.1.0_linux_x86_64.tar.gz | tar xz
 sudo mv har /usr/local/bin/
 ```
 
-```bash [源码构建]
+```bash [Build from source]
 git clone https://github.com/hitechcloud-vietnam/har-skills.git
 cd har-skills
 go build -o har ./cmd/har/
@@ -41,62 +41,62 @@ go build -o har ./cmd/har/
 
 :::
 
-验证安装：
+Verify the install:
 
 ```bash
 har --version
 ```
 
-::: tip 装好后建议补一下 PATH
-预编译二进制方式把 `har` 放到 `/usr/local/bin/`，通常已在 PATH 中；若 `har --version` 报找不到命令，把 `/usr/local/bin` 加入 PATH，或改放 `~/.local/bin`。
+::: tip Make sure it's on PATH
+The pre-built path drops `har` into `/usr/local/bin/`, which is usually on PATH. If `har --version` says command not found, add `/usr/local/bin` to PATH, or place the binary in `~/.local/bin` instead.
 :::
 
-## 第二步：第一条命令
+## Step 2: Your first command
 
-仓库自带的 `testdata/example.har` 是一份真实可用的样例文件。先看概要：
+The repo ships `testdata/example.har` — a real, usable sample. Start with a summary:
 
 ```bash
 har -f testdata/example.har info
 ```
 
-`info` 会输出 HAR 版本、创建者、条目数、传输大小、时间分位、状态码分布、方法分布、域名分布、内容类型分布等。
+`info` prints the HAR version, creator, entry count, transfer size, timing percentiles, status-code distribution, method distribution, domain distribution, and content-type distribution.
 
-再看前 5 条请求：
+Now list the first 5 entries:
 
 ```bash
 har -f testdata/example.har list --limit 5
 ```
 
-常用过滤示例：
+Common filters:
 
 ```bash{1,4}
-# 只看 GET 且 200 的请求
+# Only GET requests with 200 responses
 har -f testdata/example.har list --method GET --status 200
 
-# 按响应大小降序
+# Sort by response size, descending
 har -f testdata/example.har list --sort size --order desc
 ```
 
-::: warning 别漏 `-f`
-`-f` 是全局参数，所有命令都要先指定 HAR 文件（或用 `-f -` 走 stdin）。漏写会得到 "no input file" 的错误。也可以用环境变量 `HAR_FILE` 固定它。
+::: warning Don't forget `-f`
+`-f` is a global flag — every command needs the HAR file first (or `-f -` for stdin). Omitting it gives a "no input file" error. You can also pin it with the `HAR_FILE` env var.
 :::
 
-## 第三步：stdin 与输出格式
+## Step 3: stdin and output formats
 
-### 从 stdin 读取
+### Read from stdin
 
-用 `-f -` 或省略 `-f` 直接管道传入：
+Use `-f -` or omit `-f` to pipe input:
 
 ```bash
 cat capture.har | har info
 cat capture.har | har list --limit 10
 ```
 
-这在 CI 流水线里尤其方便——上一步产出 HAR，下一步直接交给 `har` 分析，无需落盘。
+This is especially handy in CI — one stage produces a HAR, the next hands it straight to `har` without touching disk.
 
-### 输出格式
+### Output formats
 
-`--format` 控制输出，支持 `text`（默认）、`json`、`csv`、`yaml`：
+`--format` controls output: `text` (default), `json`, `csv`, `yaml`:
 
 ```bash{1,3}
 har -f testdata/example.har info --format json
@@ -104,24 +104,24 @@ har -f testdata/example.har list --format csv --no-header
 har -f testdata/example.har list --format yaml
 ```
 
-| 格式 | 适用场景 |
+| Format | When to use |
 | --- | --- |
-| `text`（默认） | 终端人眼阅读、表格化概览 |
-| `json` | 喂给 `jq` / 程序消费、对接 API |
-| `csv` | 导入 Excel / 表格工具做透视 |
-| `yaml` | 配置即数据、Git diff 友好 |
+| `text` (default) | Reading in a terminal, tabular overview |
+| `json` | Piping to `jq` / programmatic consumption / API handoff |
+| `csv` | Loading into Excel / spreadsheets for pivots |
+| `yaml` | Config-as-data, Git-diff friendly |
 
-### 写入文件
+### Write to a file
 
-`-o` / `--output` 把结果写到文件而非 stdout：
+`-o` / `--output` writes results to a file instead of stdout:
 
 ```bash{1}
 har -f testdata/example.har info --format json -o report.json
 har -f testdata/example.har list --format csv -o entries.csv
 ```
 
-::: tip 环境变量
-`HAR_FILE`、`HAR_FORMAT`、`HAR_OUTPUT` 三个环境变量分别等价于 `-f`、`--format`、`-o`，适合在 CI 里固定格式：
+::: tip Environment variables
+`HAR_FILE`, `HAR_FORMAT`, and `HAR_OUTPUT` mirror `-f`, `--format`, and `-o` respectively — convenient for pinning formats in CI:
 
 ```bash
 export HAR_FILE=capture.har HAR_FORMAT=json
@@ -129,33 +129,33 @@ har info
 ```
 :::
 
-## 下一步
+## Next steps
 
-跑通三步后，按你的目标分流继续学习：
+After the three steps, branch out by your goal:
 
 ```mermaid
 mindmap
-  root((接下来))
-    走 CLI
-      全部命令参考
-      安全·性能·工作流
-    嵌 SDK
-      数据结构
-      四种解析策略
-      函数式选项
-    懂原理
-      内存优化
-      懒加载
-      流式解析
-      扩展字段保真
-    跑工作流
-      安全审计
-      性能优化
-      API 迁移
-      数据清洗
+  root((Next))
+    via CLI
+      full command reference
+      security · performance · workflows
+    embed SDK
+      data structures
+      four parsing strategies
+      functional options
+    understand internals
+      memory-optimized
+      lazy loading
+      streaming
+      custom-field fidelity
+    run workflows
+      security audit
+      performance
+      API migration
+      data cleaning
 ```
 
-- 熟悉全部命令：[CLI 命令参考](./cli/global-flags.md)
-- 嵌入 Go 程序：[Go SDK 指南](./sdk/data-structures.md)
-- 端到端场景：[安全审计工作流](./workflows/security-audit.md)、[性能优化工作流](./workflows/performance.md)
-- 不熟 HAR 字段？先读 [HAR 格式入门](./har-basics.md)
+- All commands: [CLI Reference](./cli/global-flags.md)
+- Embed in a Go program: [Go SDK Guide](./sdk/data-structures.md)
+- End-to-end scenarios: [Security Audit Workflow](./workflows/security-audit.md), [Performance Workflow](./workflows/performance.md)
+- Unfamiliar with HAR fields? Read [HAR Format Primer](./har-basics.md) first

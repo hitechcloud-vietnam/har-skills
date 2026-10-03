@@ -9,12 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// listCmd 列出HAR条目
+// listCmd lists HAR entries.
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "列出HAR条目",
-	Long: `列出HAR文件中的请求条目，支持按时间、大小、URL、状态码排序，
-支持按方法、状态码、域名等条件过滤，支持限制输出条数。`,
+	Short: "List HAR entries",
+	Long: `List request entries in a HAR file. Entries can be sorted by time, size, URL, or status code,
+filtered by method, status code, or domain, and limited to a specified number.`,
 	Example: `  har -f capture.har list
   har -f capture.har list --limit 10
   har -f capture.har list --sort size --order asc
@@ -22,7 +22,7 @@ var listCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		h := internal.LoadHar(cmd, args)
 
-		// 获取过滤参数
+		// Read filter parameters.
 		method, _ := cmd.Flags().GetString("method")
 		status, _ := cmd.Flags().GetInt("status")
 		domain, _ := cmd.Flags().GetString("domain")
@@ -30,7 +30,7 @@ var listCmd = &cobra.Command{
 		order, _ := cmd.Flags().GetString("order")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		// 使用FilterWith进行过滤
+		// Filter with FilterWith.
 		opts := []har.FilterOption{}
 		if method != "" {
 			opts = append(opts, har.WithFilterMethod(method))
@@ -43,11 +43,11 @@ var listCmd = &cobra.Command{
 		if len(opts) > 0 {
 			result = h.FilterWith(opts...)
 		} else {
-			// 无过滤条件，使用所有条目
+			// With no filters, use all entries.
 			result = &har.FilterResult{Entries: h.Log.Entries}
 		}
 
-		// 按域名进一步过滤
+		// Apply an additional domain filter.
 		if domain != "" {
 			var filtered []har.Entries
 			for _, entry := range result.Entries {
@@ -58,7 +58,7 @@ var listCmd = &cobra.Command{
 			result = &har.FilterResult{Entries: filtered}
 		}
 
-		// 排序
+		// Sort the entries.
 		switch sortBy {
 		case "size":
 			if order == "asc" {
@@ -67,9 +67,9 @@ var listCmd = &cobra.Command{
 				result.SortBySizeDesc()
 			}
 		case "url":
-			// URL排序无SDK方法，保持默认顺序
+			// The SDK has no URL sort method; keep the default order.
 		case "status":
-			// 状态码排序无SDK方法，保持默认顺序
+			// The SDK has no status-code sort method; keep the default order.
 		default: // time
 			if order == "asc" {
 				result.SortByDuration()
@@ -78,7 +78,7 @@ var listCmd = &cobra.Command{
 			}
 		}
 
-		// 限制条数
+		// Limit the number of entries.
 		if limit > 0 {
 			result.Limit(limit)
 		}
@@ -92,15 +92,15 @@ var listCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listCmd)
 
-	listCmd.Flags().IntP("limit", "n", 0, "限制输出条数 (0=全部)")
-	listCmd.Flags().String("sort", "time", "排序方式 (time, size, url, status)")
-	listCmd.Flags().String("order", "desc", "排序方向 (asc, desc)")
-	listCmd.Flags().String("method", "", "按HTTP方法过滤")
-	listCmd.Flags().Int("status", 0, "按状态码过滤")
-	listCmd.Flags().String("domain", "", "按域名过滤")
+	listCmd.Flags().IntP("limit", "n", 0, "Maximum number of entries to output (0 = all)")
+	listCmd.Flags().String("sort", "time", "Sort by (time, size, url, status)")
+	listCmd.Flags().String("order", "desc", "Sort order (asc, desc)")
+	listCmd.Flags().String("method", "", "Filter by HTTP method")
+	listCmd.Flags().Int("status", 0, "Filter by status code")
+	listCmd.Flags().String("domain", "", "Filter by domain")
 }
 
-// listEntry 简化的条目对象用于JSON输出
+// listEntry is a simplified entry type for JSON output.
 type listEntry struct {
 	Index  int     `json:"index"`
 	Method string  `json:"method"`
@@ -110,7 +110,7 @@ type listEntry struct {
 	URL    string  `json:"url"`
 }
 
-// buildListJSON 构建JSON输出数据
+// buildListJSON builds the JSON output.
 func buildListJSON(result *har.FilterResult) []listEntry {
 	entries := make([]listEntry, len(result.Entries))
 	for i, entry := range result.Entries {
@@ -126,7 +126,7 @@ func buildListJSON(result *har.FilterResult) []listEntry {
 	return entries
 }
 
-// formatListTable 格式化条目列表为tabwriter表格
+// formatListTable formats the entry list as a tabwriter table.
 func formatListTable(result *har.FilterResult, h *har.Har) string {
 	var sb tabWriterBuf
 
@@ -144,7 +144,7 @@ func formatListTable(result *har.FilterResult, h *har.Har) string {
 	return sb.String()
 }
 
-// tabWriterBuf 用于tabwriter输出的缓冲区
+// tabWriterBuf is a buffer for tabwriter output.
 type tabWriterBuf struct {
 	buf []byte
 }
