@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-// 本文件为覆盖率冲刺 100% 的最终补丁测试，覆盖 builder.go / decode.go /
-// http_convert.go / redact.go 中剩余的错误分支与边界分支。函数名统一 TestCov
-// 前缀，不与既有测试冲突。
+// This file contains final tests targeting 100% coverage for remaining branches in builder.go, decode.go,
+// http_convert.go, and redact.go. All test functions use the TestCov prefix
+// to avoid conflicts with existing tests.
 
 // --- builder.go ---
 
 // Cover AddEntryFromHTTPWithMeta nil-HarBuilder branch (builder.go:163-165):
-// var b *HarBuilder (未初始化) -> ensureHar 返回 nil -> har==nil -> return nil.
+// A nil *HarBuilder makes ensureHar return nil, so har == nil and the method returns nil.
 func TestCovAddEntryFromHTTPWithMeta_NilBuilder(t *testing.T) {
 	body := bytes.NewBufferString(`{"k":"v"}`)
 	req := httptest.NewRequest(http.MethodPost, "https://api.example.com", body)
@@ -23,7 +23,7 @@ func TestCovAddEntryFromHTTPWithMeta_NilBuilder(t *testing.T) {
 		StatusCode: 200,
 		Body:       nopBodyReadCloser(bytes.NewBufferString(`{"id":1}`)),
 	}
-	var b *HarBuilder // nil receiver -> ensureHar 返回 nil
+	var b *HarBuilder // nil receiver causes ensureHar to return nil
 	eb := b.AddEntryFromHTTPWithMeta(req, resp, time.Now(), 0, EntryMeta{})
 	if eb != nil {
 		t.Fatalf("expected nil EntryBuilder for nil HarBuilder, got %v", eb)
@@ -52,7 +52,7 @@ func TestCovApplyEntryMeta_Branches(t *testing.T) {
 }
 
 // Cover WriteEntryToWriter Encode-error branch (builder.go:692-694):
-// 注入 Response.Error = func(){} (json.Marshal 不支持的类型) 触发 Encode 失败.
+// Set Response.Error to func(){} (unsupported by json.Marshal) to make Encode fail.
 func TestCovWriteEntryToWriter_EncodeError(t *testing.T) {
 	entry := Entries{
 		Request:  Request{Method: "GET", URL: "https://example.com"},
@@ -71,23 +71,23 @@ func TestCovAppendEntryToJSONLFile_EmptyPath(t *testing.T) {
 
 // Cover SafeRecorder.ToHarCopy nil-har branch (builder.go:814-816) and
 // SaveToFileWithOptions nil-har branch (builder.go:843-845).
-// SafeRecorder.recorder 为 nil 时，recorder.ToHar() 调 ensureBuilder，
-// 后者处理 r==nil 返回 nil，故 ToHar 返回 nil，触发上述分支。
+// When SafeRecorder.recorder is nil, recorder.ToHar() calls ensureBuilder,
+// which returns nil for r == nil; ToHar then returns nil and reaches the branch above.
 func TestCovSafeRecorder_NilHarBranches(t *testing.T) {
 	var sr *SafeRecorder // nil receiver + nil recorder
 
-	// ToHarCopy: s==nil 命中 808-810 提前返回 nil；用未初始化 SafeRecorder 覆盖 recorder==nil
+	// ToHarCopy: s == nil triggers the early return at lines 808-810; an uninitialized SafeRecorder covers recorder == nil.
 	sr2 := &SafeRecorder{} // recorder == nil
 	h := sr2.ToHarCopy()
 	if h != nil {
 		t.Fatalf("expected nil from ToHarCopy when recorder is nil, got %v", h)
 	}
 
-	// SaveToFileWithOptions: recorder==nil -> ToHar 返回 nil -> error (line 843-845)
+	// SaveToFileWithOptions: recorder == nil makes ToHar return nil and produces an error (lines 843-845).
 	err := sr2.SaveToFileWithOptions("/tmp/should-not-be-created.har", false, false)
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 
-	// 顺带覆盖 nil SafeReceiver 的 ToHarCopy (line 808-810)
+	// Also covers ToHarCopy on a nil SafeRecorder (lines 808-810).
 	if sr.ToHarCopy() != nil {
 		t.Fatalf("expected nil from nil SafeRecorder.ToHarCopy")
 	}
@@ -96,9 +96,9 @@ func TestCovSafeRecorder_NilHarBranches(t *testing.T) {
 // --- decode.go ---
 
 // Cover DecompressByEncoding brotli error branch (decode.go:294-297).
-// 用户显式传 "br" 绕过 isBrotliData 探测，损坏 brotli 数据使 io.ReadAll 失败。
+// Passing "br" explicitly bypasses isBrotliData detection; corrupted Brotli data makes io.ReadAll fail.
 func TestCovDecompressByEncoding_BrotliError(t *testing.T) {
-	// 0x21 是 brotli 常见起始字节，但后续损坏使解码立即失败
+	// 0x21 is a common Brotli starting byte, but the following corrupted data makes decoding fail immediately.
 	badBrotli := []byte{0x21, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	_, err := DecompressByEncoding(badBrotli, "br")
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
@@ -106,15 +106,15 @@ func TestCovDecompressByEncoding_BrotliError(t *testing.T) {
 
 // Cover DecompressByEncoding zstd DecodeAll error branch (decode.go:308-311)
 // and decompressIfNeeded zstd error branch (decode.go after edit).
-// 合法 zstd magic + 损坏 frame 使 DecodeAll 报 reserved block type。
+// Valid Zstandard magic plus a corrupted frame makes DecodeAll report a reserved block type.
 func TestCovDecompress_ZstdDecodeError(t *testing.T) {
 	badZstd := []byte{0x28, 0xB5, 0x2F, 0xFD, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00}
 
-	// DecompressByEncoding 显式传 "zstd"
+	// Pass "zstd" explicitly to DecompressByEncoding.
 	_, err := DecompressByEncoding(badZstd, "zstd")
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 
-	// decompressIfNeeded 通过 isZstdData(magic 校验) 进入分支，DecodeAll 报错
+	// decompressIfNeeded enters the branch through isZstdData (magic check), then DecodeAll errors.
 	_, err = decompressIfNeeded(badZstd, "")
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 }
@@ -124,14 +124,14 @@ func TestCovDecompress_ZstdDecodeError(t *testing.T) {
 // Cover parseFormParams empty-body branch (http_convert.go:108-110) and
 // empty-pair continue branch (http_convert.go:113-114).
 func TestCovParseFormParams_Branches(t *testing.T) {
-	// 空 body -> 返回空切片 (line 108-110)
+	// Empty body returns an empty slice (lines 108-110).
 	if got := parseFormParams(""); len(got) != 0 {
 		t.Fatalf("expected empty slice for empty body, got %v", got)
 	}
-	// 含空 pair（"&" 分割出空段 -> continue, line 113-114）
-	// 含无 "=" 的 pair -> Param{Name: key} (line 118-119)
-	// 含 key=value -> Param{Name, Value} (line 121)
-	// "&&" 产生两个空段；"a&" 末尾产生一个空段；"noeq" 无 "="
+	// An empty pair (an empty segment split by "&") continues (lines 113-114).
+	// A pair without "=" yields Param{Name: key} (lines 118-119).
+	// A key=value pair yields Param{Name, Value} (line 121).
+	// "&&" produces two empty segments; "a&" has one trailing empty segment; "noeq" has no "=".
 	params := parseFormParams("&&key=&noeq&k=v&")
 	if len(params) != 3 {
 		t.Fatalf("expected 3 params (empty pairs skipped), got %d (%v)", len(params), params)
@@ -169,13 +169,13 @@ func TestCovIsTextContentType_BinaryApplication(t *testing.T) {
 // --- redact.go ---
 
 // Cover redactJSONBody Unmarshal-error defensive branch (redact.go:366-369).
-// 直接调用 redactJSONBody，传入 Unmarshal 失败的输入以触发防御分支。
+// Call redactJSONBody directly with input that fails to unmarshal to trigger the defensive branch.
 func TestCovRedactJSONBody_UnmarshalError(t *testing.T) {
-	// 非法 JSON：值缺失
+	// Invalid JSON: missing value.
 	text := `{"key": }`
 	opts := DefaultRedactOptions()
 	out, ok := redactJSONBody(text, opts, "***", nil)
-	// 走防御分支应返回 (text, false)
+	// The defensive branch should return (text, false).
 	if ok != false {
 		t.Errorf("expected ok=false for invalid JSON, got %v", ok)
 	}

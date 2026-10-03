@@ -10,7 +10,7 @@ import (
 
 // HarStatistics contains statistics about a HAR file.
 type HarStatistics struct {
-	TotalRequests     int            // 总请求数
+	TotalRequests     int            // Total request count.
 	TotalTransferred  int64          // Total transferred bytes.
 	TotalUncompressed int64          // Total uncompressed bytes.
 	TotalTime         float64        // Total time (ms) from the first request to the last response.
@@ -21,51 +21,51 @@ type HarStatistics struct {
 	P95Time           float64        // 95th-percentile request duration (ms).
 	P99Time           float64        // 99th-percentile request duration (ms).
 	Methods           map[string]int // HTTP method distribution.
-	StatusCodes       map[int]int    // 状态码分布
-	ContentTypes      map[string]int // 内容类型分布
-	Domains           map[string]int // 域名分布
-	ErrorCount        int            // 错误请求数(4xx+5xx)
-	RedirectCount     int            // 重定向数(3xx)
-	TimingsSummary    TimingsSummary // 时间指标汇总
-	StartTime         time.Time      // 最早请求时间
-	EndTime           time.Time      // 最晚请求时间
+	StatusCodes       map[int]int    // Status-code distribution.
+	ContentTypes      map[string]int // Content-type distribution.
+	Domains           map[string]int // Domain distribution.
+	ErrorCount        int            // Number of failed requests (4xx+5xx).
+	RedirectCount     int            // Number of redirects (3xx).
+	TimingsSummary    TimingsSummary // Timing summary.
+	StartTime         time.Time      // Earliest request time.
+	EndTime           time.Time      // Latest request time.
 }
 
-// TimingsSummary 表示时间指标的统计汇总
+// TimingsSummary contains aggregated timing statistics.
 type TimingsSummary struct {
-	AvgBlocked float64 // 平均阻塞时间(ms)
-	AvgDNS     float64 // 平均DNS解析时间(ms)
-	AvgConnect float64 // 平均TCP连接时间(ms)
-	AvgSend    float64 // 平均发送时间(ms)
-	AvgWait    float64 // 平均等待时间(ms)
-	AvgReceive float64 // 平均接收时间(ms)
-	AvgSSL     float64 // 平均SSL握手时间(ms)
-	MaxBlocked float64 // 最大阻塞时间(ms)
-	MaxDNS     float64 // 最大DNS解析时间(ms)
-	MaxConnect float64 // 最大TCP连接时间(ms)
-	MaxSend    float64 // 最大发送时间(ms)
-	MaxWait    float64 // 最大等待时间(ms)
-	MaxReceive float64 // 最大接收时间(ms)
-	MaxSSL     float64 // 最大SSL握手时间(ms)
-	MinBlocked float64 // 最小阻塞时间(ms)
-	MinDNS     float64 // 最小DNS解析时间(ms)
-	MinConnect float64 // 最小TCP连接时间(ms)
-	MinSend    float64 // 最小发送时间(ms)
-	MinWait    float64 // 最小等待时间(ms)
-	MinReceive float64 // 最小接收时间(ms)
-	MinSSL     float64 // 最小SSL握手时间(ms)
+	AvgBlocked float64 // Average blocked time (ms).
+	AvgDNS     float64 // Average DNS resolution time (ms).
+	AvgConnect float64 // Average TCP connection time (ms).
+	AvgSend    float64 // Average send time (ms).
+	AvgWait    float64 // Average wait time (ms).
+	AvgReceive float64 // Average receive time (ms).
+	AvgSSL     float64 // Average SSL handshake time (ms).
+	MaxBlocked float64 // Maximum blocked time (ms).
+	MaxDNS     float64 // Maximum DNS resolution time (ms).
+	MaxConnect float64 // Maximum TCP connection time (ms).
+	MaxSend    float64 // Maximum send time (ms).
+	MaxWait    float64 // Maximum wait time (ms).
+	MaxReceive float64 // Maximum receive time (ms).
+	MaxSSL     float64 // Maximum SSL handshake time (ms).
+	MinBlocked float64 // Minimum blocked time (ms).
+	MinDNS     float64 // Minimum DNS resolution time (ms).
+	MinConnect float64 // Minimum TCP connection time (ms).
+	MinSend    float64 // Minimum send time (ms).
+	MinWait    float64 // Minimum wait time (ms).
+	MinReceive float64 // Minimum receive time (ms).
+	MinSSL     float64 // Minimum SSL handshake time (ms).
 }
 
-// DomainStats 表示按域名的统计信息
+// DomainStats contains statistics grouped by domain.
 type DomainStats struct {
-	RequestCount     int     // 请求数
-	TotalTime        float64 // 总耗时(ms)
-	AvgTime          float64 // 平均耗时(ms)
+	RequestCount     int     // Request count.
+	TotalTime        float64 // Total duration (ms).
+	AvgTime          float64 // Average duration (ms).
 	TotalTransferred int64   // Total transferred bytes.
-	ErrorCount       int     // 错误数
+	ErrorCount       int     // Error count.
 }
 
-// Statistics 计算HAR文件的完整统计信息
+// Statistics calculates full statistics for a HAR file.
 func (h *Har) Statistics() *HarStatistics {
 	if h == nil || len(h.Log.Entries) == 0 {
 		return &HarStatistics{
@@ -91,16 +91,16 @@ func (h *Har) Statistics() *HarStatistics {
 	var sumBlocked, sumDNS, sumConnect, sumSend, sumWait, sumReceive, sumSSL float64
 	var countBlocked, countDNS, countConnect, countSend, countWait, countReceive, countSSL int
 
-	// 初始化最小值为一个很大的数
+	// Initialize the minimum to a large value.
 	minTime := float64(1 << 62)
 	var minBlocked, minDNS, minConnect, minSend, minWait, minReceive, minSSL float64 = 1 << 62, 1 << 62, 1 << 62, 1 << 62, 1 << 62, 1 << 62, 1 << 62
 
 	for i, entry := range h.Log.Entries {
-		// 累计总时间
+		// Accumulate total time.
 		totalTime += entry.Time
 		times = append(times, entry.Time)
 
-		// 最小/最大请求时间
+		// Minimum/maximum request duration.
 		if entry.Time > stats.MaxTime {
 			stats.MaxTime = entry.Time
 		}
@@ -108,7 +108,7 @@ func (h *Har) Statistics() *HarStatistics {
 			minTime = entry.Time
 		}
 
-		// 传输字节数
+		// Transferred bytes.
 		if entry.Response.BodySize > 0 {
 			stats.TotalTransferred += int64(entry.Response.BodySize)
 		}
@@ -119,10 +119,10 @@ func (h *Har) Statistics() *HarStatistics {
 		// HTTP method distribution.
 		stats.Methods[entry.Request.Method]++
 
-		// 状态码分布
+		// Status-code distribution.
 		stats.StatusCodes[entry.Response.Status]++
 
-		// 错误计数
+		// Error count.
 		if entry.Response.Status >= 400 {
 			stats.ErrorCount++
 		}
@@ -130,22 +130,22 @@ func (h *Har) Statistics() *HarStatistics {
 			stats.RedirectCount++
 		}
 
-		// 内容类型分布
+		// Content-type distribution.
 		contentType := entry.Response.Content.MimeType
 		if contentType != "" {
-			// 去掉参数部分（如 charset=utf-8）
+			// Remove parameters (such as charset=utf-8).
 			if idx := strings.Index(contentType, ";"); idx != -1 {
 				contentType = strings.TrimSpace(contentType[:idx])
 			}
 			stats.ContentTypes[contentType]++
 		}
 
-		// 域名分布
+		// Domain distribution.
 		if domain := extractDomain(entry.Request.URL); domain != "" {
 			stats.Domains[domain]++
 		}
 
-		// 时间范围
+		// Time range.
 		if i == 0 || entry.StartedDateTime.Before(startTime) {
 			startTime = entry.StartedDateTime
 		}
@@ -153,7 +153,7 @@ func (h *Har) Statistics() *HarStatistics {
 			endTime = entry.StartedDateTime.Add(time.Duration(entry.Time) * time.Millisecond)
 		}
 
-		// 时间指标汇总
+		// Timing summary.
 		if entry.Timings.Blocked > 0 {
 			sumBlocked += entry.Timings.Blocked
 			countBlocked++
@@ -227,23 +227,23 @@ func (h *Har) Statistics() *HarStatistics {
 		validTimings++
 	}
 
-	// 计算平均值
+	// Calculate averages.
 	stats.AvgTime = totalTime / float64(stats.TotalRequests)
 	stats.MinTime = minTime
 
-	// 计算百分位数
+	// Calculate percentiles.
 	stats.MedianTime = percentile(times, 50)
 	stats.P95Time = percentile(times, 95)
 	stats.P99Time = percentile(times, 99)
 
-	// 总时间范围
+	// Total time range.
 	if !startTime.IsZero() && !endTime.IsZero() {
 		stats.TotalTime = float64(endTime.Sub(startTime).Milliseconds())
 		stats.StartTime = startTime
 		stats.EndTime = endTime
 	}
 
-	// 计算时间指标平均值
+	// Calculate average timing metrics.
 	if validTimings > 0 {
 		n := float64(validTimings)
 		stats.TimingsSummary.AvgBlocked = sumBlocked / n
@@ -255,7 +255,7 @@ func (h *Har) Statistics() *HarStatistics {
 		stats.TimingsSummary.AvgSSL = sumSSL / n
 	}
 
-	// 设置最小值（如果有有效值）
+	// Set the minimum if a valid value exists.
 	if minBlocked < float64(1<<62) {
 		stats.TimingsSummary.MinBlocked = minBlocked
 	}
@@ -281,13 +281,13 @@ func (h *Har) Statistics() *HarStatistics {
 	return stats
 }
 
-// TimingStatistics 仅计算时间指标的统计信息
+// TimingStatistics calculates timing statistics only.
 func (h *Har) TimingStatistics() *TimingsSummary {
 	stats := h.Statistics()
 	return &stats.TimingsSummary
 }
 
-// DomainSummary 按域名汇总统计信息
+// DomainSummary returns statistics grouped by domain.
 func (h *Har) DomainSummary() map[string]*DomainStats {
 	result := make(map[string]*DomainStats)
 
@@ -318,7 +318,7 @@ func (h *Har) DomainSummary() map[string]*DomainStats {
 		}
 	}
 
-	// 计算平均时间
+	// Calculate the average duration.
 	for _, ds := range result {
 		if ds.RequestCount > 0 {
 			ds.AvgTime = ds.TotalTime / float64(ds.RequestCount)
@@ -328,7 +328,7 @@ func (h *Har) DomainSummary() map[string]*DomainStats {
 	return result
 }
 
-// StatusCodeDistribution 获取状态码分布
+// StatusCodeDistribution returns the status-code distribution.
 func (h *Har) StatusCodeDistribution() map[int]int {
 	if h == nil {
 		return make(map[int]int)
@@ -341,7 +341,7 @@ func (h *Har) StatusCodeDistribution() map[int]int {
 	return result
 }
 
-// MethodDistribution 获取HTTP方法分布
+// MethodDistribution returns the HTTP method distribution.
 func (h *Har) MethodDistribution() map[string]int {
 	if h == nil {
 		return make(map[string]int)
@@ -354,7 +354,7 @@ func (h *Har) MethodDistribution() map[string]int {
 	return result
 }
 
-// ContentTypeDistribution 获取内容类型分布
+// ContentTypeDistribution returns the content-type distribution.
 func (h *Har) ContentTypeDistribution() map[string]int {
 	if h == nil {
 		return make(map[string]int)
@@ -373,7 +373,7 @@ func (h *Har) ContentTypeDistribution() map[string]int {
 	return result
 }
 
-// SlowestRequests 获取最慢的N个请求
+// SlowestRequests returns the N slowest requests.
 func (h *Har) SlowestRequests(n int) []Entries {
 	if h == nil || n <= 0 {
 		return nil
@@ -392,7 +392,7 @@ func (h *Har) SlowestRequests(n int) []Entries {
 	return entries[:n]
 }
 
-// FastestRequests 获取最快的N个请求
+// FastestRequests returns the N fastest requests.
 func (h *Har) FastestRequests(n int) []Entries {
 	if h == nil || n <= 0 {
 		return nil
@@ -411,7 +411,7 @@ func (h *Har) FastestRequests(n int) []Entries {
 	return entries[:n]
 }
 
-// LargestResponses 获取响应体最大的N个请求
+// LargestResponses returns the N requests with the largest response bodies.
 func (h *Har) LargestResponses(n int) []Entries {
 	if h == nil || n <= 0 {
 		return nil
@@ -430,7 +430,7 @@ func (h *Har) LargestResponses(n int) []Entries {
 	return entries[:n]
 }
 
-// Summary 获取HAR文件的文本摘要
+// Summary returns a text summary of a HAR file.
 func (h *Har) Summary() string {
 	stats := h.Statistics()
 	var log Log
@@ -439,30 +439,30 @@ func (h *Har) Summary() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("HAR 文件摘要\n")
+	sb.WriteString("HAR File Summary\n")
 	sb.WriteString("=============\n")
-	sb.WriteString(fmt.Sprintf("版本: %s\n", log.Version))
+	sb.WriteString(fmt.Sprintf("Version: %s\n", log.Version))
 	if log.Creator.Name != "" {
-		sb.WriteString(fmt.Sprintf("创建者: %s %s\n", log.Creator.Name, log.Creator.Version))
+		sb.WriteString(fmt.Sprintf("Creator: %s %s\n", log.Creator.Name, log.Creator.Version))
 	}
 	if log.Browser.Name != "" {
-		sb.WriteString(fmt.Sprintf("浏览器: %s %s\n", log.Browser.Name, log.Browser.Version))
+		sb.WriteString(fmt.Sprintf("Browser: %s %s\n", log.Browser.Name, log.Browser.Version))
 	}
-	sb.WriteString(fmt.Sprintf("总请求数: %d\n", stats.TotalRequests))
-	sb.WriteString(fmt.Sprintf("错误请求数: %d\n", stats.ErrorCount))
-	sb.WriteString(fmt.Sprintf("重定向数: %d\n", stats.RedirectCount))
-	sb.WriteString(fmt.Sprintf("总传输量: %s\n", formatBytes(stats.TotalTransferred)))
-	sb.WriteString(fmt.Sprintf("总未压缩量: %s\n", formatBytes(stats.TotalUncompressed)))
-	sb.WriteString(fmt.Sprintf("总时间: %.2f ms\n", stats.TotalTime))
-	sb.WriteString(fmt.Sprintf("平均请求时间: %.2f ms\n", stats.AvgTime))
-	sb.WriteString(fmt.Sprintf("中位数请求时间: %.2f ms\n", stats.MedianTime))
-	sb.WriteString(fmt.Sprintf("P95请求时间: %.2f ms\n", stats.P95Time))
-	sb.WriteString(fmt.Sprintf("P99请求时间: %.2f ms\n", stats.P99Time))
-	sb.WriteString(fmt.Sprintf("最慢请求: %.2f ms\n", stats.MaxTime))
-	sb.WriteString(fmt.Sprintf("最快请求: %.2f ms\n", stats.MinTime))
+	sb.WriteString(fmt.Sprintf("Total requests: %d\n", stats.TotalRequests))
+	sb.WriteString(fmt.Sprintf("Failed requests: %d\n", stats.ErrorCount))
+	sb.WriteString(fmt.Sprintf("Redirects: %d\n", stats.RedirectCount))
+	sb.WriteString(fmt.Sprintf("Total transferred: %s\n", formatBytes(stats.TotalTransferred)))
+	sb.WriteString(fmt.Sprintf("Total uncompressed: %s\n", formatBytes(stats.TotalUncompressed)))
+	sb.WriteString(fmt.Sprintf("Total time: %.2f ms\n", stats.TotalTime))
+	sb.WriteString(fmt.Sprintf("Average request duration: %.2f ms\n", stats.AvgTime))
+	sb.WriteString(fmt.Sprintf("Median request duration: %.2f ms\n", stats.MedianTime))
+	sb.WriteString(fmt.Sprintf("P95 request duration: %.2f ms\n", stats.P95Time))
+	sb.WriteString(fmt.Sprintf("P99 request duration: %.2f ms\n", stats.P99Time))
+	sb.WriteString(fmt.Sprintf("Slowest request: %.2f ms\n", stats.MaxTime))
+	sb.WriteString(fmt.Sprintf("Fastest request: %.2f ms\n", stats.MinTime))
 
 	if len(stats.Domains) > 0 {
-		sb.WriteString(fmt.Sprintf("\n域名数: %d\n", len(stats.Domains)))
+		sb.WriteString(fmt.Sprintf("\nDomain count: %d\n", len(stats.Domains)))
 	}
 
 	return sb.String()

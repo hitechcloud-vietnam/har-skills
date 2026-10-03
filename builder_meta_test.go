@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// 测试 AddEntryFromHTTPWithMeta：元数据填充 + 真实开始时间
+// Test AddEntryFromHTTPWithMeta: metadata population and actual start time.
 func TestAddEntryFromHTTPWithMeta(t *testing.T) {
 	body := bytes.NewBufferString(`{"k":"v"}`)
 	req := httptest.NewRequest(http.MethodPost, "https://api.example.com/users?token=abc&page=1", body)
@@ -42,7 +42,7 @@ func TestAddEntryFromHTTPWithMeta(t *testing.T) {
 	if eb == nil {
 		t.Fatal("EntryBuilder should not be nil")
 	}
-	// 后置定制
+	// Post-capture customization.
 	eb.AddRequestHeader("X-Trace", "trace-1").EndEntry()
 
 	h := eb.EndEntry().Build()
@@ -51,7 +51,7 @@ func TestAddEntryFromHTTPWithMeta(t *testing.T) {
 	}
 	e := h.Log.Entries[0]
 
-	// 开始时间应使用传入值，而非 time.Now()
+	// Start time should use the supplied value, not time.Now().
 	if !e.StartedDateTime.Equal(started) {
 		t.Errorf("StartedDateTime = %v, want %v", e.StartedDateTime, started)
 	}
@@ -73,34 +73,34 @@ func TestAddEntryFromHTTPWithMeta(t *testing.T) {
 	if e.Comment != "captured by mapper" {
 		t.Errorf("Comment = %q, want 'captured by mapper'", e.Comment)
 	}
-	// Time 应为 duration 毫秒
+	// Time should equal the duration in milliseconds.
 	if e.Time != 250 {
 		t.Errorf("Time = %v, want 250", e.Time)
 	}
-	// 请求头应含 Authorization 和后置追加的 X-Trace
+	// Request headers should include Authorization and the appended X-Trace.
 	if e.Request.GetHeader("Authorization") != "Bearer secret" {
 		t.Errorf("missing Authorization header")
 	}
 	if e.Request.GetHeader("X-Trace") != "trace-1" {
 		t.Errorf("missing X-Trace header added via EntryBuilder")
 	}
-	// HeadersSize 应被自动估算（非 -1）
+	// HeadersSize should be estimated automatically (not -1).
 	if e.Request.HeadersSize <= 0 {
 		t.Errorf("HeadersSize = %d, want > 0", e.Request.HeadersSize)
 	}
-	// 请求体应被记录
+	// Request body should be recorded.
 	if e.Request.PostData == nil || e.Request.PostData.Text != `{"k":"v"}` {
 		t.Errorf("PostData.Text = %v, want raw body", e.Request.PostData)
 	}
-	// 响应状态
+	// Response status.
 	if e.Response.Status != 201 {
 		t.Errorf("Response.Status = %d, want 201", e.Response.Status)
 	}
 }
 
-// 测试二进制响应体自动 base64 编码
+// Test automatic base64 encoding of binary response bodies.
 func TestAddEntryFromHTTPWithMetaBinaryBody(t *testing.T) {
-	binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A} // PNG 头
+	binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A} // PNG header.
 	req := httptest.NewRequest(http.MethodGet, "https://cdn.example.com/logo.png", nil)
 	resp := &http.Response{
 		StatusCode: 200,
@@ -127,7 +127,7 @@ func TestAddEntryFromHTTPWithMetaBinaryBody(t *testing.T) {
 	}
 }
 
-// 测试旧入口 AddEntryFromHTTP 仍兼容（startedDateTime 取当下、无元数据）
+// Test backward compatibility of AddEntryFromHTTP (startedDateTime is current time; no metadata).
 func TestAddEntryFromHTTPBackwardCompat(t *testing.T) {
 	before := time.Now()
 	req := httptest.NewRequest(http.MethodGet, "https://example.com/", nil)
@@ -143,7 +143,7 @@ func TestAddEntryFromHTTPBackwardCompat(t *testing.T) {
 	}
 }
 
-// 测试 JSONL 单条追加 + 流式读取往返
+// Test single-entry JSONL append and streaming-read round trip.
 func TestAppendEntryToJSONLFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "archive.jsonl")
@@ -158,14 +158,14 @@ func TestAppendEntryToJSONLFile(t *testing.T) {
 		t.Fatalf("append e2: %v", err)
 	}
 
-	// 验证文件是两行 JSONL
+	// Verify the file contains two JSONL lines.
 	data, _ := os.ReadFile(path)
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 lines, got %d", len(lines))
 	}
 
-	// 流式读取
+	// Stream the file.
 	var got []Entries
 	err := ForEachEntryFromReader(bytes.NewReader(data), func(entry Entries) error {
 		got = append(got, entry)
@@ -185,7 +185,7 @@ func TestAppendEntryToJSONLFile(t *testing.T) {
 	}
 }
 
-// 测试 SafeRecorder 并发安全（race detector 下运行）
+// Test SafeRecorder concurrency safety (run with the race detector).
 func TestSafeRecorderConcurrent(t *testing.T) {
 	sr := NewSafeRecorder()
 	var wg sync.WaitGroup
@@ -215,13 +215,13 @@ func TestSafeRecorderConcurrent(t *testing.T) {
 		t.Fatalf("EntryCount = %d, want %d", got, n)
 	}
 
-	// 导出快照不应影响后续
+	// Exporting a snapshot should not affect subsequent operations.
 	copy := sr.ToHarCopy()
 	if len(copy.Log.Entries) != n {
 		t.Errorf("copy has %d entries, want %d", len(copy.Log.Entries), n)
 	}
 
-	// 落盘
+	// Write to disk.
 	path := filepath.Join(t.TempDir(), "out.har")
 	if err := sr.SaveToFile(path); err != nil {
 		t.Fatalf("SaveToFile: %v", err)
@@ -231,7 +231,7 @@ func TestSafeRecorderConcurrent(t *testing.T) {
 	}
 }
 
-// 测试导出的转换辅助函数
+// Test exported conversion helpers.
 func TestHTTPConvertHelpers(t *testing.T) {
 	h := http.Header{
 		"X-A": []string{"a1", "a2"},
@@ -249,7 +249,7 @@ func TestHTTPConvertHelpers(t *testing.T) {
 		t.Errorf("CookiesFromHTTP wrong: %+v", cks)
 	}
 
-	// 表单参数解析
+	// Form parameter parsing.
 	req := httptest.NewRequest(http.MethodPost, "https://x.com/", bytes.NewBufferString("a=1&b=2&c"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	pd, size := PostDataFromRequest(req)
@@ -264,8 +264,8 @@ func TestHTTPConvertHelpers(t *testing.T) {
 	}
 }
 
-// nopBodyReadCloser 包装一个 Reader 为 ReadCloser，Close 为 no-op，
-// 供测试构造 *http.Response.Body 使用（httptest 的 Response.Body 通常需要手动设置）。
+// nopBodyReadCloser wraps a Reader as a ReadCloser with a no-op Close,
+// for constructing *http.Response.Body in tests (httptest Response.Body usually needs to be set manually).
 type nopReadCloser struct {
 	r *bytes.Buffer
 }

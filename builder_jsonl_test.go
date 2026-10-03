@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- WriteEntryToWriter 覆盖测试 ---
+// --- WriteEntryToWriter coverage tests ---
 
 func TestWriteEntryToWriterNormal(t *testing.T) {
 	entry := Entries{
@@ -28,12 +28,12 @@ func TestWriteEntryToWriterNormal(t *testing.T) {
 	err := WriteEntryToWriter(&buf, entry)
 	require.NoError(t, err)
 
-	// 输出应为合法 JSON（json.Encoder.Encode 末尾会加换行，符合 JSONL 规范）
+	// Output should be valid JSON (json.Encoder.Encode appends a newline, as required by JSONL).
 	line := strings.TrimRight(buf.String(), "\n")
-	assert.True(t, json.Valid([]byte(line)), "输出应为合法 JSON")
-	assert.NotContains(t, line, "\n", "JSON 内容应为单行")
+	assert.True(t, json.Valid([]byte(line)), "Output should be valid JSON")
+	assert.NotContains(t, line, "\n", "JSON content should be a single line")
 
-	// 反序列化验证内容
+	// Deserialize and verify the content.
 	var decoded Entries
 	require.NoError(t, json.Unmarshal([]byte(line), &decoded))
 	assert.Equal(t, entry.Request.URL, decoded.Request.URL)
@@ -48,8 +48,8 @@ func TestWriteEntryToWriterNilWriter(t *testing.T) {
 }
 
 func TestWriteEntryToWriterEncodeError(t *testing.T) {
-	// Entries 本身总是可 JSON 编码，无法触发 encode error
-	// 改为测试 writer 返回 error（通过 errWriter）
+	// Entries are always JSON-encodable, so an encode error cannot be triggered.
+	// Instead, test a writer error using errWriter.
 	entry := Entries{Request: Request{URL: "https://example.com"}}
 	err := WriteEntryToWriter(errWriter{}, entry)
 	assert.Error(t, err)
@@ -61,7 +61,7 @@ func TestWriteEntryToWriterShortWrite(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// --- AppendEntryToJSONLFile 覆盖测试 ---
+// --- AppendEntryToJSONLFile coverage tests ---
 
 func TestAppendEntryToJSONLFileCreate(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -72,11 +72,11 @@ func TestAppendEntryToJSONLFileCreate(t *testing.T) {
 		Request:         Request{URL: "https://example.com/1"},
 	}
 
-	// 文件不存在时会自动创建
+	// The file is created automatically if it does not exist.
 	err := AppendEntryToJSONLFile(path, entry)
 	require.NoError(t, err)
 
-	// 验证文件内容
+	// Verify the file contents.
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.True(t, json.Valid(data))
@@ -86,7 +86,7 @@ func TestAppendEntryToJSONLFileAppend(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "archive.jsonl")
 
-	// 先写两条
+	// Write two entries first.
 	for i := 0; i < 2; i++ {
 		entry := Entries{
 			Request: Request{URL: "https://example.com/" + string(rune('a'+i))},
@@ -94,7 +94,7 @@ func TestAppendEntryToJSONLFileAppend(t *testing.T) {
 		require.NoError(t, AppendEntryToJSONLFile(path, entry))
 	}
 
-	// 验证文件有两行
+	// Verify that the file has two lines.
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -102,13 +102,13 @@ func TestAppendEntryToJSONLFileAppend(t *testing.T) {
 }
 
 func TestAppendEntryToJSONLFileInvalidPath(t *testing.T) {
-	// 路径指向目录而非文件
+	// The path points to a directory rather than a file.
 	entry := Entries{Request: Request{URL: "https://example.com"}}
 	err := AppendEntryToJSONLFile("/tmp/", entry)
 	assert.Error(t, err)
 }
 
-// --- ForEachEntryFromReader 覆盖测试 ---
+// --- ForEachEntryFromReader coverage tests ---
 
 func TestForEachEntryFromReaderNormal(t *testing.T) {
 	entries := []Entries{
@@ -176,8 +176,8 @@ func TestForEachEntryFromReaderInvalidJSON(t *testing.T) {
 }
 
 func TestForEachEntryFromReaderSkipInvalidContinue(t *testing.T) {
-	// ForEachEntryFromReader 在遇到非法行时返回 error（当前实现不跳过）
-	// 这个测试验证此行为
+	// ForEachEntryFromReader returns an error when it encounters an invalid line (the current implementation does not skip it).
+	// This test verifies that behavior.
 	valid := Entries{Request: Request{URL: "https://example.com"}}
 	var buf bytes.Buffer
 	require.NoError(t, WriteEntryToWriter(&buf, valid))
@@ -189,10 +189,10 @@ func TestForEachEntryFromReaderSkipInvalidContinue(t *testing.T) {
 		return nil
 	})
 	assert.Error(t, err)
-	assert.Equal(t, 1, count) // 第一条合法的已处理
+	assert.Equal(t, 1, count) // The first valid entry was processed.
 }
 
-// --- 边界：URL-encoded body 与 JSONL 往返 ---
+// --- Edge case: URL-encoded body round-trip through JSONL ---
 
 func TestJSONLEntryWithURLEncodedBody(t *testing.T) {
 	entry := Entries{
@@ -211,10 +211,10 @@ func TestJSONLEntryWithURLEncodedBody(t *testing.T) {
 	assert.Equal(t, "key=value&secret=hidden", decoded.Request.PostData.Text)
 }
 
-// --- 边界：大 entry 性能（不去重，只验证不 panic）---
+// --- Edge case: large entry performance (verify no panic; no deduplication)---
 
 func TestJSONLLargeEntry(t *testing.T) {
-	// 构造含大 body 的 entry（模拟大响应）
+	// Create an entry with a large body (simulating a large response).
 	largeBody := strings.Repeat("x", 10000)
 	entry := Entries{
 		Response: Response{
@@ -230,7 +230,7 @@ func TestJSONLLargeEntry(t *testing.T) {
 	assert.Greater(t, buf.Len(), 10000)
 }
 
-// --- 边界：entry 含特殊字符（非 ASCII）---
+// --- Edge case: entry containing special (non-ASCII) characters.---
 
 func TestJSONLEntryWithNonASCII(t *testing.T) {
 	entry := Entries{
@@ -247,7 +247,7 @@ func TestJSONLEntryWithNonASCII(t *testing.T) {
 	assert.Contains(t, decoded.Request.URL, "测试")
 }
 
-// --- 辅助类型 ---
+// --- Helper types. ---
 
 type errWriter struct{}
 

@@ -79,7 +79,7 @@ func (h *OptimizedHar) ToStandard() *Har {
 	return standard
 }
 
-// OptimizedEntries 接口实现
+// OptimizedEntries interface implementation.
 
 // GetStartedDateTime implements the EntryProvider interface.
 func (e *OptimizedEntries) GetStartedDateTime() time.Time {
@@ -147,12 +147,12 @@ func (e *OptimizedEntries) ToStandard() Entries {
 		Timings:         e.Timings.ToStandard(),
 	}
 
-	// 可选地添加Pageref（如果不为空）
+	// Optionally add Pageref if it is not empty.
 	if e.PageRef != nil {
 		entry.Pageref = *e.PageRef
 	}
 
-	// 可选地添加ServerIP
+	// Optionally add ServerIP.
 	if e.ServerIP != nil {
 		entry.ServerIPAddress = *e.ServerIP
 	}
@@ -170,7 +170,7 @@ func (e *OptimizedEntries) ToStandard() Entries {
 	return entry
 }
 
-// OptimizedRequest 接口实现
+// OptimizedRequest interface implementation.
 
 // GetMethod implements the RequestProvider interface.
 func (r *OptimizedRequest) GetMethod() string {
@@ -178,7 +178,7 @@ func (r *OptimizedRequest) GetMethod() string {
 		return MethodUnknown.String()
 	}
 
-	// 从HTTPMethod枚举转换为字符串
+	// Convert the HTTPMethod enum to a string.
 	switch r.Method {
 	case MethodGET:
 		return "GET"
@@ -225,7 +225,7 @@ func (r *OptimizedRequest) GetHeaders() []HeaderProvider {
 		return nil
 	}
 
-	// 将map转换为切片
+	// Convert the map to a slice.
 	headers := make([]HeaderProvider, 0, len(r.Headers))
 	for name, value := range r.Headers {
 		header := &Headers{
@@ -318,7 +318,7 @@ func (r *OptimizedRequest) ToStandard() Request {
 		})
 	}
 
-	// 转换查询参数
+	// Convert query parameters.
 	for name, value := range r.QueryString {
 		request.QueryString = append(request.QueryString, QueryString{
 			Name:  name,
@@ -374,7 +374,7 @@ func (r *OptimizedResponse) GetHeaders() []HeaderProvider {
 		return nil
 	}
 
-	// 将map转换为切片
+	// Convert the map to a slice.
 	headers := make([]HeaderProvider, 0, len(r.Headers))
 	for name, value := range r.Headers {
 		header := &Headers{
@@ -446,7 +446,7 @@ func (r *OptimizedResponse) ToStandard() Response {
 		RedirectURL: r.RedirectURL,
 	}
 
-	// 处理Content字段
+	// Handle the Content field.
 	if r.Content != nil {
 		response.Content = r.Content.ToStandard()
 	}

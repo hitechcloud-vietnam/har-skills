@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- SafeRecorder 基础功能测试 ---
+// --- SafeRecorder basic functionality tests ---
 
 func TestNewSafeRecorder(t *testing.T) {
 	rec := NewSafeRecorder()
@@ -120,12 +120,12 @@ func TestSafeRecorderToHarCopy(t *testing.T) {
 	copy1 := rec.ToHarCopy()
 	copy2 := rec.ToHarCopy()
 
-	// 副本间互不影响
+	// Copies are independent.
 	require.NotNil(t, copy1)
 	require.NotNil(t, copy2)
 	assert.NotSame(t, copy1, copy2)
 
-	// 修改 copy1 不影响 copy2
+	// Modifying copy1 does not affect copy2.
 	copy1.Log.Entries[0].Request.URL = "https://modified.com"
 	assert.Equal(t, "https://example.com", copy2.Log.Entries[0].Request.URL)
 }
@@ -145,12 +145,12 @@ func TestSafeRecorderSaveToFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.har")
 
-	// SaveToFile 内部调用 SaveToFileWithOptions(true, false) 会做严格验证
-	// 用 SaveToFileWithOptions(false, false) 跳过验证，仅测试序列化
+	// SaveToFile internally calls SaveToFileWithOptions(true, false), which performs strict validation.
+	// Use SaveToFileWithOptions(false, false) to skip validation and test serialization only.
 	err := rec.SaveToFileWithOptions(path, false, false)
 	require.NoError(t, err)
 
-	// 验证文件存在且是合法 JSON
+	// Verify that the file exists and contains valid JSON.
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.True(t, json.Valid(data))
@@ -163,11 +163,11 @@ func TestSafeRecorderSaveToFileWithOptions(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.har")
 
-	// 无缩进 + gzip
+	// No indentation + gzip.
 	err := rec.SaveToFileWithOptions(path, false, true)
 	require.NoError(t, err)
 
-	// 验证文件存在且非空
+	// Verify that the file exists and is not empty.
 	stat, err := os.Stat(path)
 	require.NoError(t, err)
 	assert.Greater(t, stat.Size(), int64(0))
@@ -179,7 +179,7 @@ func TestSafeRecorderSaveToFileInvalidPath(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// --- 并发安全测试 ---
+// --- Concurrency safety tests ---
 
 func TestSafeRecorderConcurrentCapture(t *testing.T) {
 	rec := NewSafeRecorder()
@@ -219,7 +219,7 @@ func TestSafeRecorderConcurrentReadAndWrite(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(writers + readers)
 
-	// 写协程
+	// Writer goroutine.
 	for w := 0; w < writers; w++ {
 		go func() {
 			defer wg.Done()
@@ -231,7 +231,7 @@ func TestSafeRecorderConcurrentReadAndWrite(t *testing.T) {
 		}()
 	}
 
-	// 读协程
+	// Reader goroutine.
 	for r := 0; r < readers; r++ {
 		go func() {
 			defer wg.Done()
@@ -244,7 +244,7 @@ func TestSafeRecorderConcurrentReadAndWrite(t *testing.T) {
 
 	wg.Wait()
 
-	// 最终 entry 数应等于写入总数
+	// The final entry count should equal the number written.
 	assert.Equal(t, writers*opsPerGoroutine, rec.EntryCount())
 }
 
@@ -267,20 +267,20 @@ func TestSafeRecorderConcurrentToHarCopy(t *testing.T) {
 
 	wg.Wait()
 
-	// 所有副本应独立且有效
+	// All copies should be independent and valid.
 	for _, h := range results {
 		require.NotNil(t, h)
 		assert.Len(t, h.Log.Entries, 1)
 	}
 }
 
-// --- 边界：空/nil 输入 ---
+// --- Edge case: empty/nil input ---
 
 func TestSafeRecorderCaptureNilRequest(t *testing.T) {
 	rec := NewSafeRecorder()
 	rec.Capture(nil, nil, 0)
-	// nil request 不应 panic，但不一定产生有效 entry
-	// 视实现可能跳过或产生空 entry
+	// A nil request should not panic, but may not produce a valid entry.
+	// Depending on the implementation, it may be skipped or produce an empty entry.
 	assert.LessOrEqual(t, rec.EntryCount(), 1)
 }
 
@@ -296,7 +296,7 @@ func TestSafeRecorderToHarCopyNil(t *testing.T) {
 	assert.Nil(t, h)
 }
 
-// --- 边界：链式调用 ---
+// --- Edge case: chained calls. ---
 
 func TestSafeRecorderChaining(t *testing.T) {
 	req, _ := http.NewRequest("GET", "https://example.com", nil)

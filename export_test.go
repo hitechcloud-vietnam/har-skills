@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// createTestHar 创建用于测试的HAR对象
+// createTestHar creates a Har object for testing.
 func createTestHar() *Har {
 	h := NewHar()
 	h.SetCreator("test-creator", "1.0")
@@ -37,7 +37,7 @@ func createTestHar() *Har {
 }
 
 // ---------------------------------------------------------------------------
-// ToCurl 测试
+// ToCurl tests.
 // ---------------------------------------------------------------------------
 
 func TestExportToCurlOnHar(t *testing.T) {
@@ -45,13 +45,13 @@ func TestExportToCurlOnHar(t *testing.T) {
 	result := h.ToCurl()
 
 	if result == "" {
-		t.Fatal("ToCurl() 不应返回空字符串")
+		t.Fatal("ToCurl() should not return an empty string")
 	}
 
-	// 应包含多个curl命令（用双换行分隔）
+	// Should contain multiple cURL commands separated by double newlines.
 	parts := strings.Split(result, "\n\n")
 	if len(parts) != 3 {
-		t.Fatalf("应有3个curl命令，实际得到 %d 个", len(parts))
+		t.Fatalf("Expected 3 cURL commands, got %d.", len(parts))
 	}
 }
 
@@ -59,7 +59,7 @@ func TestExportToCurlOnHarNil(t *testing.T) {
 	var h *Har
 	result := h.ToCurl()
 	if result != "" {
-		t.Fatalf("nil HAR应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil HAR should return an empty string; got: %s", result)
 	}
 }
 
@@ -67,7 +67,7 @@ func TestExportToCurlOnHarEmpty(t *testing.T) {
 	h := &Har{}
 	result := h.ToCurl()
 	if result != "" {
-		t.Fatalf("空HAR应返回空字符串，实际得到: %s", result)
+		t.Fatalf("empty HAR should return an empty string; got: %s", result)
 	}
 }
 
@@ -77,10 +77,10 @@ func TestExportToCurlOnEntries(t *testing.T) {
 	result := entry.ToCurl()
 
 	if result == "" {
-		t.Fatal("Entries.ToCurl() 不应返回空字符串")
+		t.Fatal("Entries.ToCurl() should not return an empty string")
 	}
 	if !strings.HasPrefix(result, "curl") {
-		t.Errorf("cURL命令应以'curl'开头，实际: %s", result[:10])
+		t.Errorf("cURL command should start with 'curl'; got: %s", result[:10])
 	}
 }
 
@@ -88,7 +88,7 @@ func TestExportToCurlOnEntriesNil(t *testing.T) {
 	var e *Entries
 	result := e.ToCurl()
 	if result != "" {
-		t.Fatalf("nil Entries应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil Entries should return an empty string; got: %s", result)
 	}
 }
 
@@ -102,10 +102,10 @@ func TestExportCurlMethod(t *testing.T) {
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, "-X POST") {
-		t.Errorf("POST请求应包含 -X POST，实际: %s", result)
+		t.Errorf("POST request should include -X POST; got: %s", result)
 	}
 	if !strings.Contains(result, "--data") {
-		t.Errorf("有POST数据的请求应包含 --data，实际: %s", result)
+		t.Errorf("Request with POST data should include --data; got: %s", result)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestExportCurlGETNoMethod(t *testing.T) {
 	result := entry.ToCurl()
 
 	if strings.Contains(result, "-X GET") {
-		t.Errorf("GET请求不应包含 -X GET，实际: %s", result)
+		t.Errorf("GET request should not include -X GET; got: %s", result)
 	}
 }
 
@@ -125,16 +125,16 @@ func TestExportCurlHeaders(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("GET", "https://example.com/api", "HTTP/1.1", "")
 	entry.AddRequestHeader("X-Custom", "value123")
-	entry.AddRequestHeader("Host", "example.com") // 应被跳过
+	entry.AddRequestHeader("Host", "example.com") // should be skipped
 	entry.SetResponseStatus(200, "OK")
 
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, "-H 'X-Custom: value123'") {
-		t.Errorf("应包含自定义请求头，实际: %s", result)
+		t.Errorf("Should include the custom request header; got: %s", result)
 	}
 	if strings.Contains(result, "Host:") {
-		t.Errorf("不应包含Host头，实际: %s", result)
+		t.Errorf("Should not include the Host header; got: %s", result)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestExportCurlCompressed(t *testing.T) {
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, "--compressed") {
-		t.Errorf("Accept-Encoding包含gzip/deflate时应添加--compressed，实际: %s", result)
+		t.Errorf("Should add --compressed when Accept-Encoding contains gzip/deflate; got: %s", result)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestExportCurlNoCompressed(t *testing.T) {
 	result := entry.ToCurl()
 
 	if strings.Contains(result, "--compressed") {
-		t.Errorf("Accept-Encoding不包含gzip/deflate时不应添加--compressed，实际: %s", result)
+		t.Errorf("Should not add --compressed when Accept-Encoding does not contain gzip/deflate; got: %s", result)
 	}
 }
 
@@ -173,7 +173,7 @@ func TestExportCurlSingleQuoteEscaping(t *testing.T) {
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, `it'\''s a test`) {
-		t.Errorf("单引号应被正确转义，实际: %s", result)
+		t.Errorf("Single quotes should be escaped correctly; got: %s", result)
 	}
 }
 
@@ -186,7 +186,7 @@ func TestExportCurlSSLVerifySkip(t *testing.T) {
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, "-k") {
-		t.Errorf("有SSL错误时应添加 -k，实际: %s", result)
+		t.Errorf("Should add -k when there is an SSL error; got: %s", result)
 	}
 }
 
@@ -198,12 +198,12 @@ func TestExportCurlURLQuoted(t *testing.T) {
 	result := entry.ToCurl()
 
 	if !strings.Contains(result, "'https://example.com/api?key=value'") {
-		t.Errorf("URL应用单引号包裹，实际: %s", result)
+		t.Errorf("URL should be enclosed in single quotes; got: %s", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// ToWget 测试
+// ToWget tests.
 // ---------------------------------------------------------------------------
 
 func TestExportToWgetOnHar(t *testing.T) {
@@ -211,12 +211,12 @@ func TestExportToWgetOnHar(t *testing.T) {
 	result := h.ToWget()
 
 	if result == "" {
-		t.Fatal("ToWget() 不应返回空字符串")
+		t.Fatal("ToWget() should not return an empty string")
 	}
 
 	parts := strings.Split(result, "\n\n")
 	if len(parts) != 3 {
-		t.Fatalf("应有3个wget命令，实际得到 %d 个", len(parts))
+		t.Fatalf("Expected 3 wget commands, got %d.", len(parts))
 	}
 }
 
@@ -224,7 +224,7 @@ func TestExportToWgetOnHarNil(t *testing.T) {
 	var h *Har
 	result := h.ToWget()
 	if result != "" {
-		t.Fatalf("nil HAR应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil HAR should return an empty string; got: %s", result)
 	}
 }
 
@@ -234,10 +234,10 @@ func TestExportToWgetOnEntries(t *testing.T) {
 	result := entry.ToWget()
 
 	if result == "" {
-		t.Fatal("Entries.ToWget() 不应返回空字符串")
+		t.Fatal("Entries.ToWget() should not return an empty string")
 	}
 	if !strings.HasPrefix(result, "wget") {
-		t.Errorf("wget命令应以'wget'开头，实际: %s", result[:10])
+		t.Errorf("wget command should start with 'wget'; got: %s", result[:10])
 	}
 }
 
@@ -245,7 +245,7 @@ func TestExportToWgetOnEntriesNil(t *testing.T) {
 	var e *Entries
 	result := e.ToWget()
 	if result != "" {
-		t.Fatalf("nil Entries应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil Entries should return an empty string; got: %s", result)
 	}
 }
 
@@ -257,7 +257,7 @@ func TestExportWgetMethod(t *testing.T) {
 	result := entry.ToWget()
 
 	if !strings.Contains(result, "--method=DELETE") {
-		t.Errorf("DELETE请求应包含 --method=DELETE，实际: %s", result)
+		t.Errorf("DELETE request should include --method=DELETE; got: %s", result)
 	}
 }
 
@@ -269,7 +269,7 @@ func TestExportWgetGETNoMethod(t *testing.T) {
 	result := entry.ToWget()
 
 	if strings.Contains(result, "--method=") {
-		t.Errorf("GET请求不应包含 --method，实际: %s", result)
+		t.Errorf("GET request should not include --method; got: %s", result)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestExportWgetPostData(t *testing.T) {
 	result := entry.ToWget()
 
 	if !strings.Contains(result, "--post-data=") {
-		t.Errorf("有POST数据的请求应包含 --post-data，实际: %s", result)
+		t.Errorf("Request with POST data should include --post-data; got: %s", result)
 	}
 }
 
@@ -294,7 +294,7 @@ func TestExportWgetHTTPSNoCheckCert(t *testing.T) {
 	result := entry.ToWget()
 
 	if !strings.Contains(result, "--no-check-certificate") {
-		t.Errorf("HTTPS请求应包含 --no-check-certificate，实际: %s", result)
+		t.Errorf("HTTPS request should include --no-check-certificate; got: %s", result)
 	}
 }
 
@@ -306,7 +306,7 @@ func TestExportWgetHTTPNoCertFlag(t *testing.T) {
 	result := entry.ToWget()
 
 	if strings.Contains(result, "--no-check-certificate") {
-		t.Errorf("HTTP请求不应包含 --no-check-certificate，实际: %s", result)
+		t.Errorf("HTTP request should not include --no-check-certificate; got: %s", result)
 	}
 }
 
@@ -320,15 +320,15 @@ func TestExportWgetHeaderSkipHost(t *testing.T) {
 	result := entry.ToWget()
 
 	if strings.Contains(result, "Host:") {
-		t.Errorf("wget不应包含Host头，实际: %s", result)
+		t.Errorf("wget should not include the Host header; got: %s", result)
 	}
 	if !strings.Contains(result, "--header='X-Custom: test'") {
-		t.Errorf("应包含自定义请求头，实际: %s", result)
+		t.Errorf("Should include the custom request header; got: %s", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// ToPythonRequests 测试
+// ToPythonRequests tests.
 // ---------------------------------------------------------------------------
 
 func TestExportToPythonRequestsOnHar(t *testing.T) {
@@ -336,15 +336,15 @@ func TestExportToPythonRequestsOnHar(t *testing.T) {
 	result := h.ToPythonRequests()
 
 	if result == "" {
-		t.Fatal("ToPythonRequests() 不应返回空字符串")
+		t.Fatal("ToPythonRequests() should not return an empty string")
 	}
 	if !strings.Contains(result, "import requests") {
-		t.Error("Python代码应包含 'import requests'")
+		t.Error("Python code should include 'import requests'")
 	}
-	// 应包含3个请求
+	// Should contain 3 requests.
 	count := strings.Count(result, "response = requests.")
 	if count != 3 {
-		t.Errorf("应有3个requests调用，实际: %d", count)
+		t.Errorf("Expected 3 requests calls, got %d.", count)
 	}
 }
 
@@ -352,7 +352,7 @@ func TestExportToPythonRequestsOnHarNil(t *testing.T) {
 	var h *Har
 	result := h.ToPythonRequests()
 	if result != "" {
-		t.Fatalf("nil HAR应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil HAR should return an empty string; got: %s", result)
 	}
 }
 
@@ -362,10 +362,10 @@ func TestExportToPythonRequestsOnEntries(t *testing.T) {
 	result := entry.ToPythonRequests()
 
 	if result == "" {
-		t.Fatal("Entries.ToPythonRequests() 不应返回空字符串")
+		t.Fatal("Entries.ToPythonRequests() should not return an empty string")
 	}
 	if !strings.Contains(result, "requests.get") {
-		t.Errorf("GET请求应使用 requests.get，实际: %s", result)
+		t.Errorf("GET request should use requests.get; got: %s", result)
 	}
 }
 
@@ -373,7 +373,7 @@ func TestExportToPythonRequestsOnEntriesNil(t *testing.T) {
 	var e *Entries
 	result := e.ToPythonRequests()
 	if result != "" {
-		t.Fatalf("nil Entries应返回空字符串，实际得到: %s", result)
+		t.Fatalf("nil Entries should return an empty string; got: %s", result)
 	}
 }
 
@@ -397,7 +397,7 @@ func TestExportPythonRequestMethod(t *testing.T) {
 			entry.SetResponseStatus(200, "OK")
 			result := entry.ToPythonRequests()
 			if !strings.Contains(result, tt.expectedMethod) {
-				t.Errorf("方法 %s 应生成 %s，实际: %s", tt.method, tt.expectedMethod, result)
+				t.Errorf("Method %s should generate %s; got: %s", tt.method, tt.expectedMethod, result)
 			}
 		})
 	}
@@ -412,10 +412,10 @@ func TestExportPythonHeaders(t *testing.T) {
 	result := entry.ToPythonRequests()
 
 	if !strings.Contains(result, "headers = {") {
-		t.Errorf("有请求头时应生成headers字典，实际: %s", result)
+		t.Errorf("Should generate a headers dictionary when request headers are present; got: %s", result)
 	}
 	if !strings.Contains(result, "'Authorization': 'Bearer token'") {
-		t.Errorf("应包含Authorization头，实际: %s", result)
+		t.Errorf("Should include the Authorization header; got: %s", result)
 	}
 }
 
@@ -428,7 +428,7 @@ func TestExportPythonPostData(t *testing.T) {
 	result := entry.ToPythonRequests()
 
 	if !strings.Contains(result, "data=") {
-		t.Errorf("POST请求应包含data参数，实际: %s", result)
+		t.Errorf("POST request should include the data parameter; got: %s", result)
 	}
 }
 
@@ -440,10 +440,10 @@ func TestExportPythonPrint(t *testing.T) {
 	result := entry.ToPythonRequests()
 
 	if !strings.Contains(result, "print(response.status_code)") {
-		t.Errorf("应打印status_code，实际: %s", result)
+		t.Errorf("Should print status_code; got: %s", result)
 	}
 	if !strings.Contains(result, "print(response.text)") {
-		t.Errorf("应打印response.text，实际: %s", result)
+		t.Errorf("Should print response.text; got: %s", result)
 	}
 }
 
@@ -459,39 +459,39 @@ func TestExportPythonStringEscaping(t *testing.T) {
 		t.Errorf("单引号应被转义，实际: %s", result)
 	}
 	if !strings.Contains(result, `\n`) {
-		t.Errorf("换行符应被转义，实际: %s", result)
+		t.Errorf("Newlines should be escaped; got: %s", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// ToPostmanCollection 测试
+// ToPostmanCollection tests.
 // ---------------------------------------------------------------------------
 
 func TestExportToPostmanCollection(t *testing.T) {
 	h := createTestHar()
 	data, err := h.ToPostmanCollection()
 	if err != nil {
-		t.Fatalf("ToPostmanCollection() 返回错误: %v", err)
+		t.Fatalf("ToPostmanCollection() returned an error: %v", err)
 	}
 
-	// 验证是有效的JSON
+	// Verify that the JSON is valid.
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("结果不是有效的JSON: %v", err)
+		t.Fatalf("Result is not valid JSON: %v", err)
 	}
 
-	// 验证info
+	// Verify info.
 	if collection.Info.Name != "HAR Export" {
-		t.Errorf("Name 应为 'HAR Export'，实际: %s", collection.Info.Name)
+		t.Errorf("Name should be 'HAR Export'; got: %s", collection.Info.Name)
 	}
 	expectedSchema := "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	if collection.Info.Schema != expectedSchema {
-		t.Errorf("Schema 不正确，实际: %s", collection.Info.Schema)
+		t.Errorf("Schema is incorrect; got: %s", collection.Info.Schema)
 	}
 
-	// 验证item数量
+	// Verify the item count.
 	if len(collection.Item) != 3 {
-		t.Errorf("应有3个item，实际: %d", len(collection.Item))
+		t.Errorf("Expected 3 items, got: %d", len(collection.Item))
 	}
 }
 
@@ -510,7 +510,7 @@ func TestExportPostmanCollectionMethod(t *testing.T) {
 
 	data, err := h.ToPostmanCollection()
 	if err != nil {
-		t.Fatalf("ToPostmanCollection() 返回错误: %v", err)
+		t.Fatalf("ToPostmanCollection() returned an error: %v", err)
 	}
 
 	var collection PostmanCollection
@@ -520,25 +520,25 @@ func TestExportPostmanCollectionMethod(t *testing.T) {
 
 	item := collection.Item[0]
 	if item.Request.Method != "POST" {
-		t.Errorf("Method 应为 POST，实际: %s", item.Request.Method)
+		t.Errorf("Method should be POST; got: %s", item.Request.Method)
 	}
 
-	// 验证URL结构
+	// Verify the URL structure.
 	if item.Request.URL.Protocol != "https" {
-		t.Errorf("Protocol 应为 https，实际: %s", item.Request.URL.Protocol)
+		t.Errorf("Protocol should be https; got: %s", item.Request.URL.Protocol)
 	}
 
-	// 验证请求头
+	// Verify request headers.
 	if len(item.Request.Header) == 0 {
-		t.Error("应有请求头")
+		t.Error("Should have request headers.")
 	}
 
-	// 验证请求体
+	// Verify the request body.
 	if item.Request.Body == nil {
-		t.Fatal("应有请求体")
+		t.Fatal("Should have a request body.")
 	}
 	if item.Request.Body.Mode != "raw" {
-		t.Errorf("Body mode 应为 raw，实际: %s", item.Request.Body.Mode)
+		t.Errorf("Body mode should be raw; got: %s", item.Request.Body.Mode)
 	}
 }
 
@@ -549,7 +549,7 @@ func TestExportPostmanCollectionURLParsing(t *testing.T) {
 
 	data, err := h.ToPostmanCollection()
 	if err != nil {
-		t.Fatalf("ToPostmanCollection() 返回错误: %v", err)
+		t.Fatalf("ToPostmanCollection() returned an error: %v", err)
 	}
 
 	var collection PostmanCollection
@@ -560,24 +560,24 @@ func TestExportPostmanCollectionURLParsing(t *testing.T) {
 	item := collection.Item[0]
 	pmURL := item.Request.URL
 
-	// 验证Host
+	// Verify the Host.
 	if len(pmURL.Host) == 0 {
-		t.Error("Host不应为空")
+		t.Error("Host should not be empty.")
 	}
 
-	// 验证Path
+	// Verify the Path.
 	if len(pmURL.Path) < 2 {
-		t.Errorf("Path 应至少有2段，实际: %v", pmURL.Path)
+		t.Errorf("Path should have at least 2 segments; got: %v", pmURL.Path)
 	}
 
-	// 验证Query
+	// Verify the Query.
 	if len(pmURL.Query) < 2 {
-		t.Errorf("Query 应至少有2个参数，实际: %v", pmURL.Query)
+		t.Errorf("Query should have at least 2 parameters; got: %v", pmURL.Query)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// SaveAsPostmanCollection 测试
+// SaveAsPostmanCollection tests.
 // ---------------------------------------------------------------------------
 
 func TestExportSaveAsPostmanCollection(t *testing.T) {
@@ -590,24 +590,24 @@ func TestExportSaveAsPostmanCollection(t *testing.T) {
 		t.Fatalf("SaveAsPostmanCollection() 返回错误: %v", err)
 	}
 
-	// 验证文件存在
+	// Verify that the file exists.
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		t.Fatal("文件未被创建")
+		t.Fatal("File was not created.")
 	}
 
-	// 验证文件内容是有效的Postman Collection JSON
+	// Verify that the file contains valid Postman Collection JSON.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		t.Fatalf("读取文件失败: %v", err)
+		t.Fatalf("Failed to read the file: %v", err)
 	}
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("文件内容不是有效的JSON: %v", err)
+		t.Fatalf("File content is not valid JSON: %v", err)
 	}
 
 	if collection.Info.Name != "HAR Export" {
-		t.Errorf("Name 应为 'HAR Export'，实际: %s", collection.Info.Name)
+		t.Errorf("Name should be 'HAR Export'; got: %s", collection.Info.Name)
 	}
 }
 
@@ -621,45 +621,45 @@ func TestExportSaveAsPostmanCollectionNil(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ToXML 测试
+// ToXML tests.
 // ---------------------------------------------------------------------------
 
 func TestExportToXML(t *testing.T) {
 	h := createTestHar()
 	result, err := h.ToXML()
 	if err != nil {
-		t.Fatalf("ToXML() 返回错误: %v", err)
+		t.Fatalf("ToXML() returned an error: %v", err)
 	}
 
 	if result == "" {
-		t.Fatal("ToXML() 不应返回空字符串")
+		t.Fatal("ToXML() should not return an empty string")
 	}
 
-	// 验证包含XML声明
+	// Verify that the XML declaration is present.
 	if !strings.Contains(result, `<?xml`) {
-		t.Error("XML应包含XML声明")
+		t.Error("XML should contain an XML declaration.")
 	}
 
-	// 验证根元素
+	// Verify the root element.
 	if !strings.Contains(result, "<har>") {
-		t.Error("XML应包含 <har> 根元素")
+		t.Error("XML should contain the <har> root element.")
 	}
 	if !strings.Contains(result, "</har>") {
-		t.Error("XML应包含 </har> 结束标签")
+		t.Error("XML should contain the </har> closing tag.")
 	}
 
-	// 验证能被正确解析
+	// Verify that it can be parsed correctly.
 	var harXML HARXML
 	if err := xml.Unmarshal([]byte(result), &harXML); err != nil {
-		t.Fatalf("XML解析失败: %v", err)
+		t.Fatalf("XML parsing failed: %v", err)
 	}
 
 	if harXML.Log.Version != "1.2" {
-		t.Errorf("Version 应为 1.2，实际: %s", harXML.Log.Version)
+		t.Errorf("Version should be 1.2; got: %s", harXML.Log.Version)
 	}
 
 	if len(harXML.Log.Entries) != 3 {
-		t.Errorf("应有3个entry，实际: %d", len(harXML.Log.Entries))
+		t.Errorf("Expected 3 entries, got: %d", len(harXML.Log.Entries))
 	}
 }
 
@@ -682,32 +682,32 @@ func TestExportToXMLContent(t *testing.T) {
 
 	result, err := h.ToXML()
 	if err != nil {
-		t.Fatalf("ToXML() 返回错误: %v", err)
+		t.Fatalf("ToXML() returned an error: %v", err)
 	}
 
-	// 验证方法
+	// Verify the method.
 	if !strings.Contains(result, "<method>POST</method>") {
-		t.Errorf("XML应包含POST方法，实际: %s", result)
+		t.Errorf("XML should contain the POST method; got: %s", result)
 	}
 
-	// 验证URL
+	// Verify the URL.
 	if !strings.Contains(result, "<url>https://example.com/api</url>") {
-		t.Errorf("XML应包含URL，实际: %s", result)
+		t.Errorf("XML should contain the URL; got: %s", result)
 	}
 
-	// 验证请求头
+	// Verify request headers.
 	if !strings.Contains(result, "<name>Content-Type</name>") {
-		t.Errorf("XML应包含请求头名称，实际: %s", result)
+		t.Errorf("XML should contain the request header name; got: %s", result)
 	}
 
-	// 验证POST数据
+	// Verify POST data.
 	if !strings.Contains(result, "<postData>") {
-		t.Errorf("XML应包含postData元素，实际: %s", result)
+		t.Errorf("XML should contain the postData element; got: %s", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// SaveAsXML 测试
+// SaveAsXML tests.
 // ---------------------------------------------------------------------------
 
 func TestExportSaveAsXML(t *testing.T) {
@@ -720,19 +720,19 @@ func TestExportSaveAsXML(t *testing.T) {
 		t.Fatalf("SaveAsXML() 返回错误: %v", err)
 	}
 
-	// 验证文件存在
+	// Verify that the file exists.
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		t.Fatal("文件未被创建")
+		t.Fatal("File was not created.")
 	}
 
-	// 验证文件内容
+	// Verify the file contents.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		t.Fatalf("读取文件失败: %v", err)
+		t.Fatalf("Failed to read the file: %v", err)
 	}
 
 	if !strings.Contains(string(data), "<?xml") {
-		t.Error("文件内容应包含XML声明")
+		t.Error("File contents should include the XML declaration.")
 	}
 }
 
@@ -749,17 +749,17 @@ func TestExportSaveAsXMLNil(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// FormatJSON 常量测试
+// FormatJSON constant test.
 // ---------------------------------------------------------------------------
 
 func TestExportFormatJSON(t *testing.T) {
 	if FormatJSON != "json" {
-		t.Errorf("FormatJSON 应为 'json'，实际: %s", FormatJSON)
+		t.Errorf("FormatJSON should be 'json'; got: %s", FormatJSON)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 辅助函数测试
+// Helper function tests.
 // ---------------------------------------------------------------------------
 
 func TestExportEscapeSingleQuotes(t *testing.T) {
@@ -777,7 +777,7 @@ func TestExportEscapeSingleQuotes(t *testing.T) {
 	for _, tt := range tests {
 		result := escapeSingleQuotes(tt.input)
 		if result != tt.expected {
-			t.Errorf("escapeSingleQuotes(%q) = %q, 期望 %q", tt.input, result, tt.expected)
+			t.Errorf("escapeSingleQuotes(%q) = %q, expected %q", tt.input, result, tt.expected)
 		}
 	}
 }
@@ -798,7 +798,7 @@ func TestExportEscapePythonString(t *testing.T) {
 	for _, tt := range tests {
 		result := escapePythonString(tt.input)
 		if result != tt.expected {
-			t.Errorf("escapePythonString(%q) = %q, 期望 %q", tt.input, result, tt.expected)
+			t.Errorf("escapePythonString(%q) = %q, expected %q", tt.input, result, tt.expected)
 		}
 	}
 }
@@ -850,14 +850,14 @@ func TestExportHasAcceptEncoding(t *testing.T) {
 			}
 			result := hasAcceptEncoding(entry)
 			if result != tt.expected {
-				t.Errorf("hasAcceptEncoding() = %v, 期望 %v", result, tt.expected)
+				t.Errorf("hasAcceptEncoding() = %v, expected %v", result, tt.expected)
 			}
 		})
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 综合测试
+// Integration tests.
 // ---------------------------------------------------------------------------
 
 func TestExportBuildPostmanURL_NilParsedURL(t *testing.T) {
@@ -1223,7 +1223,7 @@ func TestExportEscapePythonStringCarriageReturn(t *testing.T) {
 func TestExportAllMethodsConsistency(t *testing.T) {
 	h := createTestHar()
 
-	// 确保所有导出方法都不会崩溃
+	// Ensure that no export method panics.
 	curlResult := h.ToCurl()
 	wgetResult := h.ToWget()
 	pythonResult := h.ToPythonRequests()
@@ -1231,25 +1231,25 @@ func TestExportAllMethodsConsistency(t *testing.T) {
 	xmlResult, xmlErr := h.ToXML()
 
 	if curlResult == "" {
-		t.Error("ToCurl() 不应返回空字符串")
+		t.Error("ToCurl() should not return an empty string")
 	}
 	if wgetResult == "" {
-		t.Error("ToWget() 不应返回空字符串")
+		t.Error("ToWget() should not return an empty string")
 	}
 	if pythonResult == "" {
-		t.Error("ToPythonRequests() 不应返回空字符串")
+		t.Error("ToPythonRequests() should not return an empty string")
 	}
 	if postmanErr != nil {
-		t.Errorf("ToPostmanCollection() 返回错误: %v", postmanErr)
+		t.Errorf("ToPostmanCollection() returned an error: %v", postmanErr)
 	}
 	if len(postmanResult) == 0 {
-		t.Error("ToPostmanCollection() 不应返回空数据")
+		t.Error("ToPostmanCollection() should not return empty data.")
 	}
 	if xmlErr != nil {
-		t.Errorf("ToXML() 返回错误: %v", xmlErr)
+		t.Errorf("ToXML() returned an error: %v", xmlErr)
 	}
 	if xmlResult == "" {
-		t.Error("ToXML() 不应返回空字符串")
+		t.Error("ToXML() should not return an empty string")
 	}
 }
 
@@ -1264,13 +1264,13 @@ func TestExportEntryMethodsConsistency(t *testing.T) {
 	pythonResult := entry.ToPythonRequests()
 
 	if curlResult == "" {
-		t.Error("Entries.ToCurl() 不应返回空字符串")
+		t.Error("Entries.ToCurl() should not return an empty string")
 	}
 	if wgetResult == "" {
-		t.Error("Entries.ToWget() 不应返回空字符串")
+		t.Error("Entries.ToWget() should not return an empty string")
 	}
 	if pythonResult == "" {
-		t.Error("Entries.ToPythonRequests() 不应返回空字符串")
+		t.Error("Entries.ToPythonRequests() should not return an empty string")
 	}
 }
 

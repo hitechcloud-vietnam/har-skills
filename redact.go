@@ -95,8 +95,8 @@ func DefaultRedactOptions() RedactOptions {
 		},
 		Replacement: "[REDACTED]",
 		RedactIPs:   false,
-		// 默认按值内容脱敏：捕获藏在任意字段里的常见密钥格式，
-		// 不依赖字段名匹配（应对自定义 header / JSON 任意键）。
+		// By default, redact values matching common secret formats in any field,
+		// without relying on field names (including custom headers and arbitrary JSON keys).
 		ValuePatterns: DefaultRedactValuePatterns(),
 	}
 }
@@ -147,7 +147,7 @@ func (h *Har) RedactInPlace(opts RedactOptions) {
 		replacement = "[REDACTED]"
 	}
 
-	// 预编译值模式正则，避免每个字段重复编译
+	// Precompile value-pattern regexes to avoid recompiling them for each field.
 	valueRes := compileValuePatterns(opts.ValuePatterns)
 
 	for i := range h.Log.Entries {
@@ -220,7 +220,7 @@ func (h *Har) RedactInPlace(opts RedactOptions) {
 					param.Value = applyValuePatterns(param.Value, valueRes, replacement)
 				}
 			}
-			// Redact POST text body (form key=value 或 JSON)
+			// Redact POST text bodies (form key=value or JSON).
 			if pd.Text != "" {
 				pd.Text = redactPostDataText(pd.Text, opts, replacement, valueRes)
 			}
@@ -244,14 +244,14 @@ func matchesAny(name string, patterns []string) bool {
 	return false
 }
 
-// compiledValuePattern 是预编译的 RedactValuePattern 正则。
+// compiledValuePattern is a precompiled RedactValuePattern regex.
 type compiledValuePattern struct {
 	re          *regexp.Regexp
 	replacement string // per-pattern override, empty means use global
 }
 
-// compileValuePatterns 预编译值模式正则，避免每个字段重复编译。
-// 若 Pattern 非法则跳过（不中断整体脱敏）。
+// compileValuePatterns precompiles value-pattern regexes to avoid recompiling them for each field.
+// If a Pattern is invalid, skip it without interrupting redaction.
 func compileValuePatterns(patterns []RedactValuePattern) []compiledValuePattern {
 	if len(patterns) == 0 {
 		return nil
@@ -260,16 +260,16 @@ func compileValuePatterns(patterns []RedactValuePattern) []compiledValuePattern 
 	for _, p := range patterns {
 		re, err := regexp.Compile(p.Pattern)
 		if err != nil {
-			continue // 跳过非法正则
+			continue // Skip the invalid regex.
 		}
 		out = append(out, compiledValuePattern{re: re, replacement: p.Replacement})
 	}
 	return out
 }
 
-// applyValuePatterns 对字符串值应用所有值模式正则。
-// 第一个匹配的 pattern 生效（短路后续）。返回替换后的字符串；
-// 无匹配则返回原值。
+// applyValuePatterns applies all value-pattern regexes to a string.
+// The first matching pattern is applied (subsequent patterns are skipped). Returns the replaced string;
+// returns the original value if nothing matches.
 func applyValuePatterns(value string, patterns []compiledValuePattern, globalReplacement string) string {
 	for _, p := range patterns {
 		if p.re.MatchString(value) {
@@ -327,12 +327,12 @@ func redactPostDataText(text string, opts RedactOptions, replacement string, val
 		return text
 	}
 
-	// JSON body：以 { 或 [ 开头才尝试 JSON 解析（避免误把表单当 JSON）
+	// JSON body: only attempt JSON parsing when it starts with { or [ (to avoid treating form data as JSON).
 	if (trimmed[0] == '{' || trimmed[0] == '[') && looksLikeJSON(trimmed) {
 		if out, ok := redactJSONBody(text, opts, replacement, valueRes); ok {
 			return out
 		}
-		// JSON 解析失败则回退到正则方式
+		// If JSON parsing fails, fall back to regex-based redaction.
 	}
 
 	// URL-encoded form bodies (key=value&key=value)
@@ -340,43 +340,43 @@ func redactPostDataText(text string, opts RedactOptions, replacement string, val
 		return redactKeyValuePairs(text, opts, replacement, valueRes)
 	}
 
-	// 无法识别格式：仍跑一遍值模式，捕获明文密钥
+	// For unrecognized formats, still apply value patterns to catch plaintext secrets.
 	if len(valueRes) > 0 {
 		return applyValuePatterns(text, valueRes, replacement)
 	}
 	return text
 }
 
-// looksLikeJSON 粗略判断字符串是否为合法 JSON：尝试 Unmarshal 到 interface{}。
+// looksLikeJSON performs a rough check for valid JSON by attempting to unmarshal into interface{}.
 func looksLikeJSON(s string) bool {
 	var v interface{}
 	return json.Unmarshal([]byte(s), &v) == nil
 }
 
-// redactJSONBody 解析 JSON 文本，递归遍历所有键值对：
-//   - 名字匹配 PostDataFields 的字段，其值（无论何种类型）整体替换为 replacement；
-//   - 字符串值额外跑值模式匹配（捕获藏在任意键下的密钥）；
-//   - 保留原始结构（对象/数组/嵌套）与缩进风格。
+// redactJSONBody parses JSON text and recursively visits all key-value pairs:
+// - Replace the entire value of fields matching PostDataFields, regardless of type;
+// - Also apply value-pattern matching to strings (to catch secrets under arbitrary keys);
+// - Preserve the original structure (objects, arrays, nesting) and indentation style.
 //
-// 调用前已由 looksLikeJSON 保证 text 是合法 JSON，故 Unmarshal 必成功；
-// data 是已解码的 JSON 值，Marshal/MarshalIndent 对其必成功。
-// 第二个返回值表示是否成功解析并重写（false 时调用方应回退到正则方式）。
+// looksLikeJSON ensures text is valid JSON before this call, so Unmarshal must succeed;
+// data is a decoded JSON value, so Marshal/MarshalIndent must succeed.
+// The second return value indicates whether parsing and rewriting succeeded (if false, callers should fall back to regex-based redaction).
 func redactJSONBody(text string, opts RedactOptions, replacement string, valueRes []compiledValuePattern) (string, bool) {
 	var data interface{}
 	if err := json.Unmarshal([]byte(text), &data); err != nil {
-		// looksLikeJSON 已过滤，理论不可达；保留防御
+		// Filtered by looksLikeJSON and theoretically unreachable; retained as a safeguard.
 		return text, false
 	}
 	data = redactJSONValue(data, "", opts, replacement, valueRes)
 
-	// 保持原始缩进：多行 JSON（含换行）用 MarshalIndent 重建
+	// Preserve indentation: rebuild multiline JSON (containing newlines) with MarshalIndent.
 	if strings.Contains(text, "\n") {
 		indent := detectJSONIndent(text)
 		out, _ := json.MarshalIndent(data, "", indent)
 		return string(out), true
 	}
 
-	// 单行 JSON：紧凑输出，再按原文是否带空格补回 ": " / ", " 风格
+	// Single-line JSON: compact it, then restore the original spacing style around ":" and "," when present.
 	out, _ := json.Marshal(data)
 	if strings.Contains(text, ": ") || strings.Contains(text, ", ") {
 		return prettifySingleLineJSON(string(out)), true
@@ -384,10 +384,10 @@ func redactJSONBody(text string, opts RedactOptions, replacement string, valueRe
 	return string(out), true
 }
 
-// detectJSONIndent 探测多行 JSON 的缩进单位（默认两空格）。
+// detectJSONIndent detects the indentation unit in multiline JSON (defaults to two spaces).
 func detectJSONIndent(text string) string {
 	for _, line := range strings.Split(text, "\n") {
-		// 跳过首行（无缩进）
+		// Skip the first line (no indentation).
 		trimmed := strings.TrimLeft(line, " ")
 		if trimmed == line || trimmed == "" {
 			continue
@@ -397,22 +397,22 @@ func detectJSONIndent(text string) string {
 	return "  "
 }
 
-// prettifySingleLineJSON 把紧凑 JSON {"k":"v","a":1} 补成 {"k": "v", "a": 1}。
-// 仅作用于单行、无嵌套结构的简单场景；嵌套结构会被紧凑输出（功能仍正确，仅风格略变）。
+// prettifySingleLineJSON formats compact JSON {"k":"v","a":1} as {"k": "v", "a": 1}.
+// Only applies to simple single-line input without nested structures; nested structures remain compact (functionally correct, but formatted differently).
 func prettifySingleLineJSON(s string) string {
 	s = strings.ReplaceAll(s, `":`, `": `)
 	s = strings.ReplaceAll(s, `","`, `", "`)
 	return s
 }
 
-// redactJSONValue 递归处理解码后的 JSON 值（map/slice/string/number/bool/nil）。
-// parentKey 用于 CustomRedactor 上下文。
+// redactJSONValue recursively processes decoded JSON values (map/slice/string/number/bool/nil).
+// parentKey is used as context for CustomRedactor.
 func redactJSONValue(data interface{}, parentKey string, opts RedactOptions, replacement string, valueRes []compiledValuePattern) interface{} {
 	switch v := data.(type) {
 	case map[string]interface{}:
 		for key, val := range v {
 			if matchesAny(key, opts.PostDataFields) {
-				// 名字匹配：整体替换（不论值类型）
+				// Name matches: replace the entire value, regardless of type.
 				if opts.CustomRedactor != nil {
 					if s, ok := val.(string); ok {
 						v[key] = opts.CustomRedactor("postdatafield", key, s)
@@ -433,19 +433,19 @@ func redactJSONValue(data interface{}, parentKey string, opts RedactOptions, rep
 		}
 		return v
 	case string:
-		// 字符串值跑值模式匹配
+		// Apply value-pattern matching to string values.
 		if v != "" && len(valueRes) > 0 {
 			return applyValuePatterns(v, valueRes, replacement)
 		}
 		return v
 	default:
-		// number/bool/nil：值模式不适用
+		// Value patterns do not apply to number/bool/nil values.
 		return v
 	}
 }
 
-// fmtJSON 把任意值转成紧凑 JSON 字符串（供 CustomRedactor 接收非字符串值）。
-// v 来自已解码的 JSON 值（number/bool/nil），Marshal 必成功。
+// fmtJSON converts any value to a compact JSON string (for CustomRedactor to receive non-string values).
+// v is a decoded JSON value (number/bool/nil), so Marshal must succeed.
 func fmtJSON(v interface{}) string {
 	b, _ := json.Marshal(v)
 	return string(b)
@@ -467,7 +467,7 @@ func redactKeyValuePairs(text string, opts RedactOptions, replacement string, va
 				}
 				return key + "=" + replacement
 			}
-			// 名字不匹配：仍对值跑值模式
+			// Name does not match: still apply value-pattern matching.
 			if value != "" && len(valueRes) > 0 {
 				return key + "=" + applyValuePatterns(value, valueRes, replacement)
 			}
@@ -477,8 +477,8 @@ func redactKeyValuePairs(text string, opts RedactOptions, replacement string, va
 	return result
 }
 
-// （redactJSONKeys 已删除：原先用正则匹配 "key":"value" 脱敏 JSON，
-// 已由 redactJSONBody 取代，后者真正解析 JSON、支持非字符串值与嵌套。）
+// (redactJSONKeys was removed; it previously redacted JSON by regex-matching "key":"value",
+// and was replaced by redactJSONBody, which parses JSON and supports non-string values and nesting.)
 
 // anonymizeIP replaces the last octet of an IPv4 address with .0.
 // For IPv6, it replaces the last segment with :0.
@@ -500,7 +500,7 @@ func anonymizeIP(ip string) string {
 	}
 
 	// IPv6: replace last hextet with :0
-	// net.IP.String() 对 IPv6 地址必含 ":"，故 LastIndex 必 >= 0。
+	// net.IP.String() for IPv6 addresses always contains ":", so LastIndex must be >= 0.
 	str := parsedIP.String()
 	lastColon := strings.LastIndex(str, ":")
 	return str[:lastColon] + ":0"
@@ -547,7 +547,7 @@ func redactURLQuery(query string, opts RedactOptions, replacement string, valueR
 					result = append(result, key+"="+replacement)
 				}
 			} else if value != "" && len(valueRes) > 0 {
-				// 名字不匹配：仍对值跑值模式
+				// Name does not match: still apply value-pattern matching.
 				result = append(result, key+"="+applyValuePatterns(value, valueRes, replacement))
 			} else {
 				result = append(result, param)
@@ -592,8 +592,8 @@ func redactQueryStringSimple(rawURL string, paramNames []string, replacement str
 		// Match name=value pattern
 		re := regexp.MustCompile(`(?i)(` + regexp.QuoteMeta(name) + `)=([^&]*)`)
 		rawURL = re.ReplaceAllStringFunc(rawURL, func(match string) string {
-			// match 由正则匹配产生，FindStringSubmatch 必返回 3 个组
-			// (完整匹配 + 2 个捕获组)。
+			// match is produced by a regex match, so FindStringSubmatch must return three groups
+			// (the full match plus two capture groups).
 			parts := re.FindStringSubmatch(match)
 			if opts.CustomRedactor != nil {
 				return parts[1] + "=" + opts.CustomRedactor("queryparam", parts[1], parts[2])
@@ -601,7 +601,7 @@ func redactQueryStringSimple(rawURL string, paramNames []string, replacement str
 			return parts[1] + "=" + replacement
 		})
 	}
-	// 名字不匹配的参数仍跑值模式
+	// Parameters whose names do not match still use value-pattern matching.
 	if len(valueRes) > 0 {
 		re := regexp.MustCompile(`([^&=]+)=([^&]*)`)
 		rawURL = re.ReplaceAllStringFunc(rawURL, func(match string) string {

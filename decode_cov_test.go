@@ -1,20 +1,20 @@
 package har
 
-// 本测试文件为 decode.go 补充覆盖率，使用独立的 Cov 前缀函数名，
-// 不与 decode_test.go 重复或冲突。
+// This test file adds coverage for decode.go and uses distinct Cov-prefixed test function names
+// to avoid duplicates or conflicts with decode_test.go.
 //
-// 说明：decode.go 中以下分支为“结构性不可达”的防御性代码，无法在不修改
-// 源码的前提下覆盖（已通过穷举验证，详见各 TestCov*Unreachable* 用例）：
+// Note: the following branches in decode.go are defensive code that is structurally unreachable without modifying
+// the source (confirmed by exhaustive checks; see the TestCov*Unreachable* cases):
 //
-//   - decompressIfNeeded 行 186-189（zlib.NewReader 返回错误的分支）：
-//     isDeflateData 仅接受 {0x78, 0x01/0x5e/0x9c/0xda} 这种“完全合法且
-//     不带 FDICT 预设字典标志”的 zlib 头；而 zlib.NewReader 对这些头永远
-//     返回 nil。两者无交集，故该 err != nil 分支不可达。
+//   - decompressIfNeeded lines 186-189 (branch where zlib.NewReader returns an error):
+//     isDeflateData accepts only fully valid zlib headers {0x78, 0x01/0x5e/0x9c/0xda} that
+//     do not carry the FDICT preset-dictionary flag; zlib.NewReader never fails for these headers.
+//     The sets do not overlap, so the err != nil branch is unreachable.
 //
-//   - CompressContent 行 279-282 / 283-286 / 291-294 / 295-298
-//     （gzip/zlib Writer.Write 与 Writer.Close 返回错误的分支）：
-//     CompressContent 内部固定使用 bytes.Buffer 作为底层 Writer，
-//     bytes.Buffer.Write 永不返回错误，因此 gzip/zlib 的 Write 与 Close
+//   - CompressContent lines 279-282 / 283-286 / 291-294 / 295-298
+//     (branches where gzip/zlib Writer.Write or Writer.Close returns an error):
+//     CompressContent always uses bytes.Buffer as its underlying Writer,
+//     and bytes.Buffer.Write never returns an error; therefore, gzip/zlib Write and Close
 //     在此处也永不返回错误，这些 err != nil 分支不可达。
 //
 // 本文件对可达行为做最大化覆盖，并对上述不可达分支以实验方式再次确认其
@@ -39,16 +39,16 @@ func TestCovCompressContentGzipRoundTrip(t *testing.T) {
 	compressed, err := CompressContent(original, "gzip")
 	require.NoError(t, err)
 	require.NotEmpty(t, compressed)
-	assert.True(t, isGzipData(compressed), "压缩结果应具备 gzip magic bytes")
+	assert.True(t, isGzipData(compressed), "Compress.结果应具备 gzip magic bytes")
 
-	// 解压回去验证内容一致
+	// Decompress.回去验证内容一致
 	out, err := DecompressByEncoding(compressed, "gzip")
 	require.NoError(t, err)
 	assert.Equal(t, original, out)
 }
 
 func TestCovCompressContentGzipBinaryData(t *testing.T) {
-	// 二进制数据（含 0x00 字节）也应正常压缩
+	// 二进制数据（含 0x00 字节）也应正常Compress.
 	original := bytes.Repeat([]byte{0x00, 0xFF, 0x7F, 0x80, 0x01}, 1000)
 
 	compressed, err := CompressContent(original, "gzip")
@@ -65,7 +65,7 @@ func TestCovCompressContentGzipLargeData(t *testing.T) {
 
 	compressed, err := CompressContent(original, "gzip")
 	require.NoError(t, err)
-	assert.Less(t, len(compressed), len(original), "gzip 应能压缩重复数据")
+	assert.Less(t, len(compressed), len(original), "gzip 应能Compress.重复数据")
 
 	out, err := DecompressByEncoding(compressed, "gzip")
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestCovCompressContentDeflateRoundTrip(t *testing.T) {
 	compressed, err := CompressContent(original, "deflate")
 	require.NoError(t, err)
 	require.NotEmpty(t, compressed)
-	assert.True(t, isDeflateData(compressed), "压缩结果应具备 zlib 头字节")
+	assert.True(t, isDeflateData(compressed), "Compress.结果应具备 zlib 头字节")
 
 	out, err := DecompressByEncoding(compressed, "deflate")
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestCovCompressContentDeflateBinaryData(t *testing.T) {
 	assert.Equal(t, original, out)
 }
 
-// --- CompressContent 大小写 / 空白 / 空数据 ---
+// --- CompressContent 大小写 / 空白 / Empty data. ---
 
 func TestCovCompressContentCaseInsensitiveGzip(t *testing.T) {
 	for _, enc := range []string{"GZIP", "Gzip", "  gzip  ", "\tgzip\n"} {
@@ -129,10 +129,10 @@ func TestCovCompressContentEmptyDeflate(t *testing.T) {
 }
 
 func TestCovCompressContentEmptyBrZstd(t *testing.T) {
-	// 空数据优先返回，不会进入 br/zstd 的不支持分支
+	// Empty data.优先返回，不会进入 br/zstd 的unsupported分支
 	for _, enc := range []string{"br", "zstd", "unknown"} {
 		out, err := CompressContent([]byte{}, enc)
-		require.NoError(t, err, "空数据 + 编码 %q 应直接返回空", enc)
+		require.NoError(t, err, "Empty data. + 编码 %q 应直接返回空", enc)
 		assert.Empty(t, out)
 	}
 }
@@ -160,7 +160,7 @@ func TestCovCompressContentZstdUnsupported(t *testing.T) {
 func TestCovCompressContentUnknownEncoding(t *testing.T) {
 	for _, enc := range []string{"snappy", "lz4", "identity", ""} {
 		_, err := CompressContent([]byte("data"), enc)
-		require.Error(t, err, "编码 %q 应不支持", enc)
+		require.Error(t, err, "编码 %q 应unsupported", enc)
 		he, ok := err.(*HarError)
 		require.True(t, ok)
 		assert.Equal(t, ErrCodeUnsupported, he.Code)
@@ -172,7 +172,7 @@ func TestCovCompressContentUnknownEncodingMessage(t *testing.T) {
 	require.Error(t, err)
 	he, ok := err.(*HarError)
 	require.True(t, ok)
-	assert.Contains(t, he.Message, "不支持")
+	assert.Contains(t, he.Message, "unsupported")
 	assert.Contains(t, he.Message, "snappy")
 }
 
@@ -327,7 +327,7 @@ func TestCovUnreachableDeflateWriteNeverFails(t *testing.T) {
 
 // TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs 证明：
 // 对所有 isDeflateData 接受的 zlib 头字节组合，zlib.NewReader 永不返回错误，
-// 因此 decompressIfNeeded 行 186-189 不可达。
+// therefore decompressIfNeeded lines 186-189 are unreachable.。
 func TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs(t *testing.T) {
 	acceptedFlgs := []byte{0x01, 0x5e, 0x9c, 0xda}
 	for _, flg := range acceptedFlgs {
@@ -338,12 +338,12 @@ func TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs(t *testing.
 			bytes.Repeat([]byte{0xAB}, 1024), // 头 + 大量垃圾
 		} {
 			data := append([]byte{0x78, flg}, suffix...)
-			require.True(t, isDeflateData(data), "前置条件: isDeflateData 应为 true (flg=0x%02x)", flg)
+			require.True(t, isDeflateData(data), "Precondition: isDeflateData should be true (flg=0x%02x)", flg)
 
 			r, err := zlib.NewReader(bytes.NewReader(data))
-			assert.NoError(t, err, "zlib.NewReader 对 isDeflateData 接受的输入 (0x78,0x%02x) 不应失败", flg)
+			assert.NoError(t, err, "zlib.NewReader should not fail for input accepted by isDeflateData (0x78,0x%02x)", flg)
 			if err == nil {
-				// 消耗 reader 以释放资源；忽略 ReadAll 的错误（本用例只验证 NewReader）
+				// Consume the reader to release resources; ignore ReadAll errors (this case tests NewReader only).
 				_, _ = readAll(r)
 				_ = r.Close()
 			}
@@ -351,26 +351,26 @@ func TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs(t *testing.
 	}
 }
 
-// TestCovUnreachableBruteForceConfirms 证明：对所有 data[0]==0x78 的 2 字节头，
-// 唯一能让 zlib.NewReader 失败的第二字节都不在 isDeflateData 的接受集合内，
-// 即两者无交集 -> 行 186-189 不可达。
+// TestCovUnreachableBruteForceConfirms proves that, for all two-byte headers with data[0] == 0x78,
+// the second-byte values that make zlib.NewReader fail are not in the set accepted by isDeflateData,
+// so the sets do not overlap and lines 186-189 are unreachable.
 func TestCovUnreachableBruteForceConfirms(t *testing.T) {
 	intersection := 0
 	for b := 0; b < 256; b++ {
 		data := []byte{0x78, byte(b)}
 		_, err := zlib.NewReader(bytes.NewReader(data))
 		if err != nil {
-			// NewReader 失败
+			// NewReader fails.
 			if isDeflateData(data) {
-				// 同时被 isDeflateData 接受 -> 交集
+				// Also accepted by isDeflateData -> intersection.
 				intersection++
 			}
 		}
 	}
 	assert.Equal(t, 0, intersection,
-		"isDeflateData 接受集合与 zlib.NewReader 失败集合的交集应为空（实际=%d），"+
-			"因此 decompressIfNeeded 行 186-189 不可达", intersection)
+		"The intersection of isDeflateData accepted inputs and zlib.NewReader failures should be empty (actual=%d);"+
+			"therefore decompressIfNeeded lines 186-189 are unreachable.", intersection)
 }
 
-// --- 借助 readAll 辅助（已在 decode_test.go 中定义）避免重复导入 io ---
-// readAll 定义于 decode_test.go，此处直接复用，无需重新声明。
+// --- Reuse the readAll helper (defined in decode_test.go) to avoid importing io again. ---
+// readAll is defined in decode_test.go and reused here without redeclaring it.

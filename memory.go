@@ -79,67 +79,67 @@ type OptimizedTimings struct {
 	BlockedProxy    *float64 // Uses pointers to allow nil values.
 }
 
-// OptimizedContent 表示内存优化的内容结构
+// OptimizedContent represents memory-optimized content.
 type OptimizedContent struct {
-	Size     int     // 整数不需要优化
-	MimeType string  // MIME类型通常不太长
+	Size     int     // Integers do not need optimization.
+	MimeType string  // MIME types are usually short.
 	Text     *string // Uses pointers to allow nil values.
 	Encoding *string // Uses pointers to allow nil values.
 	Comment  *string // Uses pointers to allow nil values.
 }
 
-// OptimizedRequest 表示内存优化的请求结构
+// OptimizedRequest represents a memory-optimized request.
 type OptimizedRequest struct {
-	Method      HTTPMethod        // 使用枚举而不是字符串
-	URL         string            // URL不能优化
-	HTTPVersion string            // 版本号通常很短
-	Cookies     []Cookie          // 保持不变
-	Headers     map[string]string // 使用map而不是数组，优化查找
-	QueryString map[string]string // 使用map而不是数组
+	Method      HTTPMethod        // Uses an enum instead of a string.
+	URL         string            // URLs cannot be optimized.
+	HTTPVersion string            // Version strings are usually short.
+	Cookies     []Cookie          // Unchanged.
+	Headers     map[string]string // Uses a map instead of an array for faster lookups.
+	QueryString map[string]string // Uses a map instead of an array.
 	PostData    *PostData         // POST data.
 	HeadersSize *int              // Uses pointers to allow nil values.
 	BodySize    *int              // Uses pointers to allow nil values.
 }
 
-// OptimizedResponse 表示内存优化的响应结构
+// OptimizedResponse represents a memory-optimized response.
 type OptimizedResponse struct {
-	Status       int               // 整数不需要优化
-	StatusText   string            // 状态文本通常很短
-	HTTPVersion  string            // 版本号通常很短
-	Cookies      []Cookie          // 保持不变
-	Headers      map[string]string // 使用map而不是数组
-	RedirectURL  string            // URL不能优化
+	Status       int               // Integers do not need optimization.
+	StatusText   string            // Status text is usually short.
+	HTTPVersion  string            // Version strings are usually short.
+	Cookies      []Cookie          // Unchanged.
+	Headers      map[string]string // Uses a map instead of an array.
+	RedirectURL  string            // URLs cannot be optimized.
 	HeadersSize  *int              // Uses pointers to allow nil values.
 	BodySize     *int              // Uses pointers to allow nil values.
 	Content      *OptimizedContent // Uses pointers to allow nil values.
 	TransferSize *int              // Uses pointers to allow nil values.
 }
 
-// OptimizedEntries 表示内存优化的条目结构
+// OptimizedEntries represents a memory-optimized entry.
 type OptimizedEntries struct {
-	StartedDateTime time.Time         // 时间不需要优化
-	Time            float64           // 浮点数不需要优化
-	Request         OptimizedRequest  // 优化的请求
-	Response        OptimizedResponse // 优化的响应
+	StartedDateTime time.Time         // Times do not need optimization.
+	Time            float64           // Floating-point values do not need optimization.
+	Request         OptimizedRequest  // Memory-optimized request.
+	Response        OptimizedResponse // Memory-optimized response.
 	Cache           *Cache            // Uses pointers to allow nil values.
-	Timings         OptimizedTimings  // 优化的计时
+	Timings         OptimizedTimings  // Memory-optimized timings.
 	PageRef         *string           // Uses pointers to allow nil values.
 	ServerIP        *string           // Uses pointers to allow nil values.
 	Connection      *string           // Uses pointers to allow nil values.
 }
 
-// OptimizedHar 表示内存优化的HAR结构
+// OptimizedHar represents a memory-optimized HAR structure.
 type OptimizedHar struct {
 	Log struct {
-		Version string             // 版本号通常很短
-		Creator Creator            // 保持不变
-		Browser Browser            // 浏览器信息
-		Pages   []Pages            // 保持不变
-		Entries []OptimizedEntries // 优化的条目数组
+		Version string             // Version strings are usually short.
+		Creator Creator            // Unchanged.
+		Browser Browser            // Browser information.
+		Pages   []Pages            // Unchanged.
+		Entries []OptimizedEntries // Array of memory-optimized entries.
 	}
 }
 
-// ParseHarFileOptimized 解析HAR文件并返回内存优化的结构
+// ParseHarFileOptimized parses a HAR file and returns a memory-optimized structure.
 func ParseHarFileOptimized(filePath string) (*OptimizedHar, error) {
 	harFileBytes, err := os.ReadFile(filePath)
 	if err != nil {
@@ -149,20 +149,20 @@ func ParseHarFileOptimized(filePath string) (*OptimizedHar, error) {
 	return ParseHarOptimized(harFileBytes)
 }
 
-// ParseHarOptimized 解析HAR字节并返回内存优化的结构
+// ParseHarOptimized parses HAR bytes and returns a memory-optimized structure.
 func ParseHarOptimized(harFileBytes []byte) (*OptimizedHar, error) {
-	// 先解析为标准HAR
+	// Parse as standard HAR first.
 	standardHar, err := ParseHar(harFileBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// 转换为优化的HAR
+	// Convert to optimized HAR.
 	optimizedHar := ToOptimizedHar(standardHar)
 	return optimizedHar, nil
 }
 
-// ToOptimizedHar 将标准HAR转换为内存优化的HAR
+// ToOptimizedHar converts a standard Har to a memory-optimized Har.
 func ToOptimizedHar(standardHar *Har) *OptimizedHar {
 	if standardHar == nil {
 		return nil
@@ -174,7 +174,7 @@ func ToOptimizedHar(standardHar *Har) *OptimizedHar {
 	optimizedHar.Log.Browser = standardHar.Log.Browser
 	optimizedHar.Log.Pages = standardHar.Log.Pages
 
-	// 转换所有条目
+	// Convert all entries.
 	optimizedHar.Log.Entries = make([]OptimizedEntries, len(standardHar.Log.Entries))
 	for i, entry := range standardHar.Log.Entries {
 		optimizedEntry := convertToOptimizedEntry(entry)
@@ -184,14 +184,14 @@ func ToOptimizedHar(standardHar *Har) *OptimizedHar {
 	return optimizedHar
 }
 
-// convertToOptimizedEntry 将标准条目转换为优化条目
+// convertToOptimizedEntry converts a standard entry to an optimized entry.
 func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 	optimizedEntry := OptimizedEntries{
 		StartedDateTime: entry.StartedDateTime,
 		Time:            entry.Time,
 	}
 
-	// 转换请求
+	// Convert the request.
 	optimizedEntry.Request = OptimizedRequest{
 		Method:      ParseMethod(entry.Request.Method),
 		URL:         entry.Request.URL,
@@ -202,17 +202,17 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		PostData:    entry.Request.PostData,
 	}
 
-	// 转换请求头
+	// Convert request headers.
 	for _, header := range entry.Request.Headers {
 		optimizedEntry.Request.Headers[header.Name] = header.Value
 	}
 
-	// 转换查询参数
+	// Convert query parameters.
 	for _, qs := range entry.Request.QueryString {
 		optimizedEntry.Request.QueryString[qs.Name] = qs.Value
 	}
 
-	// 设置请求大小
+	// Set request sizes.
 	if entry.Request.HeadersSize != 0 {
 		headerSize := entry.Request.HeadersSize
 		optimizedEntry.Request.HeadersSize = &headerSize
@@ -336,7 +336,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 	return optimizedEntry
 }
 
-// ToStandardHar 将优化的HAR转换回标准HAR
+// ToStandardHar converts an optimized Har back to a standard Har.
 func (oh *OptimizedHar) ToStandardHar() *Har {
 	if oh == nil {
 		return nil
@@ -348,7 +348,7 @@ func (oh *OptimizedHar) ToStandardHar() *Har {
 	standardHar.Log.Browser = oh.Log.Browser
 	standardHar.Log.Pages = oh.Log.Pages
 
-	// 转换所有条目
+	// Convert all entries.
 	standardHar.Log.Entries = make([]Entries, len(oh.Log.Entries))
 	for i, entry := range oh.Log.Entries {
 		standardHar.Log.Entries[i] = convertToStandardEntry(entry)
@@ -357,14 +357,14 @@ func (oh *OptimizedHar) ToStandardHar() *Har {
 	return standardHar
 }
 
-// convertToStandardEntry 将优化条目转换为标准条目
+// convertToStandardEntry converts an optimized entry to a standard entry.
 func convertToStandardEntry(entry OptimizedEntries) Entries {
 	standardEntry := Entries{
 		StartedDateTime: entry.StartedDateTime,
 		Time:            entry.Time,
 	}
 
-	// 转换请求
+	// Convert the request.
 	standardEntry.Request = Request{
 		Method:      entry.Request.Method.String(),
 		URL:         entry.Request.URL,
@@ -375,7 +375,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		PostData:    entry.Request.PostData,
 	}
 
-	// 转换请求头
+	// Convert request headers.
 	for name, value := range entry.Request.Headers {
 		standardEntry.Request.Headers = append(standardEntry.Request.Headers, Headers{
 			Name:  name,
@@ -383,7 +383,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		})
 	}
 
-	// 转换查询参数
+	// Convert query parameters.
 	for name, value := range entry.Request.QueryString {
 		standardEntry.Request.QueryString = append(standardEntry.Request.QueryString, QueryString{
 			Name:  name,
@@ -391,7 +391,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		})
 	}
 
-	// 设置请求大小
+	// Set request sizes.
 	if entry.Request.HeadersSize != nil {
 		standardEntry.Request.HeadersSize = *entry.Request.HeadersSize
 	}

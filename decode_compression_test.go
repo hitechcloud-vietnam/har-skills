@@ -12,54 +12,54 @@ import (
 func TestBrotliRoundtrip(t *testing.T) {
 	original := []byte("Hello Brotli! This is a test payload with some 非ASCII 字符 for good measure." + repeatString("X", 200))
 
-	// 压缩
+	// Compress.
 	compressed, err := CompressContent(original, "br")
-	require.NoError(t, err, "brotli 压缩不应失败")
-	assert.LessOrEqual(t, len(compressed), len(original), "brotli 压缩后应小于或等于原文（短文本可能无压缩收益）")
+	require.NoError(t, err, "Brotli compression should succeed.")
+	assert.LessOrEqual(t, len(compressed), len(original), "Compressed Brotli data should be no larger than the original (short text may not compress).")
 
-	// 解压
+	// Decompress.
 	decompressed, err := DecompressByEncoding(compressed, "br")
-	require.NoError(t, err, "brotli 解压不应失败")
-	assert.Equal(t, original, decompressed, "往返应还原原文")
+	require.NoError(t, err, "Brotli decompression should succeed.")
+	assert.Equal(t, original, decompressed, "Round-trip should restore the original data.")
 
-	// 验证 isBrotliData 能识别
-	assert.True(t, isBrotliData(compressed), "brotli 压缩数据应被正确识别")
-	assert.False(t, isBrotliData(original), "普通文本不应被误判为 brotli")
+	// Verify that isBrotliData recognizes the data.
+	assert.True(t, isBrotliData(compressed), "Compressed Brotli data should be recognized correctly.")
+	assert.False(t, isBrotliData(original), "Plain text should not be misidentified as Brotli.")
 }
 
 func TestZstdRoundtrip(t *testing.T) {
 	original := []byte("Zstandard compression test. 长文本测试：" + repeatString("A", 1000))
 
 	compressed, err := CompressContent(original, "zstd")
-	require.NoError(t, err, "zstd 压缩不应失败")
-	assert.Less(t, len(compressed), len(original), "zstd 压缩后应更小")
+	require.NoError(t, err, "Zstandard compression should succeed.")
+	assert.Less(t, len(compressed), len(original), "Compressed Zstandard data should be smaller.")
 
 	decompressed, err := DecompressByEncoding(compressed, "zstd")
-	require.NoError(t, err, "zstd 解压不应失败")
-	assert.Equal(t, original, decompressed, "往返应还原")
+	require.NoError(t, err, "Zstandard decompression should succeed.")
+	assert.Equal(t, original, decompressed, "Round-trip should restore the original data.")
 
-	// 验证 isZstdData 魔数检测
-	assert.True(t, isZstdData(compressed), "zstd 压缩数据应有魔数")
-	assert.False(t, isZstdData(original), "普通数据无 zstd 魔数")
+	// Verify isZstdData magic-number detection.
+	assert.True(t, isZstdData(compressed), "Compressed Zstandard data should have the magic number.")
+	assert.False(t, isZstdData(original), "Regular data should not have the Zstandard magic number.")
 }
 
 func TestMultiEncodingDecompress(t *testing.T) {
-	// 场景：gzip(deflate(original)) —— 两层包裹
+	// Scenario: gzip(deflate(original)) — two encoding layers.
 	original := []byte("Multi-layer encoding test 数据")
 
-	// 先 deflate 再 gzip 包裹（模拟 Content-Encoding: gzip, deflate）
+	// Deflate first, then wrap with gzip (simulating Content-Encoding: gzip, deflate).
 	deflated, err := CompressContent(original, "deflate")
 	require.NoError(t, err)
 
 	gzipWrapped, err := CompressContent(deflated, "gzip")
 	require.NoError(t, err)
 
-	// DecompressByEncoding 多重编码：先解 gzip 再解 deflate
+	// DecompressByEncoding with multiple encodings: decompress gzip, then deflate.
 	decompressed, err := DecompressByEncoding(gzipWrapped, "gzip, deflate")
-	require.NoError(t, err, "多重编码解压应成功")
-	assert.Equal(t, original, decompressed, "两层解压后还原")
+	require.NoError(t, err, "Multi-layer decompression should succeed.")
+	assert.Equal(t, original, decompressed, "Two decompression layers should restore the original data.")
 
-	// 三层：br(gzip(deflate))
+	// Three layers: br(gzip(deflate)).
 	brGzipDeflate, err := CompressContent(gzipWrapped, "br")
 	require.NoError(t, err)
 
@@ -69,23 +69,23 @@ func TestMultiEncodingDecompress(t *testing.T) {
 }
 
 func TestDecompressByEncodingErrors(t *testing.T) {
-	// 空数据
+	// Empty data.
 	result, err := DecompressByEncoding(nil, "gzip")
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 
-	// 不支持的编码
+	// Unsupported encoding.
 	_, err = DecompressByEncoding([]byte("test"), "lz4")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "不支持")
+	assert.Contains(t, err.Error(), "unsupported")
 
-	// 损坏的压缩数据
-	corruptedGzip := []byte{0x1f, 0x8b, 0x00, 0x00} // gzip magic 但截断
+	// Corrupted compressed data.
+	corruptedGzip := []byte{0x1f, 0x8b, 0x00, 0x00} // gzip magic number, but truncated.
 	_, err = DecompressByEncoding(corruptedGzip, "gzip")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "gzip")
 
-	corruptedZstd := []byte{0x28, 0xb5, 0x2f, 0xfd, 0x00} // zstd magic 但截断
+	corruptedZstd := []byte{0x28, 0xb5, 0x2f, 0xfd, 0x00} // Zstandard magic number, but truncated.
 	_, err = DecompressByEncoding(corruptedZstd, "zstd")
 	assert.Error(t, err)
 }
@@ -95,7 +95,7 @@ func TestDecompressIfNeededWithBrotli(t *testing.T) {
 	compressed, err := CompressContent(original, "br")
 	require.NoError(t, err)
 
-	// decompressIfNeeded 应靠魔数嗅探解压
+	// decompressIfNeeded should detect compression by magic number and decompress.
 	decompressed, err := decompressIfNeeded(compressed, "application/octet-stream")
 	require.NoError(t, err)
 	assert.Equal(t, original, decompressed)
@@ -112,12 +112,12 @@ func TestDecompressIfNeededWithZstd(t *testing.T) {
 }
 
 func TestDecodeContentWithBrotliBase64(t *testing.T) {
-	// 模拟 HAR 里 Content.Encoding="base64" + 实际被 brotli 压缩的 body
+	// Simulate Content.Encoding="base64" with a Brotli-compressed body in a HAR file.
 	original := []byte("HAR body content compressed with brotli then base64 encoded")
 	brCompressed, err := CompressContent(original, "br")
 	require.NoError(t, err)
 
-	// 手造一个 Content 结构
+	// Construct a Content structure manually.
 	content := &Content{
 		Text:     encodeBase64(brCompressed),
 		Encoding: "base64",
@@ -125,7 +125,7 @@ func TestDecodeContentWithBrotliBase64(t *testing.T) {
 		Size:     len(original),
 	}
 
-	// DecodeContent 应：先 base64 解码 → 再 brotli 解压
+	// DecodeContent should base64-decode first, then decompress Brotli.
 	decoded, err := content.DecodeContent()
 	require.NoError(t, err)
 	assert.Equal(t, original, decoded)
