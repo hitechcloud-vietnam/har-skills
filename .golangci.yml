@@ -1,0 +1,34 @@
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+issues:
+  exclude-dirs:
+    # examples 是示例代码，非生产路径；其 import 根模块在 typecheck 缓存中
+    # 偶发误报，且不属于 SDK/CLI 交付范围，故排除。
+    - examples
+  skip-dirs:
+    - examples
+  exclude-rules:
+    # examples 是示例代码，非生产路径；typecheck 在 Go 版本错配时对根模块
+    # import 偶发误报，且 examples 不属于 SDK/CLI 交付范围。
+    - path: examples
+      linters:
+        - typecheck
+    # assertHarErrorCode 是测试断言辅助函数，返回 *HarError 仅供可选的链式
+    # 进一步断言使用；其内部已通过 t.Fatalf 保证断言失败即终止测试，
+    # 因此不检查其返回值是合理且安全的。
+    - path: _test\.go
+      linters:
+        - errcheck
+      source: "assertHarErrorCode\\("
+    # 测试清理路径中常见的文件权限/删除操作，返回值不影响测试结论
+    - path: _test\.go
+      linters:
+        - errcheck
+      source: "os\\.(Chmod|Chdir|Remove|RemoveAll)\\("

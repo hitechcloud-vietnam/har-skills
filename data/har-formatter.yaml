@@ -1,0 +1,108 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {
+      "name": "thanhan92-f1",
+      "version": "1.1.8"
+    },
+    "pages": [
+      {
+        "startedDateTime": "2015-09-06T10:02:41.663Z", // Page load start time (ISO 8601 format)
+        "id": "http://www.ihorve.com/", // Unique page identifier, i.e. the page URL
+        "title": "Horve Garden", // Page title
+        "pageTimings": { // Detailed page loading timing information
+          "onContentLoad": 1720, // Milliseconds from page load start until page content is loaded
+          "onLoad": 2500, // Milliseconds from page load start until the onload event
+          "comment": "" // Optional comment provided by the user or application
+        }
+      }
+    ],
+    "entries": [ // Array containing all requests, with each item representing one request, sorted by startedDateTime
+      {
+        "startedDateTime": "2015-09-06T10:02:41.645Z", // Time when the request was sent (ISO 8601)
+        "time": 1221, // Total time taken by this request, in milliseconds
+        "request": { // Detailed request information
+          "method": "GET", // HTTP request method
+          "url": "http://www.ihorve.com/", // Request URL
+          "httpVersion": "HTTP/1.1", // HTTP protocol version
+          "cookies": [], // List of cookie objects
+          "headers": [ // Request headers
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/534.34 (KHTML, like Gecko) PhantomJS/1.9.8 Safari/534.34"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ],
+          "queryString": [], // List of query parameter objects
+          "headersSize": -1, // Total byte size from the beginning of the HTTP request message up to and including the double CRLF before the body; -1 if unavailable
+          "bodySize": -1 // Size of the message body in bytes; -1 if unavailable
+        },
+        "response": { // Detailed response information
+          "status": 200, // HTTP status code
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [], // List of cookie objects
+          "headers": [ // List of response headers
+            {
+              "name": "Server",
+              "value": "nginx"
+            },
+            {
+              "name": "Date",
+              "value": "Sun, 06 Sep 2015 09:59:22 GMT"
+            },
+            {
+              "name": "Content-Type",
+              "value": "text/html; charset=UTF-8"
+            },
+            {
+              "name": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Keep-Alive",
+              "value": "timeout=60"
+            },
+            {
+              "name": "X-Pingback",
+              "value": "http://www.ihorve.com/xmlrpc.php"
+            },
+            {
+              "name": "Content-Encoding",
+              "value": "gzip"
+            }
+          ],
+          "redirectURL": "", // Target URL specified by the Location response header
+          "headersSize": -1, // Total byte size from the beginning of the HTTP response message up to and including the double CRLF before the body; -1 if unavailable
+          "bodySize": 65047, // Size of the response body in bytes
+          "content": { // Detailed response body information
+            "size": 65047, // Size of the response body in bytes
+            "mimeType": "text/html; charset=UTF-8" // MIME type of the response body
+          }
+        },
+        "cache": { // Browser cache information for this request
+          "beforeRequest": {}, // Optional cache entry state before the request
+          "afterRequest": {}, // Optional cache entry state after the request
+          "comment": ""
+        },
+        "timings": { // Time spent in each phase from sending the request to receiving the response, in milliseconds
+          "blocked": 0, // Optional: time waiting for a network connection
+          "dns": -1, // Optional: DNS resolution time; -1 if unavailable
+          "connect": -1, // Optional: TCP connection establishment time; -1 if unavailable
+          "send": 0, // Time spent sending the HTTP request
+          "wait": 1126, // Time waiting for the response
+          "receive": 95, // Time spent receiving the response or reading from cache
+          "ssl": -1 // Optional: SSL/TLS negotiation time; -1 if unavailable
+        },
+        "pageref": "http://www.ihorve.com/" // Optional: unique reference to the parent page; may be omitted if the application does not support page grouping
+      }
+    ]
+  }
+}
