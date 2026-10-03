@@ -126,16 +126,16 @@ func createInvalidJSON() string {
 		"log": {
 			"version": "1.2",
 			"creator": {
-				"name": "测试用例",
+				"name": "Test case",
 				"version": "1.0"
 			},
 			"pages": [
 				{
 					"startedDateTime": "invalid-date",
 					"id": "page_1",
-					"title": "测试页面",
+					"title": "Test page",
 					"pageTimings": {
-						"onContentLoad": "非数字",
+						"onContentLoad": "not a number",
 						"onLoad": 500
 					}
 				}
@@ -156,7 +156,7 @@ func createInvalidJSON() string {
 						]
 					},
 					"response": {
-						"status": "非数字",
+						"status": "not a number",
 						"statusText": "OK",
 						"content": {
 							"size": 1024,
@@ -165,7 +165,7 @@ func createInvalidJSON() string {
 					}
 				},
 				{
-					"无效字段": "这会导致解析错误",
+					"invalidField": "This triggers a parsing error",
 					"request": {
 						"method": "POST",
 						"url": "https://example.com/api"

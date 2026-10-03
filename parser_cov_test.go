@@ -198,7 +198,7 @@ func TestCovParseHarFileEnhancedUnknownError(t *testing.T) {
 	assert.NotNil(t, h)
 }
 
-// TestCovParseHarFileEnhancedSuccess covers lines 86: success path。
+// TestCovParseHarFileEnhancedSuccess covers line 86: success path.
 func TestCovParseHarFileEnhancedSuccess(t *testing.T) {
 	p := covWriteFile(t, "ok.har", validHarJSON())
 	h, he := ParseHarFileEnhanced(p)
@@ -208,16 +208,16 @@ func TestCovParseHarFileEnhancedSuccess(t *testing.T) {
 
 // --- ParseHarLenient coverage ---
 
-// TestCovParseHarLenient coverage行 90-95: entire function。
+// TestCovParseHarLenient covers lines 90-95: entire function.
 func TestCovParseHarLenient(t *testing.T) {
 	h, err := ParseHarLenient(validHarJSON())
 	require.NoError(t, err)
 	assert.NotNil(t, h)
 }
 
-// TestCovParseHarLenientPartial covers lines 90-95: lenient mode with partial errors。
+// TestCovParseHarLenientPartial covers lines 90-95: lenient mode with partial errors.
 func TestCovParseHarLenientPartial(t *testing.T) {
-	// 有 entries 但 version 错误类型
+	// entries exist, but version has the wrong type
 	bad := []byte(`{"log":{"version":123,"entries":[{"request":{"method":"GET","url":"http://x"}}]}}`)
 	h, err := ParseHarLenient(bad)
 	// entries exist, so Har is returned even if there are errors (CollectWarnings=true).
@@ -228,7 +228,7 @@ func TestCovParseHarLenientPartial(t *testing.T) {
 
 // --- ParseHarFileLenient coverage ---
 
-// TestCovParseHarFileLenient coverage行 98-103: entire function。
+// TestCovParseHarFileLenient covers lines 98-103: entire function.
 func TestCovParseHarFileLenient(t *testing.T) {
 	p := covWriteFile(t, "ok.har", validHarJSON())
 	h, err := ParseHarFileLenient(p)
@@ -236,7 +236,7 @@ func TestCovParseHarFileLenient(t *testing.T) {
 	assert.NotNil(t, h)
 }
 
-// TestCovParseHarFileLenientReadError covers lines 98-103: file does not exist。
+// TestCovParseHarFileLenientReadError covers lines 98-103: file does not exist.
 func TestCovParseHarFileLenientReadError(t *testing.T) {
 	h, err := ParseHarFileLenient("/nonexistent/file.har")
 	assert.Nil(t, h)
@@ -245,7 +245,7 @@ func TestCovParseHarFileLenientReadError(t *testing.T) {
 
 // --- validateHar nil branch ---
 
-// TestCovValidateHarNil covers lines 115-117: nil 分支。
+// TestCovValidateHarNil covers lines 115-117: nil branch.
 func TestCovValidateHarNil(t *testing.T) {
 	err := validateHar(nil)
 	require.Error(t, err)
@@ -254,7 +254,7 @@ func TestCovValidateHarNil(t *testing.T) {
 	assert.Equal(t, ErrCodeInvalidFormat, he.Code)
 }
 
-// TestCovValidateHarValid covers lines 119: valid HAR。
+// TestCovValidateHarValid covers line 119: valid HAR.
 func TestCovValidateHarValid(t *testing.T) {
 	h := &Har{Log: Log{Version: "1.2", Creator: Creator{Name: "x", Version: "1"}, Entries: []Entries{}}}
 	err := validateHar(h)
@@ -263,18 +263,18 @@ func TestCovValidateHarValid(t *testing.T) {
 
 // --- parseLenient branch coverage ---
 
-// TestCovParseLenientNoLog covers lines 215-217: missing log field。
+// TestCovParseLenientNoLog covers lines 215-217: missing log field.
 func TestCovParseLenientNoLog(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
 	opts.CollectWarnings = true
-	// 没有任何可解析内容（无 version/entries/pages），返回 (nil, err)
+	// No parseable content (no version/entries/pages); returns (nil, err).
 	h, err := ParseHarWithOptions([]byte(`{"foo":"bar"}`), opts)
 	assert.Nil(t, h)
 	require.Error(t, err)
 }
 
-// TestCovParseLenientNoLogNoCollect covers lines 227-230: error without warning collection。
+// TestCovParseLenientNoLogNoCollect covers lines 227-230: error without warning collection.
 func TestCovParseLenientNoLogNoCollect(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -284,32 +284,32 @@ func TestCovParseLenientNoLogNoCollect(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestCovParseLenientLogNotObject covers lines 147-150: log field is not an object (cannot parse as a map)。
+// TestCovParseLenientLogNotObject covers lines 147-150: log field is not an object (cannot parse as a map).
 func TestCovParseLenientLogNotObject(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
 	opts.CollectWarnings = true
-	// log 是字符串，无法 unmarshal 成 map[string]json.RawMessage
+	// log is a string and cannot be unmarshaled into map[string]json.RawMessage.
 	h, err := ParseHarWithOptions([]byte(`{"log":"notobj"}`), opts)
 	assert.Nil(t, h)
 	require.Error(t, err)
 }
 
-// TestCovParseLenientVersionBadType covers lines 156-159: version field has the wrong type。
+// TestCovParseLenientVersionBadType covers lines 156-159: version field has the wrong type.
 func TestCovParseLenientVersionBadType(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
 	opts.CollectWarnings = true
-	// version 是数字，无法解析为 string；但有 entries，所以返回 har
+	// version is a number and cannot be parsed as a string; entries exist, so har is returned.
 	bad := []byte(`{"log":{"version":123,"entries":[{"request":{"method":"GET","url":"http://x"}}]}}`)
 	h, err := ParseHarWithOptions(bad, opts)
 	require.NotNil(t, h)
 	assert.Len(t, h.Log.Entries, 1)
-	// 有错误（版本解析失败），CollectWarnings=true 且有内容，返回 (har, err)
+	// An error occurred (version parsing failed); CollectWarnings=true and content exists, so returns (har, err).
 	require.Error(t, err)
 }
 
-// TestCovParseLenientCreatorBadType covers lines 167-170: creator field has the wrong type。
+// TestCovParseLenientCreatorBadType covers lines 167-170: creator field has the wrong type.
 func TestCovParseLenientCreatorBadType(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -321,7 +321,7 @@ func TestCovParseLenientCreatorBadType(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestCovParseLenientPagesBadType covers lines 188-191: pages field is not an array。
+// TestCovParseLenientPagesBadType covers lines 188-191: pages field is not an array.
 func TestCovParseLenientPagesBadType(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -332,7 +332,7 @@ func TestCovParseLenientPagesBadType(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestCovParseLenientPageItemBad covers lines 177-186: pages is an array but one page fails to parse。
+// TestCovParseLenientPageItemBad covers lines 177-186: pages is an array but one page fails to parse.
 func TestCovParseLenientPageItemBad(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -346,7 +346,7 @@ func TestCovParseLenientPageItemBad(t *testing.T) {
 	require.Len(t, h.Log.Pages, 1)
 }
 
-// TestCovParseLenientEntriesBadType covers lines 209-212: entries field is not an array。
+// TestCovParseLenientEntriesBadType covers lines 209-212: entries field is not an array.
 func TestCovParseLenientEntriesBadType(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -359,7 +359,7 @@ func TestCovParseLenientEntriesBadType(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestCovParseLenientEntryItemBad covers lines 202-207: entries is an array but one entry fails to parse。
+// TestCovParseLenientEntryItemBad covers lines 202-207: entries is an array but one entry fails to parse.
 func TestCovParseLenientEntryItemBad(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -372,8 +372,8 @@ func TestCovParseLenientEntryItemBad(t *testing.T) {
 	require.Len(t, h.Log.Entries, 1)
 }
 
-// TestCovParseLenientPartialNoCollectWithContent covers lines 227-230: errors without warning collection, but with content。
-// 此时返回 (nil, err) 因为 CollectWarnings=false。
+// TestCovParseLenientPartialNoCollectWithContent covers lines 227-230: errors without warning collection, but with content.
+// Returns (nil, err) here because CollectWarnings=false.
 func TestCovParseLenientPartialNoCollectWithContent(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
@@ -390,7 +390,7 @@ func TestCovParseLenientFullFailureWithCollect(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
 	opts.CollectWarnings = true
-	// log 存在但全是坏数据，无 version/entries/pages 成功
+	// log exists but contains only invalid data; no version/entries/pages are parsed successfully.
 	bad := []byte(`{"log":{"version":123,"creator":"x","pages":"x","entries":"x"}}`)
 	h, err := ParseHarWithOptions(bad, opts)
 	assert.Nil(t, h)
@@ -408,12 +408,12 @@ func TestCovParseLenientNoErrors(t *testing.T) {
 }
 
 // TestCovParseLenientRootUnmarshalError covers lines 134-136: top-level JSON cannot be parsed as a map.
-// isJSONContent 接受数组形式 [...]，但无法 unmarshal 成 map[string]json.RawMessage。
+// isJSONContent accepts array form [...], but it cannot be unmarshaled into map[string]json.RawMessage.
 func TestCovParseLenientRootUnmarshalError(t *testing.T) {
 	opts := DefaultParseOptions()
 	opts.Lenient = true
 	opts.CollectWarnings = true
-	// 合法的 JSON 数组，isJSONContent 返回 true，但 unmarshal 到 map 失败
+	// Valid JSON array; isJSONContent returns true, but unmarshaling into a map fails.
 	h, err := ParseHarWithOptions([]byte(`[1,2,3]`), opts)
 	assert.Nil(t, h)
 	require.Error(t, err)
@@ -423,7 +423,7 @@ func TestCovParseLenientRootUnmarshalError(t *testing.T) {
 
 // TestCovParseHarWithWarningsFullFailure covers lines 259-266: complete parse failure (nil Har).
 func TestCovParseHarWithWarningsFullFailure(t *testing.T) {
-	// 空输入 -> ParseHarWithOptions 返回 (nil, err)，且 har==nil -> 完全失败分支
+	// Empty input -> ParseHarWithOptions returns (nil, err), with har==nil -> total-failure branch.
 	result, err := ParseHarWithWarnings([]byte{})
 	assert.Nil(t, result)
 	require.Error(t, err)
@@ -438,31 +438,31 @@ func TestCovParseHarWithWarningsEmpty(t *testing.T) {
 
 // TestCovParseHarWithWarningsValidNoWarnings covers lines 276-279: success with no warnings -> performFullValidation branch.
 func TestCovParseHarWithWarningsValidNoWarnings(t *testing.T) {
-	// 完全valid的 HAR，宽松模式解析无错误，validateURLs 也无警告
-	// -> 进入 performFullValidation 分支
+	// Completely valid HAR; lenient parsing has no errors, and validateURLs produces no warnings.
+	// -> enters the performFullValidation branch.
 	result, err := ParseHarWithWarnings(validHarJSON())
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	// performFullValidation 会发现缺少 creator.name/version 等，产生警告
-	// 但这里 HAR 是valid的，所以可能无警告
+	// performFullValidation detects missing creator.name/version and other fields, generating warnings.
+	// But this HAR is valid, so it may produce no warnings.
 	_ = result.Warnings
 }
 
 // TestCovParseHarWithWarningsPartialWithHar covers lines 260-262: Har is returned with a parse error -> convert the error to a warning.
 func TestCovParseHarWithWarningsPartialWithHar(t *testing.T) {
-	// version 类型错误但有 entries -> (har, err) 且 har != nil
+	// version has the wrong type but entries exist -> (har, err), with har != nil.
 	bad := []byte(`{"log":{"version":123,"entries":[{"request":{"method":"GET","url":"http://x"}}]}}`)
 	result, err := ParseHarWithWarnings(bad)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.NotNil(t, result.Har)
-	// 应该有解析警告或 URL 验证相关
-	// URL http://x 包含 :// 无空格，validateURLs 不会产生警告
-	// 但解析错误会产生警告
+	// There should be a parsing warning or a URL validation warning.
+	// URL http://x contains :// and no spaces, so validateURLs does not produce a warning.
+	// However, the parsing error produces a warning.
 	assert.NotEmpty(t, result.Warnings)
 }
 
-// TestCovParseHarWithWarningsURLValidation covers lines 270-273: validateURLs 产生警告。
+// TestCovParseHarWithWarningsURLValidation covers lines 270-273: validateURLs generates a warning.
 func TestCovParseHarWithWarningsURLValidation(t *testing.T) {
 	// The URL contains a space, triggering the validateURLs space branch.
 	bad := []byte(`{"log":{"version":"1.2","entries":[{"request":{"method":"GET","url":"http://example.com/with space"}}]}}`)
@@ -538,8 +538,8 @@ func TestCovValidateURLsValid(t *testing.T) {
 }
 
 // TestCovValidateURLsParseError covers lines 297-303: url.Parse returns an error.
-// "http://[::1" 缺少 ] 会导致 url.Parse 报错，且 URL 包含 :// 但无空格，
-// 因此进入 url.Parse 错误分支后 continue，不进入空格/协议检查。
+// "http://[::1" lacks a closing ], causing url.Parse to fail. The URL contains :// but no spaces,
+// so the url.Parse error branch continues without entering the whitespace/protocol checks.
 func TestCovValidateURLsParseError(t *testing.T) {
 	h := &Har{Log: Log{Entries: []Entries{
 		{Request: Request{URL: "http://[::1"}},
@@ -585,18 +585,18 @@ func TestCovPerformFullValidationValid(t *testing.T) {
 
 // TestCovPerformFullValidationInvalid covers lines 338-340: invalid HAR returns HarError -> GetPartialErrors.
 func TestCovPerformFullValidationInvalid(t *testing.T) {
-	// 缺少 version -> validateBasicStructure 会添加 partial error 并返回 rootError (*HarError)
+	// Missing version -> validateBasicStructure adds a partial error and returns rootError (*HarError).
 	h := &Har{Log: Log{Creator: Creator{Name: "x", Version: "1"}, Entries: []Entries{}}}
 	warnings := performFullValidation(h)
 	assert.NotEmpty(t, warnings)
 }
 
 // TestCovPerformFullValidationNonHarError covers lines 343-345: non-HarError branch.
-// 注意: ValidateHarFile 总是返回 *HarError 或 nil，因此此分支在实践中不可达。
+// Note: ValidateHarFile always returns *HarError or nil, so this branch is unreachable in practice.
 // This test documents the branch but cannot actually trigger it.
 func TestCovPerformFullValidationNonHarError(t *testing.T) {
-	// 此分支不可达，ValidateHarFile 不会返回非 *HarError 类型。
-	// 通过验证一个有部分错误的 HAR 确保走 HarError 分支。
+	// This branch is unreachable; ValidateHarFile never returns a non-*HarError type.
+	// Validate a HAR with partial errors to ensure the HarError branch is taken.
 	h := &Har{Log: Log{Creator: Creator{Name: "x", Version: "1"}, Entries: []Entries{}}}
 	warnings := performFullValidation(h)
 	assert.NotEmpty(t, warnings)
@@ -652,7 +652,7 @@ func TestCovAppendWarningsMixed(t *testing.T) {
 
 // --- ParseHarFileWithWarnings coverage ---
 
-// TestCovParseHarFileWithWarningsReadError covers lines 378-382: file read failure。
+// TestCovParseHarFileWithWarningsReadError covers lines 378-382: file read failure.
 func TestCovParseHarFileWithWarningsReadError(t *testing.T) {
 	result, err := ParseHarFileWithWarnings("/nonexistent/file.har")
 	assert.Nil(t, result)
@@ -662,7 +662,7 @@ func TestCovParseHarFileWithWarningsReadError(t *testing.T) {
 	assert.Equal(t, ErrCodeFileSystem, he.Code)
 }
 
-// TestCovParseHarFileWithWarningsSuccess covers lines 384: success path。
+// TestCovParseHarFileWithWarningsSuccess covers line 384: success path.
 func TestCovParseHarFileWithWarningsSuccess(t *testing.T) {
 	p := covWriteFile(t, "ok.har", validHarJSON())
 	result, err := ParseHarFileWithWarnings(p)
@@ -672,17 +672,17 @@ func TestCovParseHarFileWithWarningsSuccess(t *testing.T) {
 
 // --- Additional isJSONContent coverage ---
 
-// TestCovIsJSONContentArray 覆盖array-form JSON.
+// TestCovIsJSONContentArray covers array-form JSON.
 func TestCovIsJSONContentArray(t *testing.T) {
 	assert.True(t, isJSONContent([]byte("  [1,2,3]  ")))
 }
 
-// TestCovIsJSONContentObject 覆盖object-form JSON.
+// TestCovIsJSONContentObject covers object-form JSON.
 func TestCovIsJSONContentObject(t *testing.T) {
 	assert.True(t, isJSONContent([]byte("  {\"a\":1}  ")))
 }
 
-// TestCovIsJSONContentInvalid 覆盖non-JSON.
+// TestCovIsJSONContentInvalid covers non-JSON input.
 func TestCovIsJSONContentInvalid(t *testing.T) {
 	assert.False(t, isJSONContent([]byte("  hello  ")))
 	assert.False(t, isJSONContent([]byte("[1,2}"))) // mismatched delimiters

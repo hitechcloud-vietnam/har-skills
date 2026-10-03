@@ -456,7 +456,7 @@ func TestExportPythonStringEscaping(t *testing.T) {
 	result := entry.ToPythonRequests()
 
 	if !strings.Contains(result, `it\'s a test`) {
-		t.Errorf("单引号应被转义，实际: %s", result)
+		t.Errorf("Single quotes should be escaped; got: %s", result)
 	}
 	if !strings.Contains(result, `\n`) {
 		t.Errorf("Newlines should be escaped; got: %s", result)
@@ -587,7 +587,7 @@ func TestExportSaveAsPostmanCollection(t *testing.T) {
 	filePath := filepath.Join(tmpDir, "collection.json")
 
 	if err := h.SaveAsPostmanCollection(filePath); err != nil {
-		t.Fatalf("SaveAsPostmanCollection() 返回错误: %v", err)
+		t.Fatalf("SaveAsPostmanCollection()  returned error: %v", err)
 	}
 
 	// Verify that the file exists.
@@ -668,7 +668,7 @@ func TestExportToXMLNil(t *testing.T) {
 	result, err := h.ToXML()
 	assertHarErrorCode(t, err, ErrCodeInvalidFormat)
 	if result != "" {
-		t.Errorf("nil HAR应返回空字符串，实际: %s", result)
+		t.Errorf("nil HAR should return an empty string; got: %s", result)
 	}
 }
 
@@ -717,7 +717,7 @@ func TestExportSaveAsXML(t *testing.T) {
 	filePath := filepath.Join(tmpDir, "output.xml")
 
 	if err := h.SaveAsXML(filePath); err != nil {
-		t.Fatalf("SaveAsXML() 返回错误: %v", err)
+		t.Fatalf("SaveAsXML()  returned error: %v", err)
 	}
 
 	// Verify that the file exists.

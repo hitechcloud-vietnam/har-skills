@@ -75,7 +75,7 @@ func parseArgs() CommandArgs {
 	// Define command-line arguments
 	harFilePtr := flag.String("file", "", "HAR file path")
 	commandPtr := flag.String("cmd", "info", "Command to run (info, list, find, headers, timing, extract)")
-	filterPtr := flag.String("filter", "", "Filter criteria (URLregular expression、status code、type, etc.)")
+	filterPtr := flag.String("filter", "", "Filter criteria (URL, regular expression, status code, type, etc.)")
 	formatPtr := flag.String("format", "text", "Output format (text, json, csv)")
 	limitPtr := flag.Int("limit", 10, "Maximum number of results")
 	sortFieldPtr := flag.String("sort", "time", "Sort field (time, size, url, status)")

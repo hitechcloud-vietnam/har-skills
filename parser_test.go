@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 创建测试用HAR文件
+// Create test HAR files
 func setupTestFiles(t *testing.T) {
-	// 创建测试目录
+	// Create the test directory
 	testDataDir := "testdata"
 	_ = os.MkdirAll(testDataDir, 0755)
 
-	// 有效的HAR文件 - 最小配置
+	// Valid HAR file - minimal configuration
 	minimalHar := Har{
 		Log: Log{
 			Version: "1.2",
@@ -31,11 +31,11 @@ func setupTestFiles(t *testing.T) {
 	}
 	writeHarFile(t, filepath.Join(testDataDir, "minimal.har"), minimalHar)
 
-	// 有效的HAR文件 - 完整配置
+	// Valid HAR file - full configuration
 	fullHar := createFullHar()
 	writeHarFile(t, filepath.Join(testDataDir, "full.har"), fullHar)
 
-	// 有效的HAR文件 - 1.1版本
+	// Valid HAR file - version 1.1
 	har11 := Har{
 		Log: Log{
 			Version: "1.1",
@@ -48,12 +48,12 @@ func setupTestFiles(t *testing.T) {
 	}
 	writeHarFile(t, filepath.Join(testDataDir, "v1.1.har"), har11)
 
-	// 无效的HAR文件 - 缺少必要字段
+	// Invalid HAR file - missing required fields
 	invalidHar := map[string]interface{}{
 		"log": map[string]interface{}{
-			// 缺少 version
+			// Missing version
 			"creator": map[string]interface{}{
-				// 缺少 name
+				// Missing name
 				"version": "1.0",
 			},
 			"entries": []interface{}{},
@@ -61,10 +61,10 @@ func setupTestFiles(t *testing.T) {
 	}
 	writeJSONFile(t, filepath.Join(testDataDir, "invalid.har"), invalidHar)
 
-	// 无效的HAR文件 - 不是JSON格式
+	// Invalid HAR file - not JSON format
 	writeTextFile(t, filepath.Join(testDataDir, "not_json.har"), "This is not a JSON file")
 
-	// 无效的HAR文件 - 错误的日期格式
+	// Invalid HAR file - invalid date format
 	invalidDateHar := Har{
 		Log: Log{
 			Version: "1.2",
@@ -74,7 +74,7 @@ func setupTestFiles(t *testing.T) {
 			},
 			Entries: []Entries{
 				{
-					StartedDateTime: time.Now(), // 有效日期
+					StartedDateTime: time.Now(), // Valid date
 					Request: Request{
 						Method: "GET",
 						URL:    "https://example.com",
@@ -88,12 +88,12 @@ func setupTestFiles(t *testing.T) {
 	}
 	writeHarFile(t, filepath.Join(testDataDir, "invalid_date.har"), invalidDateHar)
 
-	// 大型HAR文件 - 用于性能测试
-	largeHar := createLargeHar(1000) // 1000个条目
+	// Large HAR file - for performance testing
+	largeHar := createLargeHar(1000) // 1000 entries
 	writeHarFile(t, filepath.Join(testDataDir, "large.har"), largeHar)
 }
 
-// 辅助函数：写入HAR文件
+// Helper: write a HAR file
 func writeHarFile(t *testing.T, filename string, har Har) {
 	data, err := json.MarshalIndent(har, "", "  ")
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func writeHarFile(t *testing.T, filename string, har Har) {
 	require.NoError(t, err)
 }
 
-// 辅助函数：写入任意JSON文件
+// Helper: write an arbitrary JSON file
 func writeJSONFile(t *testing.T, filename string, data interface{}) {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	require.NoError(t, err)
@@ -109,13 +109,13 @@ func writeJSONFile(t *testing.T, filename string, data interface{}) {
 	require.NoError(t, err)
 }
 
-// 辅助函数：写入文本文件
+// Helper: write a text file
 func writeTextFile(t *testing.T, filename string, content string) {
 	err := os.WriteFile(filename, []byte(content), 0644)
 	require.NoError(t, err)
 }
 
-// 辅助函数：创建完整的HAR对象
+// Helper: create a complete HAR object
 func createFullHar() Har {
 	now := time.Now()
 	return Har{
@@ -204,7 +204,7 @@ func createFullHar() Har {
 	}
 }
 
-// 辅助函数：创建大型HAR文件
+// Helper: create a large HAR file
 func createLargeHar(entriesCount int) Har {
 	now := time.Now()
 	har := Har{
@@ -261,11 +261,11 @@ func createLargeHar(entriesCount int) Har {
 	return har
 }
 
-// TestParseHarBasic 测试基本解析功能
+// TestParseHarBasic Test basic parsing functionality
 func TestParseHarBasic(t *testing.T) {
 	setupTestFiles(t)
 
-	// 测试解析最小HAR文件
+	// Test parsing a minimal HAR file
 	t.Run("ParseMinimalHar", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/minimal.har")
 		require.NoError(t, err)
@@ -277,7 +277,7 @@ func TestParseHarBasic(t *testing.T) {
 		assert.Empty(t, har.Log.Entries)
 	})
 
-	// 测试解析完整HAR文件
+	// Test parsing a complete HAR file
 	t.Run("ParseFullHar", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/full.har")
 		require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestParseHarBasic(t *testing.T) {
 		assert.Len(t, har.Log.Pages, 1)
 		assert.Len(t, har.Log.Entries, 1)
 
-		// 验证entry详情
+		// Verify entry details
 		entry := har.Log.Entries[0]
 		assert.Equal(t, "page_1", entry.Pageref)
 		assert.Equal(t, "GET", entry.Request.Method)
@@ -299,7 +299,7 @@ func TestParseHarBasic(t *testing.T) {
 		assert.Equal(t, "application/json", entry.Response.Content.MimeType)
 	})
 
-	// 测试解析无效HAR文件
+	// Test parsing an invalid HAR file
 	t.Run("ParseInvalidHar", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/invalid.har")
 		require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestParseHarBasic(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, har)
 
-		// 验证错误类型
+		// Verify the error type
 		harErr, ok := err.(*HarError)
 		if assert.True(t, ok, "Expected HarError type") {
 			assert.Equal(t, ErrCodeValidation, harErr.Code)
@@ -316,7 +316,7 @@ func TestParseHarBasic(t *testing.T) {
 		}
 	})
 
-	// 测试非JSON文件
+	// Test a non-JSON file
 	t.Run("ParseNonJsonFile", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/not_json.har")
 		require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestParseHarBasic(t *testing.T) {
 	})
 }
 
-// 测试不同版本的HAR规范
+// Test different HAR specification versions
 func TestHarVersions(t *testing.T) {
 	t.Run("ParseHarV1.1", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/version_11.har")
@@ -348,7 +348,7 @@ func TestHarVersions(t *testing.T) {
 	})
 }
 
-// 测试内存优化模式
+// Test memory-optimized mode
 func TestMemoryOptimizedParsing(t *testing.T) {
 	t.Run("ParseWithMemoryOptimized", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/full.har")
@@ -363,7 +363,7 @@ func TestMemoryOptimizedParsing(t *testing.T) {
 	})
 }
 
-// 测试懒加载模式
+// Test lazy-loading mode
 func TestLazyLoadingParsing(t *testing.T) {
 	t.Run("ParseWithLazyLoading", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/full.har")
@@ -373,7 +373,7 @@ func TestLazyLoadingParsing(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "1.2", har.GetVersion())
 
-		// 验证懒加载
+		// Verify lazy loading
 		entries := har.GetEntries()
 		assert.Len(t, entries, 1)
 
@@ -383,20 +383,20 @@ func TestLazyLoadingParsing(t *testing.T) {
 	})
 }
 
-// 测试跳过验证
+// Test skipping validation
 func TestSkipValidation(t *testing.T) {
 	t.Run("ParseInvalidHarWithSkipValidation", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/invalid.har")
 		require.NoError(t, err)
 
-		// 使用跳过验证选项，应该能解析成功
+		// Using the skip-validation option should allow parsing to succeed.
 		har, err := Parse(data, WithSkipValidation())
 		assert.NoError(t, err)
 		assert.NotNil(t, har)
 	})
 }
 
-// 测试流式解析
+// Test streaming parsing
 func TestStreamingParsing(t *testing.T) {
 	t.Run("EmptyEntries", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/minimal.har")
@@ -425,7 +425,7 @@ func TestStreamingParsing(t *testing.T) {
 			entry := parser.Entry()
 			assert.NotNil(t, entry)
 
-			// 验证条目内容
+			// Verify entry contents
 			if count == 0 {
 				assert.Equal(t, "GET", entry.Request.Method)
 				assert.Equal(t, "https://example.com/test", entry.Request.URL)
@@ -440,36 +440,36 @@ func TestStreamingParsing(t *testing.T) {
 	})
 }
 
-// 测试宽松模式
+// Test lenient mode
 func TestLenientParsing(t *testing.T) {
 	t.Run("ParseWithLenient", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/invalid.har")
 		require.NoError(t, err)
 
-		// 使用宽松解析选项
+		// Use lenient parsing options
 		har, err := Parse(data, WithLenient())
-		// 应该解析成功，但会有警告
+		// Parsing should succeed, but with warnings.
 		assert.NoError(t, err)
 		assert.NotNil(t, har)
 	})
 }
 
-// 测试增强的错误处理
+// Test enhanced error handling
 func TestEnhancedErrorHandling(t *testing.T) {
 	t.Run("ParseWithWarnings", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/invalid_url.har")
 		require.NoError(t, err)
 
-		// 使用警告收集
+		// Collect warnings
 		result, err := ParseHarWithWarnings(data)
 		assert.NoError(t, err)
 		assert.NotNil(t, result.Har)
 
-		// 由于invalid_url.har包含无效的URL，应该会产生警告
-		// 但在宽松模式下这些警告不会导致解析失败
+		// invalid_url.har contains an invalid URL, so a warning should be generated.
+		// In lenient mode, these warnings do not cause parsing to fail.
 		assert.NotEmpty(t, result.Warnings)
 
-		// 验证警告中包含URL相关的错误
+		// Verify that the warning contains a URL-related error.
 		found := false
 		for _, warning := range result.Warnings {
 			if strings.Contains(warning.Field, "url") || strings.Contains(warning.Message, "URL") {
@@ -477,11 +477,11 @@ func TestEnhancedErrorHandling(t *testing.T) {
 				break
 			}
 		}
-		assert.True(t, found, "警告中应包含URL相关的错误")
+		assert.True(t, found, "Warning should contain a URL-related error.")
 	})
 }
 
-// 测试HAR转换
+// Test HAR conversion
 func TestHarConversion(t *testing.T) {
 	t.Run("StandardToOptimized", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/full.har")

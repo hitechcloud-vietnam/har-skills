@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// ========== 辅助函数 ==========
+// ========== Helper functions ==========
 
-// createHarForUtil 创建用于工具方法测试的HAR对象
+// createHarForUtil creates a HAR object for testing utility methods
 func createHarForUtil() *Har {
 	h := NewHar()
 	h.SetCreator("test-util", "1.0")
@@ -57,36 +57,36 @@ func createHarForUtil() *Har {
 	return h
 }
 
-// ========== Har 方法测试 ==========
+// ========== Har method tests ==========
 
 func TestUtilHarClone(t *testing.T) {
 	h := createHarForUtil()
 	clone := h.Clone()
 
 	if clone == nil {
-		t.Fatal("Clone() 返回nil")
+		t.Fatal("Clone() returned nil")
 	}
 
-	// 验证克隆对象与原对象内容相同
+	// Verify that the clone has the same contents as the original.
 	if clone.Log.Version != h.Log.Version {
-		t.Errorf("Clone() 版本不匹配: got %q, want %q", clone.Log.Version, h.Log.Version)
+		t.Errorf("Clone() version mismatch: got %q, want %q", clone.Log.Version, h.Log.Version)
 	}
 	if clone.Log.Creator.Name != h.Log.Creator.Name {
-		t.Errorf("Clone() 创建者名称不匹配: got %q, want %q", clone.Log.Creator.Name, h.Log.Creator.Name)
+		t.Errorf("Clone() creator name mismatch: got %q, want %q", clone.Log.Creator.Name, h.Log.Creator.Name)
 	}
 	if len(clone.Log.Entries) != len(h.Log.Entries) {
-		t.Errorf("Clone() 条目数量不匹配: got %d, want %d", len(clone.Log.Entries), len(h.Log.Entries))
+		t.Errorf("Clone() entry count mismatch: got %d, want %d", len(clone.Log.Entries), len(h.Log.Entries))
 	}
 
-	// 验证深拷贝：修改克隆对象不应影响原始对象
+	// Verify deep copy: modifying the clone should not affect the original.
 	clone.Log.Entries[0].Request.Method = "PUT"
 	if h.Log.Entries[0].Request.Method == "PUT" {
-		t.Error("Clone() 不是深拷贝，修改克隆影响了原始对象")
+		t.Error("Clone() is not a deep copy; modifying the clone affected the original")
 	}
 
 	clone.Log.Entries[0].Request.Headers[0].Value = "modified"
 	if h.Log.Entries[0].Request.Headers[0].Value == "modified" {
-		t.Error("Clone() 头部切片未深拷贝，修改克隆影响了原始对象")
+		t.Error("Clone() header slice was not deeply copied; modifying the clone affected the original")
 	}
 }
 
@@ -94,7 +94,7 @@ func TestUtilHarCloneNil(t *testing.T) {
 	var h *Har = nil
 	clone := h.Clone()
 	if clone != nil {
-		t.Error("nil Har 的 Clone() 应返回nil")
+		t.Error("Clone() on a nil Har should return nil")
 	}
 }
 
@@ -106,36 +106,36 @@ func TestUtilHarGetEntryCount(t *testing.T) {
 		t.Errorf("GetEntryCount() = %d, want 4", count)
 	}
 
-	// 空HAR
+	// Empty HAR
 	emptyHar := NewHar()
 	if emptyHar.GetEntryCount() != 0 {
-		t.Errorf("空HAR的 GetEntryCount() = %d, want 0", emptyHar.GetEntryCount())
+		t.Errorf("GetEntryCount() of an empty HAR = %d, want 0", emptyHar.GetEntryCount())
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilHar *Har
 	if nilHar.GetEntryCount() != 0 {
-		t.Errorf("nil Har的 GetEntryCount() = %d, want 0", nilHar.GetEntryCount())
+		t.Errorf("GetEntryCount() on a nil Har = %d, want 0", nilHar.GetEntryCount())
 	}
 }
 
 func TestUtilHarWalk(t *testing.T) {
 	h := createHarForUtil()
 
-	// 测试正常遍历
+	// Test normal iteration
 	var visited []string
 	err := h.Walk(func(e *Entries) error {
 		visited = append(visited, e.Request.Method)
 		return nil
 	})
 	if err != nil {
-		t.Errorf("Walk() 返回错误: %v", err)
+		t.Errorf("Walk() returned error: %v", err)
 	}
 	if len(visited) != 4 {
-		t.Errorf("Walk() 访问了 %d 个条目, want 4", len(visited))
+		t.Errorf("Walk() visited %d entries, want 4", len(visited))
 	}
 
-	// 测试提前终止
+	// Test early termination
 	var earlyVisited []string
 	err = h.Walk(func(e *Entries) error {
 		earlyVisited = append(earlyVisited, e.Request.Method)
@@ -145,17 +145,17 @@ func TestUtilHarWalk(t *testing.T) {
 		return nil
 	})
 	if err != io.EOF {
-		t.Errorf("Walk() 提前终止时错误 = %v, want io.EOF", err)
+		t.Errorf("Walk() error on early termination = %v, want io.EOF", err)
 	}
 	if len(earlyVisited) != 2 {
-		t.Errorf("Walk() 提前终止时访问了 %d 个条目, want 2", len(earlyVisited))
+		t.Errorf("Walk() visited on early termination %d entries, want 2", len(earlyVisited))
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilHar *Har
 	err = nilHar.Walk(func(e *Entries) error { return nil })
 	if err != nil {
-		t.Errorf("nil Har的 Walk() 不应返回错误, got %v", err)
+		t.Errorf("Walk() on a nil Har should not return an error, got %v", err)
 	}
 }
 
@@ -165,7 +165,7 @@ func TestUtilHarGetUniqueDomains(t *testing.T) {
 	domains := h.GetUniqueDomains()
 	expected := []string{"cdn.example.com", "example.com", "other.com"}
 	if len(domains) != len(expected) {
-		t.Errorf("GetUniqueDomains() 返回 %d 个域名, want %d", len(domains), len(expected))
+		t.Errorf("GetUniqueDomains() returned %d domains, want %d", len(domains), len(expected))
 	}
 	for i, d := range domains {
 		if d != expected[i] {
@@ -173,10 +173,10 @@ func TestUtilHarGetUniqueDomains(t *testing.T) {
 		}
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilHar *Har
 	if nilHar.GetUniqueDomains() != nil {
-		t.Error("nil Har的 GetUniqueDomains() 应返回nil")
+		t.Error("GetUniqueDomains() on a nil Har should return nil")
 	}
 }
 
@@ -184,124 +184,124 @@ func TestUtilHarEquals(t *testing.T) {
 	h1 := createHarForUtil()
 	h2 := createHarForUtil()
 
-	// 相同内容
+	// Same contents
 	if !h1.Equals(h2) {
-		t.Error("Equals() 对相同内容的HAR应返回true")
+		t.Error("Equals() should return true for HARs with identical contents")
 	}
 
-	// 修改版本
+	// Modify version
 	h2.Log.Version = "1.1"
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同版本应返回false")
+		t.Error("Equals() should return false for different versions")
 	}
 	h2.Log.Version = h1.Log.Version
 
-	// 修改创建者
+	// Modify creator
 	h2.Log.Creator.Name = "different"
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同创建者应返回false")
+		t.Error("Equals() should return false for different creators")
 	}
 	h2.Log.Creator.Name = h1.Log.Creator.Name
 
-	// 修改浏览器
+	// Modify browser
 	h2.Log.Browser.Name = "OtherBrowser"
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同浏览器应返回false")
+		t.Error("Equals() should return false for different browsers")
 	}
 	h2.Log.Browser.Name = h1.Log.Browser.Name
 
-	// 修改条目数量
+	// Modify entry count
 	h2.Log.Entries = h2.Log.Entries[:3]
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同条目数量应返回false")
+		t.Error("Equals() should return false for different entry counts")
 	}
 
-	// 修改条目方法
+	// Modify entry method
 	h2 = createHarForUtil()
 	h2.Log.Entries[0].Request.Method = "PUT"
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同条目方法应返回false")
+		t.Error("Equals() should return false for different entry methods")
 	}
 
-	// 修改条目URL
+	// Modify entry URL
 	h2 = createHarForUtil()
 	h2.Log.Entries[0].Request.URL = "https://different.com"
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同条目URL应返回false")
+		t.Error("Equals() should return false for different entry URLs")
 	}
 
-	// 修改条目状态码
+	// Modify entry status code
 	h2 = createHarForUtil()
 	h2.Log.Entries[0].Response.Status = 404
 	if h1.Equals(h2) {
-		t.Error("Equals() 对不同状态码应返回false")
+		t.Error("Equals() should return false for different status codes")
 	}
 
-	// 双nil
+	// Both nil
 	var nilH1, nilH2 *Har
 	if !nilH1.Equals(nilH2) {
-		t.Error("Equals() 对双nil应返回true")
+		t.Error("Equals() should return true when both are nil")
 	}
 
-	// 一方nil
+	// One side nil
 	if nilH1.Equals(h1) {
-		t.Error("Equals() 对一方nil应返回false")
+		t.Error("Equals() should return false when one side is nil")
 	}
 	if h1.Equals(nilH1) {
-		t.Error("Equals() 对一方nil应返回false")
+		t.Error("Equals() should return false when one side is nil")
 	}
 }
 
 func TestUtilHarSaveToFileGzipped(t *testing.T) {
 	h := createHarForUtil()
 
-	// 创建临时文件
+	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "har_test_*.har.gz")
 	if err != nil {
-		t.Fatalf("创建临时文件失败: %v", err)
+		t.Fatalf("failed to create temporary file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
-	// 保存为gzip压缩文件
+	// Save as a gzip-compressed file
 	err = h.SaveToFileGzipped(tmpPath, true)
 	if err != nil {
-		t.Fatalf("SaveToFileGzipped() 返回错误: %v", err)
+		t.Fatalf("SaveToFileGzipped() returned error: %v", err)
 	}
 
-	// 验证文件是有效的gzip文件
+	// Verify the file is a valid gzip file.
 	f, err := os.Open(tmpPath)
 	if err != nil {
-		t.Fatalf("打开gzip文件失败: %v", err)
+		t.Fatalf("failed to open gzip file: %v", err)
 	}
 	defer f.Close()
 
 	gzReader, err := gzip.NewReader(f)
 	if err != nil {
-		t.Fatalf("创建gzip reader失败: %v", err)
+		t.Fatalf("failed to create gzip reader: %v", err)
 	}
 	defer gzReader.Close()
 
 	data, err := io.ReadAll(gzReader)
 	if err != nil {
-		t.Fatalf("读取gzip数据失败: %v", err)
+		t.Fatalf("failed to read gzip data: %v", err)
 	}
 
-	// 验证解压后是有效的HAR JSON
+	// Verify the decompressed content is valid HAR JSON.
 	var parsedHar Har
 	if err := json.Unmarshal(data, &parsedHar); err != nil {
-		t.Fatalf("解析解压后的JSON失败: %v", err)
+		t.Fatalf("failed to parse decompressed JSON: %v", err)
 	}
 	if parsedHar.GetEntryCount() != 4 {
-		t.Errorf("解压后的HAR条目数 = %d, want 4", parsedHar.GetEntryCount())
+		t.Errorf("Decompressed HAR entry count = %d, want 4", parsedHar.GetEntryCount())
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilHar *Har
 	err = nilHar.SaveToFileGzipped(tmpPath, true)
 	if err == nil {
-		t.Error("nil Har的 SaveToFileGzipped() 应返回错误")
+		t.Error("SaveToFileGzipped() on a nil Har should return an error")
 	}
 }
 
@@ -311,37 +311,37 @@ func TestUtilHarSaveToWriter(t *testing.T) {
 	var buf bytes.Buffer
 	err := h.SaveToWriter(&buf, false)
 	if err != nil {
-		t.Fatalf("SaveToWriter() 返回错误: %v", err)
+		t.Fatalf("SaveToWriter() returned error: %v", err)
 	}
 
-	// 验证写入的是有效JSON
+	// Verify that valid JSON was written.
 	var parsedHar Har
 	if err := json.Unmarshal(buf.Bytes(), &parsedHar); err != nil {
-		t.Fatalf("解析SaveToWriter输出失败: %v", err)
+		t.Fatalf("failed to parse SaveToWriter output: %v", err)
 	}
 	if parsedHar.GetEntryCount() != 4 {
-		t.Errorf("SaveToWriter输出的HAR条目数 = %d, want 4", parsedHar.GetEntryCount())
+		t.Errorf("HAR entry count in SaveToWriter output = %d, want 4", parsedHar.GetEntryCount())
 	}
 
-	// 测试带缩进
+	// Test with indentation
 	buf.Reset()
 	err = h.SaveToWriter(&buf, true)
 	if err != nil {
-		t.Fatalf("SaveToWriter(indent=true) 返回错误: %v", err)
+		t.Fatalf("SaveToWriter(indent=true) returned error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "\n") {
-		t.Error("SaveToWriter(indent=true) 输出应包含换行符")
+		t.Error("SaveToWriter(indent=true) output should contain a newline")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilHar *Har
 	err = nilHar.SaveToWriter(&buf, true)
 	if err == nil {
-		t.Error("nil Har的 SaveToWriter() 应返回错误")
+		t.Error("SaveToWriter() on a nil Har should return an error")
 	}
 }
 
-// ========== Entries 方法测试 ==========
+// ========== Entries method tests ==========
 
 func TestUtilEntriesIsError(t *testing.T) {
 	h := createHarForUtil()
@@ -362,10 +362,10 @@ func TestUtilEntriesIsError(t *testing.T) {
 		}
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.IsError() != false {
-		t.Error("nil Entries的 IsError() 应返回false")
+		t.Error("IsError() on nil Entries should return false")
 	}
 }
 
@@ -388,10 +388,10 @@ func TestUtilEntriesIsRedirect(t *testing.T) {
 		}
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.IsRedirect() != false {
-		t.Error("nil Entries的 IsRedirect() 应返回false")
+		t.Error("IsRedirect() on nil Entries should return false")
 	}
 }
 
@@ -414,17 +414,17 @@ func TestUtilEntriesIsSuccess(t *testing.T) {
 		}
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.IsSuccess() != false {
-		t.Error("nil Entries的 IsSuccess() 应返回false")
+		t.Error("IsSuccess() on nil Entries should return false")
 	}
 }
 
 func TestUtilEntriesGetElapsedTime(t *testing.T) {
 	h := createHarForUtil()
 
-	// entry0 的 timings: 10+5+15+3+50+10+8 = 101ms (但Time可能由SetTimings单独计算)
+	// entry0 timings: 10+5+15+3+50+10+8 = 101ms (though Time may be calculated independently by SetTimings)
 	duration := h.Log.Entries[0].GetElapsedTime()
 	expectedMs := h.Log.Entries[0].Time
 	expectedDuration := time.Duration(expectedMs * float64(time.Millisecond))
@@ -432,10 +432,10 @@ func TestUtilEntriesGetElapsedTime(t *testing.T) {
 		t.Errorf("GetElapsedTime() = %v, want %v", duration, expectedDuration)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.GetElapsedTime() != 0 {
-		t.Error("nil Entries的 GetElapsedTime() 应返回0")
+		t.Error("GetElapsedTime() on nil Entries should return 0")
 	}
 }
 
@@ -444,7 +444,7 @@ func TestUtilEntriesGetURL(t *testing.T) {
 
 	u := h.Log.Entries[0].GetURL()
 	if u == nil {
-		t.Fatal("GetURL() 返回nil")
+		t.Fatal("GetURL() returned nil")
 	}
 	if u.Host != "example.com" {
 		t.Errorf("GetURL().Host = %q, want %q", u.Host, "example.com")
@@ -453,10 +453,10 @@ func TestUtilEntriesGetURL(t *testing.T) {
 		t.Errorf("GetURL().Path = %q, want %q", u.Path, "/api/users")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.GetURL() != nil {
-		t.Error("nil Entries的 GetURL() 应返回nil")
+		t.Error("GetURL() on nil Entries should return nil")
 	}
 }
 
@@ -479,10 +479,10 @@ func TestUtilEntriesGetDomain(t *testing.T) {
 		}
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.GetDomain() != "" {
-		t.Error("nil Entries的 GetDomain() 应返回空字符串")
+		t.Error("GetDomain() on nil Entries should return an empty string")
 	}
 }
 
@@ -490,7 +490,7 @@ func TestUtilEntriesGetSize(t *testing.T) {
 	h := createHarForUtil()
 
 	size := h.Log.Entries[0].GetSize()
-	// 请求头大小 150 + 请求体大小 0 + 响应头大小 120 + 响应体大小 1024 = 1294
+	// Request header size 150 + request body size 0 + response header size 120 + response body size 1024 = 1294
 	// (note: AddEntry sets HeadersSize=-1 and BodySize=-1 by default, but
 	//  SetResponseContent only sets Content fields, not BodySize/HeadersSize)
 	// The actual values depend on how the test HAR was constructed.
@@ -500,10 +500,10 @@ func TestUtilEntriesGetSize(t *testing.T) {
 		t.Errorf("GetSize() = %d, should not be negative", size)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.GetSize() != 0 {
-		t.Error("nil Entries的 GetSize() 应返回0")
+		t.Error("GetSize() on nil Entries should return 0")
 	}
 }
 
@@ -512,37 +512,37 @@ func TestUtilEntriesToCurl(t *testing.T) {
 
 	curl := h.Log.Entries[0].ToCurl()
 	if curl == "" {
-		t.Fatal("ToCurl() 返回空字符串")
+		t.Fatal("ToCurl() returned an empty string")
 	}
 	if !strings.Contains(curl, "curl") {
-		t.Error("ToCurl() 应包含 'curl'")
+		t.Error("ToCurl() should contain 'curl'")
 	}
-	// GET请求不应包含 -X 参数
+	// GET requests should not include the -X option.
 	if strings.Contains(curl, "-X GET") {
-		t.Error("GET请求的ToCurl()不应包含 '-X GET'")
+		t.Error("ToCurl() for a GET request should not contain '-X GET'")
 	}
-	// 应包含请求头
+	// Should include request headers
 	if !strings.Contains(curl, "-H") {
-		t.Error("ToCurl() 应包含 '-H' 参数")
+		t.Error("ToCurl() should contain the -H option")
 	}
-	// 应包含URL
+	// Should include URL
 	if !strings.Contains(curl, "https://example.com/api/users") {
-		t.Error("ToCurl() 应包含请求URL")
+		t.Error("ToCurl() should contain the request URL")
 	}
 
-	// POST请求应包含 -X POST 和 --data
+	// POST requests should include -X POST and --data.
 	postCurl := h.Log.Entries[1].ToCurl()
 	if !strings.Contains(postCurl, "-X POST") {
-		t.Error("POST请求的ToCurl()应包含 '-X POST'")
+		t.Error("ToCurl() for a POST request should contain '-X POST'")
 	}
 	if !strings.Contains(postCurl, "--data") {
-		t.Error("POST请求的ToCurl()应包含 '--data'")
+		t.Error("ToCurl() for a POST request should contain '--data'")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.ToCurl() != "" {
-		t.Error("nil Entries的 ToCurl() 应返回空字符串")
+		t.Error("ToCurl() on nil Entries should return an empty string")
 	}
 }
 
@@ -551,31 +551,31 @@ func TestUtilEntriesToWget(t *testing.T) {
 
 	wget := h.Log.Entries[0].ToWget()
 	if wget == "" {
-		t.Fatal("ToWget() 返回空字符串")
+		t.Fatal("ToWget() returned an empty string")
 	}
 	if !strings.Contains(wget, "wget") {
-		t.Error("ToWget() 应包含 'wget'")
+		t.Error("ToWget() should contain 'wget'")
 	}
 	if !strings.Contains(wget, "--header") {
-		t.Error("ToWget() 应包含 '--header'")
+		t.Error("ToWget() should contain '--header'")
 	}
 	if !strings.Contains(wget, "https://example.com/api/users") {
-		t.Error("ToWget() 应包含请求URL")
+		t.Error("ToWget() should contain the request URL")
 	}
 
-	// POST请求
+	// POST request
 	postWget := h.Log.Entries[1].ToWget()
 	if !strings.Contains(postWget, "--method=POST") {
-		t.Error("POST请求的ToWget()应包含 '--method=POST'")
+		t.Error("ToWget() for a POST request should contain '--method=POST'")
 	}
 	if !strings.Contains(postWget, "--post-data") && !strings.Contains(postWget, "--body-data") {
-		t.Error("POST请求的ToWget()应包含 '--post-data' 或 '--body-data'")
+		t.Error("ToWget() for a POST request should contain '--post-data' or '--body-data'")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.ToWget() != "" {
-		t.Error("nil Entries的 ToWget() 应返回空字符串")
+		t.Error("ToWget() on nil Entries should return an empty string")
 	}
 }
 
@@ -584,69 +584,69 @@ func TestUtilEntriesToPythonRequests(t *testing.T) {
 
 	py := h.Log.Entries[0].ToPythonRequests()
 	if py == "" {
-		t.Fatal("ToPythonRequests() 返回空字符串")
+		t.Fatal("ToPythonRequests() returned an empty string")
 	}
 	if !strings.Contains(py, "requests.get") {
-		t.Error("GET请求的ToPythonRequests()应包含 'requests.get'")
+		t.Error("ToPythonRequests() for a GET request should contain 'requests.get'")
 	}
 	if !strings.Contains(py, "headers=") {
-		t.Error("ToPythonRequests() 应包含 'headers='")
+		t.Error("ToPythonRequests() should contain 'headers='")
 	}
 
-	// POST请求
+	// POST request
 	postPy := h.Log.Entries[1].ToPythonRequests()
 	if !strings.Contains(postPy, "requests.post") {
-		t.Error("POST请求的ToPythonRequests()应包含 'requests.post'")
+		t.Error("ToPythonRequests() for a POST request should contain 'requests.post'")
 	}
 	if !strings.Contains(postPy, "data=") {
-		t.Error("POST请求的ToPythonRequests()应包含 'data='")
+		t.Error("ToPythonRequests() for a POST request should contain 'data='")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.ToPythonRequests() != "" {
-		t.Error("nil Entries的 ToPythonRequests() 应返回空字符串")
+		t.Error("ToPythonRequests() on nil Entries should return an empty string")
 	}
 }
 
 func TestUtilEntriesGetRequestBody(t *testing.T) {
 	h := createHarForUtil()
 
-	// 无PostData的条目
+	// Entry without PostData
 	body := h.Log.Entries[0].GetRequestBody()
 	if body != nil {
-		t.Errorf("无PostData的 GetRequestBody() = %v, want nil", body)
+		t.Errorf("GetRequestBody() for an entry without PostData = %v, want nil", body)
 	}
 
-	// 有PostData的条目
+	// Entry with PostData
 	body = h.Log.Entries[1].GetRequestBody()
 	if body == nil {
-		t.Fatal("有PostData的 GetRequestBody() 返回nil")
+		t.Fatal("GetRequestBody() returned nil despite having PostData")
 	}
 	if string(body) != `{"key":"value"}` {
 		t.Errorf("GetRequestBody() = %q, want %q", string(body), `{"key":"value"}`)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	if nilEntry.GetRequestBody() != nil {
-		t.Error("nil Entries的 GetRequestBody() 应返回nil")
+		t.Error("GetRequestBody() on nil Entries should return nil")
 	}
 }
 
 func TestUtilEntriesGetResponseBody(t *testing.T) {
 	h := createHarForUtil()
 
-	// 普通文本响应
+	// Plain text response
 	body, err := h.Log.Entries[0].GetResponseBody()
 	if err != nil {
-		t.Fatalf("GetResponseBody() 返回错误: %v", err)
+		t.Fatalf("GetResponseBody() returned error: %v", err)
 	}
 	if string(body) != `{"users":[]}` {
 		t.Errorf("GetResponseBody() = %q, want %q", string(body), `{"users":[]}`)
 	}
 
-	// base64编码响应
+	// Base64-encoded response
 	entry := h.AddEntry("GET", "https://example.com/binary", "HTTP/1.1", "")
 	entry.SetResponseStatus(200, "OK")
 	entry.Response.Content.Encoding = "base64"
@@ -656,38 +656,38 @@ func TestUtilEntriesGetResponseBody(t *testing.T) {
 
 	body, err = entry.GetResponseBody()
 	if err != nil {
-		t.Fatalf("base64 GetResponseBody() 返回错误: %v", err)
+		t.Fatalf("base64 GetResponseBody() returned error: %v", err)
 	}
 	if string(body) != string(originalData) {
 		t.Errorf("base64 GetResponseBody() = %q, want %q", string(body), string(originalData))
 	}
 
-	// 空内容响应
+	// Empty content response
 	emptyEntry := h.AddEntry("GET", "https://example.com/empty", "HTTP/1.1", "")
 	emptyEntry.SetResponseStatus(204, "No Content")
 	body, err = emptyEntry.GetResponseBody()
 	if err != nil {
-		t.Fatalf("空内容 GetResponseBody() 返回错误: %v", err)
+		t.Fatalf("GetResponseBody() on empty content returned an error: %v", err)
 	}
 	if len(body) != 0 {
-		t.Errorf("空内容 GetResponseBody() = %v, want empty", body)
+		t.Errorf("GetResponseBody() on empty content = %v, want empty", body)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilEntry *Entries
 	body, err = nilEntry.GetResponseBody()
 	if body != nil || err != nil {
-		t.Errorf("nil Entries的 GetResponseBody() 应返回 (nil, nil), got (%v, %v)", body, err)
+		t.Errorf("GetResponseBody() on nil Entries should return (nil, nil), got (%v, %v)", body, err)
 	}
 }
 
-// ========== Request 方法测试 ==========
+// ========== Request method tests ==========
 
 func TestUtilRequestGetHeader(t *testing.T) {
 	h := createHarForUtil()
 	req := &h.Log.Entries[0].Request
 
-	// 存在的头部（大小写不敏感）
+	// Existing header（case-insensitive）
 	if v := req.GetHeader("accept"); v != "application/json" {
 		t.Errorf("GetHeader(\"accept\") = %q, want %q", v, "application/json")
 	}
@@ -698,15 +698,15 @@ func TestUtilRequestGetHeader(t *testing.T) {
 		t.Errorf("GetHeader(\"ACCEPT\") = %q, want %q", v, "application/json")
 	}
 
-	// 不存在的头部
+	// Nonexistent header
 	if v := req.GetHeader("X-Not-Exist"); v != "" {
 		t.Errorf("GetHeader(\"X-Not-Exist\") = %q, want empty", v)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilReq *Request
 	if v := nilReq.GetHeader("Accept"); v != "" {
-		t.Error("nil Request的 GetHeader() 应返回空字符串")
+		t.Error("on a nil Request, GetHeader() should return an empty string")
 	}
 }
 
@@ -714,12 +714,12 @@ func TestUtilRequestGetHeaders(t *testing.T) {
 	h := createHarForUtil()
 	req := &h.Log.Entries[0].Request
 
-	// 添加一个重复的头部用于测试
+	// Add a duplicate header for testing.
 	req.Headers = append(req.Headers, Headers{Name: "Accept", Value: "text/html"})
 
 	values := req.GetHeaderValues("Accept")
 	if len(values) != 2 {
-		t.Fatalf("GetHeaders(\"Accept\") 返回 %d 个值, want 2", len(values))
+		t.Fatalf("GetHeaders(\"Accept\") returned %d values, want 2", len(values))
 	}
 	if values[0] != "application/json" {
 		t.Errorf("GetHeaders(\"Accept\")[0] = %q, want %q", values[0], "application/json")
@@ -728,16 +728,16 @@ func TestUtilRequestGetHeaders(t *testing.T) {
 		t.Errorf("GetHeaders(\"Accept\")[1] = %q, want %q", values[1], "text/html")
 	}
 
-	// 不存在的头部
+	// Nonexistent header
 	values = req.GetHeaderValues("X-Not-Exist")
 	if len(values) != 0 {
-		t.Errorf("GetHeaders(\"X-Not-Exist\") 返回 %d 个值, want 0", len(values))
+		t.Errorf("GetHeaders(\"X-Not-Exist\") returned %d values, want 0", len(values))
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilReq *Request
 	if nilReq.GetHeaderValues("Accept") != nil {
-		t.Error("nil Request的 GetHeaders() 应返回nil")
+		t.Error("on a nil Request, GetHeaders() should return nil")
 	}
 }
 
@@ -745,31 +745,31 @@ func TestUtilRequestGetCookie(t *testing.T) {
 	h := createHarForUtil()
 	req := &h.Log.Entries[0].Request
 
-	// 存在的Cookie
+	// Existing Cookie
 	cookie := req.GetCookie("session")
 	if cookie == nil {
-		t.Fatal("GetCookie(\"session\") 返回nil")
+		t.Fatal("GetCookie(\"session\") returned nil")
 	}
 	if cookie.Value != "abc123" {
 		t.Errorf("GetCookie(\"session\").Value = %q, want %q", cookie.Value, "abc123")
 	}
 
-	// 不存在的Cookie
+	// Nonexistent Cookie
 	cookie = req.GetCookie("notexist")
 	if cookie != nil {
-		t.Error("GetCookie(\"notexist\") 应返回nil")
+		t.Error("GetCookie(\"notexist\") should return nil")
 	}
 
-	// Cookie名称区分大小写
+	// Cookie names are case-sensitive.
 	cookie = req.GetCookie("Session")
 	if cookie != nil {
-		t.Error("GetCookie() 应区分大小写")
+		t.Error("GetCookie() should be case-sensitive")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilReq *Request
 	if nilReq.GetCookie("session") != nil {
-		t.Error("nil Request的 GetCookie() 应返回nil")
+		t.Error("on a nil Request, GetCookie() should return nil")
 	}
 }
 
@@ -777,36 +777,36 @@ func TestUtilRequestHasHeader(t *testing.T) {
 	h := createHarForUtil()
 	req := &h.Log.Entries[0].Request
 
-	// 存在的头部（大小写不敏感）
+	// Existing header（case-insensitive）
 	if !req.HasHeader("accept") {
-		t.Error("HasHeader(\"accept\") 应返回true")
+		t.Error("HasHeader(\"accept\") should return true")
 	}
 	if !req.HasHeader("Accept") {
-		t.Error("HasHeader(\"Accept\") 应返回true")
+		t.Error("HasHeader(\"Accept\") should return true")
 	}
 	if !req.HasHeader("user-agent") {
-		t.Error("HasHeader(\"user-agent\") 应返回true")
+		t.Error("HasHeader(\"user-agent\") should return true")
 	}
 
-	// 不存在的头部
+	// Nonexistent header
 	if req.HasHeader("X-Not-Exist") {
-		t.Error("HasHeader(\"X-Not-Exist\") 应返回false")
+		t.Error("HasHeader(\"X-Not-Exist\") should return false")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilReq *Request
 	if nilReq.HasHeader("Accept") {
-		t.Error("nil Request的 HasHeader() 应返回false")
+		t.Error("on a nil Request, HasHeader() should return false")
 	}
 }
 
-// ========== Response 方法测试 ==========
+// ========== Response method tests ==========
 
 func TestUtilResponseGetHeader(t *testing.T) {
 	h := createHarForUtil()
 	resp := &h.Log.Entries[0].Response
 
-	// 存在的头部（大小写不敏感）
+	// Existing header（case-insensitive）
 	if v := resp.GetHeader("content-type"); v != "application/json" {
 		t.Errorf("GetHeader(\"content-type\") = %q, want %q", v, "application/json")
 	}
@@ -814,15 +814,15 @@ func TestUtilResponseGetHeader(t *testing.T) {
 		t.Errorf("GetHeader(\"Content-Type\") = %q, want %q", v, "application/json")
 	}
 
-	// 不存在的头部
+	// Nonexistent header
 	if v := resp.GetHeader("X-Not-Exist"); v != "" {
 		t.Errorf("GetHeader(\"X-Not-Exist\") = %q, want empty", v)
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilResp *Response
 	if v := nilResp.GetHeader("Content-Type"); v != "" {
-		t.Error("nil Response的 GetHeader() 应返回空字符串")
+		t.Error("on a nil Response, GetHeader() should return an empty string")
 	}
 }
 
@@ -830,24 +830,24 @@ func TestUtilResponseGetHeaders(t *testing.T) {
 	h := createHarForUtil()
 	resp := &h.Log.Entries[0].Response
 
-	// 添加重复头部
+	// Add duplicate header
 	resp.Headers = append(resp.Headers, Headers{Name: "Content-Type", Value: "charset=utf-8"})
 
 	values := resp.GetHeaderValues("Content-Type")
 	if len(values) != 2 {
-		t.Fatalf("GetHeaders(\"Content-Type\") 返回 %d 个值, want 2", len(values))
+		t.Fatalf("GetHeaders(\"Content-Type\") returned %d values, want 2", len(values))
 	}
 
-	// 不存在的头部
+	// Nonexistent header
 	values = resp.GetHeaderValues("X-Not-Exist")
 	if len(values) != 0 {
-		t.Errorf("GetHeaders(\"X-Not-Exist\") 返回 %d 个值, want 0", len(values))
+		t.Errorf("GetHeaders(\"X-Not-Exist\") returned %d values, want 0", len(values))
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilResp *Response
 	if nilResp.GetHeaderValues("Content-Type") != nil {
-		t.Error("nil Response的 GetHeaders() 应返回nil")
+		t.Error("on a nil Response, GetHeaders() should return nil")
 	}
 }
 
@@ -855,31 +855,31 @@ func TestUtilResponseGetCookie(t *testing.T) {
 	h := createHarForUtil()
 	resp := &h.Log.Entries[0].Response
 
-	// 存在的Cookie
+	// Existing Cookie
 	cookie := resp.GetCookie("tracking")
 	if cookie == nil {
-		t.Fatal("GetCookie(\"tracking\") 返回nil")
+		t.Fatal("GetCookie(\"tracking\") returned nil")
 	}
 	if cookie.Value != "xyz789" {
 		t.Errorf("GetCookie(\"tracking\").Value = %q, want %q", cookie.Value, "xyz789")
 	}
 
-	// 不存在的Cookie
+	// Nonexistent Cookie
 	cookie = resp.GetCookie("notexist")
 	if cookie != nil {
-		t.Error("GetCookie(\"notexist\") 应返回nil")
+		t.Error("GetCookie(\"notexist\") should return nil")
 	}
 
-	// Cookie名称区分大小写
+	// Cookie names are case-sensitive.
 	cookie = resp.GetCookie("Tracking")
 	if cookie != nil {
-		t.Error("GetCookie() 应区分大小写")
+		t.Error("GetCookie() should be case-sensitive")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilResp *Response
 	if nilResp.GetCookie("tracking") != nil {
-		t.Error("nil Response的 GetCookie() 应返回nil")
+		t.Error("on a nil Response, GetCookie() should return nil")
 	}
 }
 
@@ -888,19 +888,19 @@ func TestUtilResponseHasHeader(t *testing.T) {
 	resp := &h.Log.Entries[0].Response
 
 	if !resp.HasHeader("content-type") {
-		t.Error("HasHeader(\"content-type\") 应返回true")
+		t.Error("HasHeader(\"content-type\") should return true")
 	}
 	if !resp.HasHeader("Content-Type") {
-		t.Error("HasHeader(\"Content-Type\") 应返回true")
+		t.Error("HasHeader(\"Content-Type\") should return true")
 	}
 	if resp.HasHeader("X-Not-Exist") {
-		t.Error("HasHeader(\"X-Not-Exist\") 应返回false")
+		t.Error("HasHeader(\"X-Not-Exist\") should return false")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilResp *Response
 	if nilResp.HasHeader("Content-Type") {
-		t.Error("nil Response的 HasHeader() 应返回false")
+		t.Error("on a nil Response, HasHeader() should return false")
 	}
 }
 
@@ -913,14 +913,14 @@ func TestUtilResponseGetContentType(t *testing.T) {
 		t.Errorf("GetContentType() = %q, want %q", ct, "application/json")
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilResp *Response
 	if nilResp.GetContentType() != "" {
-		t.Error("nil Response的 GetContentType() 应返回空字符串")
+		t.Error("on a nil Response, GetContentType() should return an empty string")
 	}
 }
 
-// ========== Content 方法测试 ==========
+// ========== Content method tests ==========
 
 func TestUtilContentEncodeContent(t *testing.T) {
 	c := &Content{}
@@ -928,27 +928,27 @@ func TestUtilContentEncodeContent(t *testing.T) {
 	c.EncodeContent(data, "application/octet-stream")
 
 	if c.Encoding != "base64" {
-		t.Errorf("EncodeContent() 设置 Encoding = %q, want %q", c.Encoding, "base64")
+		t.Errorf("EncodeContent() set Encoding = %q, want %q", c.Encoding, "base64")
 	}
 	if c.MimeType != "application/octet-stream" {
-		t.Errorf("EncodeContent() 设置 MimeType = %q, want %q", c.MimeType, "application/octet-stream")
+		t.Errorf("EncodeContent() set MimeType = %q, want %q", c.MimeType, "application/octet-stream")
 	}
 	if c.Size != len(data) {
-		t.Errorf("EncodeContent() 设置 Size = %d, want %d", c.Size, len(data))
+		t.Errorf("EncodeContent() set Size = %d, want %d", c.Size, len(data))
 	}
 
-	// 验证Text可以被正确解码
+	// Verify that Text is decoded correctly.
 	decoded, err := base64.StdEncoding.DecodeString(c.Text)
 	if err != nil {
-		t.Fatalf("base64解码失败: %v", err)
+		t.Fatalf("Base64 decoding failed: %v", err)
 	}
 	if string(decoded) != string(data) {
-		t.Errorf("解码后数据 = %q, want %q", string(decoded), string(data))
+		t.Errorf("Decoded data = %q, want %q", string(decoded), string(data))
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilContent *Content
-	nilContent.EncodeContent(data, "text/plain") // 不应panic
+	nilContent.EncodeContent(data, "text/plain") // should not panic
 }
 
 func TestUtilContentSetText(t *testing.T) {
@@ -957,92 +957,92 @@ func TestUtilContentSetText(t *testing.T) {
 	c.SetText(text)
 
 	if c.Text != text {
-		t.Errorf("SetText() 设置 Text = %q, want %q", c.Text, text)
+		t.Errorf("SetText() set Text = %q, want %q", c.Text, text)
 	}
 	if c.Size != len(text) {
-		t.Errorf("SetText() 设置 Size = %d, want %d", c.Size, len(text))
+		t.Errorf("SetText() set Size = %d, want %d", c.Size, len(text))
 	}
 
-	// 更新文本
+	// Update text
 	newText := "Updated text"
 	c.SetText(newText)
 	if c.Text != newText {
-		t.Errorf("SetText() 更新 Text = %q, want %q", c.Text, newText)
+		t.Errorf("SetText() updated Text = %q, want %q", c.Text, newText)
 	}
 	if c.Size != len(newText) {
-		t.Errorf("SetText() 更新 Size = %d, want %d", c.Size, len(newText))
+		t.Errorf("SetText() updated Size = %d, want %d", c.Size, len(newText))
 	}
 
-	// nil接收者
+	// nil receiver
 	var nilContent *Content
-	nilContent.SetText("test") // 不应panic
+	nilContent.SetText("test") // should not panic
 }
 
-// ========== 从测试文件解析测试 ==========
+// ========== Tests parsing from test files ==========
 
 func TestUtilParseAndUseMethods(t *testing.T) {
-	// 从测试文件解析HAR
+	// Parse HAR from a test file
 	h, err := ParseHarFile("testdata/full.har")
 	if err != nil {
-		t.Fatalf("解析测试文件失败: %v", err)
+		t.Fatalf("Failed to parse test file: %v", err)
 	}
 
-	// 测试各种工具方法
+	// Test various utility methods
 	if h.GetEntryCount() < 1 {
-		t.Error("从文件解析的HAR应至少有1个条目")
+		t.Error("HAR parsed from file should have at least one entry")
 	}
 
 	domains := h.GetUniqueDomains()
 	if len(domains) == 0 {
-		t.Error("GetUniqueDomains() 应返回至少一个域名")
+		t.Error("GetUniqueDomains() should return at least one domain")
 	}
 
-	// 测试第一个条目的方法
+	// Test the first entry method
 	entry := &h.Log.Entries[0]
 	if !entry.IsSuccess() {
-		t.Error("第一个条目应为成功响应(200)")
+		t.Error("The first entry should be a successful response (200)")
 	}
 
 	u := entry.GetURL()
 	if u == nil {
-		t.Fatal("GetURL() 返回nil")
+		t.Fatal("GetURL() returned nil")
 	}
 
 	domain := entry.GetDomain()
 	if domain == "" {
-		t.Error("GetDomain() 不应返回空字符串")
+		t.Error("GetDomain() should not return an empty string")
 	}
 
-	// 测试请求方法
+	// Test request methods
 	reqHeader := entry.Request.GetHeader("Accept")
 	if reqHeader == "" {
-		t.Error("GetHeader(\"Accept\") 不应为空")
+		t.Error("GetHeader(\"Accept\") should not be empty")
 	}
 
-	// 测试响应方法
+	// Test response methods
 	respCT := entry.Response.GetContentType()
 	if respCT == "" {
-		t.Error("GetContentType() 不应为空")
+		t.Error("GetContentType() should not be empty")
 	}
 }
 
 func TestUtilParseMinimal(t *testing.T) {
 	h, err := ParseHarFile("testdata/minimal.har")
 	if err != nil {
-		t.Fatalf("解析minimal.har失败: %v", err)
+		t.Fatalf("Failed to parse minimal.har: %v", err)
 	}
 
 	if h.GetEntryCount() != 0 {
-		t.Errorf("minimal.har应有0个条目, got %d", h.GetEntryCount())
+		t.Errorf("minimal.har should have 0 entries, got %d", h.GetEntryCount())
 	}
 
 	domains := h.GetUniqueDomains()
 	if len(domains) != 0 {
-		t.Errorf("minimal.har的GetUniqueDomains()应返回空, got %v", domains)
+		t.Errorf("minimal.har GetUniqueDomains() should return empty, got %v", domains)
 	}
 }
 
-// ========== 综合测试 ==========
+// ========== Integration tests ==========
 
 func TestUtilClonePreservesDeepCopy(t *testing.T) {
 	h := NewHar()
@@ -1055,22 +1055,22 @@ func TestUtilClonePreservesDeepCopy(t *testing.T) {
 
 	clone := h.Clone()
 
-	// 修改克隆的请求头
+	// Modify the cloned request headers
 	clone.Log.Entries[0].Request.Headers[0].Value = "modified"
 	if h.Log.Entries[0].Request.Headers[0].Value != "value1" {
-		t.Error("修改克隆的请求头影响了原始对象")
+		t.Error("Modify the cloned request headersaffected the original object")
 	}
 
-	// 修改克隆的Cookie
+	// Modify the cloned Cookie
 	clone.Log.Entries[0].Request.Cookies[0].Value = "modified"
 	if h.Log.Entries[0].Request.Cookies[0].Value != "abc" {
-		t.Error("修改克隆的Cookie影响了原始对象")
+		t.Error("Modify the cloned Cookieaffected the original object")
 	}
 
-	// 修改克隆的响应内容
+	// Modify the cloned response content
 	clone.Log.Entries[0].Response.Content.Text = "modified content"
 	if h.Log.Entries[0].Response.Content.Text != "original content" {
-		t.Error("修改克隆的响应内容影响了原始对象")
+		t.Error("Modify the cloned response contentaffected the original object")
 	}
 }
 
@@ -1083,31 +1083,31 @@ func TestUtilWalkCount(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Errorf("Walk() 返回错误: %v", err)
+		t.Errorf("Walk() returned error: %v", err)
 	}
 	if count != 4 {
-		t.Errorf("Walk() 遍历了 %d 个条目, want 4", count)
+		t.Errorf("Walk() visited %d entries, want 4", count)
 	}
 }
 
 func TestUtilSaveToWriterRoundTrip(t *testing.T) {
 	h := createHarForUtil()
 
-	// 写入
+	// Write
 	var buf bytes.Buffer
 	err := h.SaveToWriter(&buf, true)
 	if err != nil {
-		t.Fatalf("SaveToWriter() 失败: %v", err)
+		t.Fatalf("SaveToWriter() failed: %v", err)
 	}
 
-	// 读回
+	// Read back
 	parsed, err := ParseHar(buf.Bytes())
 	if err != nil {
-		t.Fatalf("解析写入的数据失败: %v", err)
+		t.Fatalf("Failed to parse the written data: %v", err)
 	}
 
 	if !h.Equals(parsed) {
-		t.Error("SaveToWriter + ParseHar 往返测试失败")
+		t.Error("SaveToWriter + ParseHar round-trip test failed")
 	}
 }
 
@@ -1116,44 +1116,44 @@ func TestUtilGzipRoundTrip(t *testing.T) {
 
 	tmpFile, err := os.CreateTemp("", "har_gzip_test_*.har.gz")
 	if err != nil {
-		t.Fatalf("创建临时文件失败: %v", err)
+		t.Fatalf("failed to create temporary file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
-	// 保存为gzip
+	// Save asgzip
 	err = h.SaveToFileGzipped(tmpPath, true)
 	if err != nil {
-		t.Fatalf("SaveToFileGzipped() 失败: %v", err)
+		t.Fatalf("SaveToFileGzipped() failed: %v", err)
 	}
 
-	// 读取并解压
+	// Read and decompress
 	f, err := os.Open(tmpPath)
 	if err != nil {
-		t.Fatalf("打开gzip文件失败: %v", err)
+		t.Fatalf("failed to open gzip file: %v", err)
 	}
 	defer f.Close()
 
 	gzReader, err := gzip.NewReader(f)
 	if err != nil {
-		t.Fatalf("创建gzip reader失败: %v", err)
+		t.Fatalf("failed to create gzip reader: %v", err)
 	}
 	defer gzReader.Close()
 
 	data, err := io.ReadAll(gzReader)
 	if err != nil {
-		t.Fatalf("读取gzip数据失败: %v", err)
+		t.Fatalf("failed to read gzip data: %v", err)
 	}
 
-	// 解析
+	// Parse.
 	parsed, err := ParseHar(data)
 	if err != nil {
-		t.Fatalf("解析解压数据失败: %v", err)
+		t.Fatalf("Failed to parse decompressed data: %v", err)
 	}
 
 	if !h.Equals(parsed) {
-		t.Error("gzip往返测试失败")
+		t.Error("gzip round-trip test failed")
 	}
 }
 
@@ -1161,7 +1161,7 @@ func TestUtilEntriesGetSizeWithPositiveValues(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("GET", "https://example.com/test", "HTTP/1.1", "")
 	entry.SetResponseStatus(200, "OK")
-	// 手动设置正值大小
+	// Manually set a positive size
 	entry.Request.HeadersSize = 150
 	entry.Request.BodySize = 200
 	entry.Response.HeadersSize = 120
@@ -1177,7 +1177,7 @@ func TestUtilEntriesGetSizeWithPositiveValues(t *testing.T) {
 func TestUtilEntriesGetSizeWithNegativeValues(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("GET", "https://example.com/test", "HTTP/1.1", "")
-	// AddEntry默认设置HeadersSize=-1, BodySize=-1
+	// AddEntry sets HeadersSize=-1 and BodySize=-1 by default
 	entry.Request.HeadersSize = -1
 	entry.Request.BodySize = -1
 	entry.Response.HeadersSize = -1
@@ -1185,7 +1185,7 @@ func TestUtilEntriesGetSizeWithNegativeValues(t *testing.T) {
 
 	size := entry.GetSize()
 	if size != 0 {
-		t.Errorf("GetSize() 对负值应返回0, got %d", size)
+		t.Errorf("GetSize()  should return 0 for negative values, got %d", size)
 	}
 }
 
@@ -1198,10 +1198,10 @@ func TestUtilToCurlWithSpecialChars(t *testing.T) {
 
 	curl := entry.ToCurl()
 	if !strings.Contains(curl, "-X POST") {
-		t.Error("POST请求应包含 '-X POST'")
+		t.Error("POST request should include '-X POST'")
 	}
 	if !strings.Contains(curl, "--data") {
-		t.Error("有PostData的请求应包含 '--data'")
+		t.Error("Request with PostData should include '--data'")
 	}
 }
 
@@ -1209,19 +1209,19 @@ func TestUtilToPythonRequestsWithoutHeaders(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("GET", "https://example.com/simple", "HTTP/1.1", "")
 	entry.SetResponseStatus(200, "OK")
-	// 清空headers
+	// Clear headers
 	entry.Request.Headers = nil
 	entry.Request.Cookies = nil
 
 	py := entry.ToPythonRequests()
 	if !strings.Contains(py, "requests.get") {
-		t.Error("应包含 'requests.get'")
+		t.Error("should contain 'requests.get'")
 	}
 	if strings.Contains(py, "headers=") {
-		t.Error("无头部时不应包含 'headers='")
+		t.Error("should not include when there are no headers 'headers='")
 	}
 	if strings.Contains(py, "cookies=") {
-		t.Error("无Cookie时不应包含 'cookies='")
+		t.Error("should not include when there are no Cookies 'cookies='")
 	}
 }
 
@@ -1234,7 +1234,7 @@ func TestUtilGetResponseBodyInvalidBase64(t *testing.T) {
 
 	_, err := entry.GetResponseBody()
 	if err == nil {
-		t.Error("无效base64编码应返回错误")
+		t.Error("invalid base64 encoding should return an error")
 	}
 }
 
@@ -1244,15 +1244,15 @@ func TestUtilGetURLInvalid(t *testing.T) {
 	entry.SetResponseStatus(200, "OK")
 
 	u := entry.GetURL()
-	// 无效URL应返回nil或部分解析的URL
-	// url.Parse对某些格式可能不返回错误，所以验证不会panic即可
+	// Invalid URL should return nil or a partially parsed URL
+	// url.Parse may not return an error for some formats, so just verify that it does not panic.
 	_ = u
 }
 
 func TestUtilHarEqualsSelf(t *testing.T) {
 	h := createHarForUtil()
 	if !h.Equals(h) {
-		t.Error("HAR对象应等于自身")
+		t.Error("HAR object should equal itself")
 	}
 }
 
@@ -1260,7 +1260,7 @@ func TestUtilHarEqualsEmpty(t *testing.T) {
 	h1 := NewHar()
 	h2 := NewHar()
 	if !h1.Equals(h2) {
-		t.Error("两个新创建的空HAR应相等")
+		t.Error("Two newly created empty HARs should be equal")
 	}
 }
 
@@ -1269,46 +1269,46 @@ func TestUtilContentEncodeDecodeRoundTrip(t *testing.T) {
 	originalData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}
 	c.EncodeContent(originalData, "application/octet-stream")
 
-	// 模拟从JSON反序列化
+	// Simulate JSON deserialization
 	data, err := json.Marshal(c)
 	if err != nil {
-		t.Fatalf("序列化Content失败: %v", err)
+		t.Fatalf("Failed to serialize Content: %v", err)
 	}
 
 	var decoded Content
 	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("反序列化Content失败: %v", err)
+		t.Fatalf("Failed to deserialize Content: %v", err)
 	}
 
-	// 使用GetResponseBody验证解码
+	// Verify decoding using GetResponseBody
 	entry := &Entries{}
 	entry.Response.Content = decoded
 	entry.Response.Status = 200
 
 	body, err := entry.GetResponseBody()
 	if err != nil {
-		t.Fatalf("GetResponseBody() 返回错误: %v", err)
+		t.Fatalf("GetResponseBody() returned error: %v", err)
 	}
 	if !bytes.Equal(body, originalData) {
-		t.Errorf("编码解码往返测试失败: got %v, want %v", body, originalData)
+		t.Errorf("Encoding/decoding round trip failed: got %v, want %v", body, originalData)
 	}
 }
 
 func TestUtilGetUniqueDomainsWithParsedHar(t *testing.T) {
 	h, err := ParseHarFile("testdata/full.har")
 	if err != nil {
-		t.Fatalf("解析full.har失败: %v", err)
+		t.Fatalf("Failed to parse full.har: %v", err)
 	}
 
 	domains := h.GetUniqueDomains()
 	if len(domains) == 0 {
-		t.Error("full.har应至少有一个域名")
+		t.Error("full.har should have at least one domain")
 	}
 
-	// 验证域名是排序的
+	// Verify that domains are sorted.
 	for i := 1; i < len(domains); i++ {
 		if domains[i] < domains[i-1] {
-			t.Errorf("域名未排序: %q 在 %q 之前", domains[i], domains[i-1])
+			t.Errorf("Domains are not sorted: %q appears before %q.", domains[i], domains[i-1])
 		}
 	}
 }
@@ -1317,14 +1317,14 @@ func TestUtilToWgetNoPostData(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("DELETE", "https://example.com/resource/1", "HTTP/1.1", "")
 	entry.SetResponseStatus(204, "No Content")
-	entry.Request.Headers = nil // 清空headers
+	entry.Request.Headers = nil // Clear headers
 
 	wget := entry.ToWget()
 	if !strings.Contains(wget, "wget") {
-		t.Error("ToWget() 应包含 'wget'")
+		t.Error("ToWget() should contain 'wget'")
 	}
 	if !strings.Contains(wget, "--method=DELETE") {
-		t.Error("DELETE请求的ToWget()应包含 '--method=DELETE'")
+		t.Error("ToWget() for a DELETE request should contain '--method=DELETE'")
 	}
 }
 
@@ -1334,7 +1334,7 @@ func TestUtilGetElapsedTimeZero(t *testing.T) {
 	entry.Time = 0
 
 	if entry.GetElapsedTime() != 0 {
-		t.Error("Time=0时 GetElapsedTime() 应返回0")
+		t.Error("GetElapsedTime() should return 0 when Time=0")
 	}
 }
 
@@ -1342,10 +1342,10 @@ func TestUtilCloneEmptyHar(t *testing.T) {
 	h := NewHar()
 	clone := h.Clone()
 	if clone == nil {
-		t.Fatal("空HAR的Clone()不应返回nil")
+		t.Fatal("Clone() on an empty HAR should not return nil")
 	}
 	if clone.GetEntryCount() != 0 {
-		t.Error("空HAR的克隆应有0个条目")
+		t.Error("Clone of an empty HAR should have 0 entries")
 	}
 }
 
@@ -1357,10 +1357,10 @@ func TestUtilWalkEmptyHar(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Errorf("空HAR的Walk()不应返回错误: %v", err)
+		t.Errorf("Walk() on an empty HAR should not return an error: %v", err)
 	}
 	if count != 0 {
-		t.Errorf("空HAR的Walk()不应访问任何条目, got %d", count)
+		t.Errorf("Walk() on an empty HAR should not visit any entries, got %d", count)
 	}
 }
 
@@ -1368,7 +1368,7 @@ func TestUtilGetSizeMixedValues(t *testing.T) {
 	h := NewHar()
 	entry := h.AddEntry("POST", "https://example.com/upload", "HTTP/1.1", "")
 	entry.Request.HeadersSize = 200
-	entry.Request.BodySize = -1 // 未知
+	entry.Request.BodySize = -1 // unknown
 	entry.Response.HeadersSize = 150
 	entry.Response.BodySize = 500
 
@@ -1382,16 +1382,16 @@ func TestUtilGetSizeMixedValues(t *testing.T) {
 func TestUtilParseV11(t *testing.T) {
 	h, err := ParseHarFile("testdata/v1.1.har")
 	if err != nil {
-		t.Fatalf("解析v1.1.har失败: %v", err)
+		t.Fatalf("Failed to parse v1.1.har: %v", err)
 	}
 
 	if h.GetEntryCount() != 0 {
-		t.Errorf("v1.1.har应有0个条目, got %d", h.GetEntryCount())
+		t.Errorf("v1.1.har should have 0 entries, got %d", h.GetEntryCount())
 	}
 
-	// 验证版本
+	// Verify version
 	if h.Log.Version != "1.1" {
-		t.Errorf("v1.1.har版本 = %q, want %q", h.Log.Version, "1.1")
+		t.Errorf("v1.1.har version = %q, want %q", h.Log.Version, "1.1")
 	}
 }
 
@@ -1402,7 +1402,7 @@ func TestUtilGetURLParsing(t *testing.T) {
 
 	u := entry.GetURL()
 	if u == nil {
-		t.Fatal("GetURL() 返回nil")
+		t.Fatal("GetURL() returned nil")
 	}
 	if u.Host != "example.com:8443" {
 		t.Errorf("GetURL().Host = %q, want %q", u.Host, "example.com:8443")
@@ -1422,7 +1422,7 @@ func TestUtilRequestHasHeaderCaseInsensitive(t *testing.T) {
 	tests := []string{"content-type", "CONTENT-TYPE", "Content-Type", "cOnTeNt-TyPe"}
 	for _, name := range tests {
 		if !req.HasHeader(name) {
-			t.Errorf("HasHeader(%q) 应返回true", name)
+			t.Errorf("HasHeader(%q) should return true", name)
 		}
 	}
 }
@@ -1437,7 +1437,7 @@ func TestUtilResponseHasHeaderCaseInsensitive(t *testing.T) {
 	tests := []string{"x-custom-header", "X-CUSTOM-HEADER", "X-Custom-Header"}
 	for _, name := range tests {
 		if !resp.HasHeader(name) {
-			t.Errorf("HasHeader(%q) 应返回true", name)
+			t.Errorf("HasHeader(%q) should return true", name)
 		}
 	}
 }
@@ -1446,10 +1446,10 @@ func TestUtilContentSetTextEmpty(t *testing.T) {
 	c := &Content{}
 	c.SetText("")
 	if c.Text != "" {
-		t.Error("SetText(\"\") 应设置Text为空字符串")
+		t.Error("SetText(\"\") should set Text to an empty string")
 	}
 	if c.Size != 0 {
-		t.Errorf("SetText(\"\") 应设置Size为0, got %d", c.Size)
+		t.Errorf("SetText(\"\") should set Size to 0, got %d", c.Size)
 	}
 }
 
@@ -1479,7 +1479,7 @@ func TestUtilGetResponseBodyNoEncoding(t *testing.T) {
 
 	body, err := entry.GetResponseBody()
 	if err != nil {
-		t.Fatalf("GetResponseBody() 返回错误: %v", err)
+		t.Fatalf("GetResponseBody() returned error: %v", err)
 	}
 	if string(body) != "plain text content" {
 		t.Errorf("GetResponseBody() = %q, want %q", string(body), "plain text content")
@@ -1491,14 +1491,14 @@ func TestUtilGetCookieEmptySlice(t *testing.T) {
 		Cookies: []Cookie{},
 	}
 	if req.GetCookie("test") != nil {
-		t.Error("空Cookie列表的GetCookie()应返回nil")
+		t.Error("GetCookie() on an empty Cookie list should return nil")
 	}
 
 	resp := &Response{
 		Cookies: []Cookie{},
 	}
 	if resp.GetCookie("test") != nil {
-		t.Error("空Cookie列表的GetCookie()应返回nil")
+		t.Error("GetCookie() on an empty Cookie list should return nil")
 	}
 }
 
@@ -1507,21 +1507,21 @@ func TestUtilGetHeadersEmptySlice(t *testing.T) {
 		Headers: []Headers{},
 	}
 	if vals := req.GetHeaderValues("test"); len(vals) != 0 {
-		t.Errorf("空Header列表的GetHeaders()应返回空切片, got %v", vals)
+		t.Errorf("GetHeaders() on an empty Header list should return an empty slice, got %v", vals)
 	}
 
 	resp := &Response{
 		Headers: []Headers{},
 	}
 	if vals := resp.GetHeaderValues("test"); len(vals) != 0 {
-		t.Errorf("空Header列表的GetHeaders()应返回空切片, got %v", vals)
+		t.Errorf("GetHeaders() on an empty Header list should return an empty slice, got %v", vals)
 	}
 }
 
-// 验证SaveToFileGzipped内容确实被压缩了
+// Verify that SaveToFileGzipped actually compressed the contents.
 func TestUtilGzipCompressionReducesSize(t *testing.T) {
 	h := NewHar()
-	// 创建一个有大量重复数据的HAR
+	// Create a HAR with lots of repeated data.
 	for i := 0; i < 100; i++ {
 		entry := h.AddEntry("GET", "https://example.com/api/data", "HTTP/1.1", "")
 		entry.SetResponseStatus(200, "OK")
@@ -1530,35 +1530,35 @@ func TestUtilGzipCompressionReducesSize(t *testing.T) {
 		entry.AddResponseHeader("Content-Type", "application/json")
 	}
 
-	// 保存为普通JSON
+	// Save as regular JSON
 	var jsonBuf bytes.Buffer
 	if err := h.SaveToWriter(&jsonBuf, false); err != nil {
-		t.Fatalf("SaveToWriter失败: %v", err)
+		t.Fatalf("SaveToWriter failed: %v", err)
 	}
 
-	// 保存为gzip
+	// Save asgzip
 	tmpFile, err := os.CreateTemp("", "har_compress_test_*.har.gz")
 	if err != nil {
-		t.Fatalf("创建临时文件失败: %v", err)
+		t.Fatalf("failed to create temporary file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
 	if err := h.SaveToFileGzipped(tmpPath, false); err != nil {
-		t.Fatalf("SaveToFileGzipped失败: %v", err)
+		t.Fatalf("SaveToFileGzipped failed: %v", err)
 	}
 
 	fi, err := os.Stat(tmpPath)
 	if err != nil {
-		t.Fatalf("读取文件信息失败: %v", err)
+		t.Fatalf("Failed to read file information: %v", err)
 	}
 
 	gzSize := fi.Size()
 	jsonSize := int64(jsonBuf.Len())
 
 	if gzSize >= jsonSize {
-		t.Errorf("gzip压缩后大小(%d)应小于原始JSON大小(%d)", gzSize, jsonSize)
+		t.Errorf("Size after gzip compression(%d)should be smaller than the original JSON size(%d)", gzSize, jsonSize)
 	}
 }
 
@@ -1569,13 +1569,13 @@ func TestUtilToCurlSingleQuoteEscape(t *testing.T) {
 	entry.SetResponseStatus(200, "OK")
 
 	curl := entry.ToCurl()
-	// 检查单引号被正确转义（使用 '\'' 格式）
+	// Verify that single quotes are escaped correctly (using '\'' format).
 	if !strings.Contains(curl, "quotes") {
-		t.Errorf("ToCurl() 应包含原始值, got: %s", curl)
+		t.Errorf("ToCurl() should contain the original value, got: %s", curl)
 	}
-	// 确保输出不包含未转义的原始单引号在header值中
+	// Ensure the output does not contain unescaped raw single quotes in header values
 	if strings.Contains(curl, "value with 'quotes'") {
-		t.Errorf("ToCurl() 不应包含未转义的单引号, got: %s", curl)
+		t.Errorf("ToCurl() should not contain unescaped single quotes, got: %s", curl)
 	}
 }
 
@@ -1655,7 +1655,7 @@ func TestUtilSaveToFileGzippedNilHar(t *testing.T) {
 	var nilHar *Har
 	tmpFile, err := os.CreateTemp("", "har_nil_test_*.har.gz")
 	if err != nil {
-		t.Fatalf("创建临时文件失败: %v", err)
+		t.Fatalf("failed to create temporary file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
 	tmpFile.Close()
@@ -1663,7 +1663,7 @@ func TestUtilSaveToFileGzippedNilHar(t *testing.T) {
 
 	err = nilHar.SaveToFileGzipped(tmpPath, true)
 	if err == nil {
-		t.Error("nil Har的 SaveToFileGzipped() 应返回错误")
+		t.Error("SaveToFileGzipped() on a nil Har should return an error")
 	}
 }
 
@@ -1672,7 +1672,7 @@ func TestUtilSaveToWriterNilHar(t *testing.T) {
 	var buf bytes.Buffer
 	err := nilHar.SaveToWriter(&buf, true)
 	if err == nil {
-		t.Error("nil Har的 SaveToWriter() 应返回错误")
+		t.Error("SaveToWriter() on a nil Har should return an error")
 	}
 }
 
@@ -1688,7 +1688,7 @@ func (w *errorWriter) Write(p []byte) (n int, err error) {
 func TestUtilParseURLMethod(t *testing.T) {
 	u, _ := url.Parse("https://example.com/path?query=value")
 	if u == nil {
-		t.Fatal("url.Parse返回nil")
+		t.Fatal("url.Parse returned nil")
 	}
 	_ = u.Host
 	_ = u.Path

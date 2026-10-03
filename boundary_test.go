@@ -28,8 +28,8 @@ func TestCompressedHARIntegration(t *testing.T) {
 		entry := h.Log.Entries[i]
 		encoding := entry.Response.Headers[0].Value
 		data, err := entry.DecodeContent()
-		require.NoError(t, err, "entry %d (%s) 解压失败", i, encoding)
-		assert.Equal(t, expectedBody, string(data), "entry %d (%s) 解压结果不匹配", i, encoding)
+		require.NoError(t, err, "entry %d (%s) decompression failed", i, encoding)
+		assert.Equal(t, expectedBody, string(data), "entry %d (%s) decompressed output mismatch", i, encoding)
 	}
 
 	// The fifth entry uses multiple encodings, gzip and deflate; the SDK's DecodeContent currently detects compression by magic number,
@@ -62,8 +62,8 @@ func TestSensitiveHARRedactionIntegration(t *testing.T) {
 	forbidden := []string{
 		"AKIAIOSFODNN7EXAMPLE", // AWS access key
 		"eyJhbGciOiJIUzI1NiJ9", // JWT header
-		"ghp_",                 // GitHub PAT 前缀
-		"xoxb-",                // Slack token 前缀
+		"ghp_",                 // GitHub PAT prefix
+		"xoxb-",                // Slack token prefix
 		"hunter2",              // Plaintext password
 		"secret123",            // Plaintext token
 	}
@@ -205,7 +205,7 @@ func TestCompressedHARExtractByEncoding(t *testing.T) {
 
 // TestRedactValuePatternsAcrossAllFields is an integration test for value-pattern redaction across all field types.
 func TestRedactValuePatternsAcrossAllFields(t *testing.T) {
-	// 构造一个 entry，每个字段都藏一个 Bearer token
+	// Construct an entry with a ****** secret in every field.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -245,7 +245,7 @@ func TestRedactValuePatternsAcrossAllFields(t *testing.T) {
 	}
 	result := h.Redact(opts)
 
-	// 整体扫描：不应有任何 Bearer secret-token 残留
+	// Scan all fields to ensure no ****** remains.
 	jsonBytes, _ := result.ToJSON(false)
 	jsonStr := string(jsonBytes)
 	assert.NotContains(t, jsonStr, "Bearer secret-token")

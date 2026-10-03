@@ -327,7 +327,7 @@ func TestCovUnreachableDeflateWriteNeverFails(t *testing.T) {
 
 // TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs proves that
 // zlib.NewReader never returns an error for any zlib header byte sequence accepted by isDeflateData.
-// therefore decompressIfNeeded lines 186-189 are unreachable.。
+// therefore decompressIfNeeded lines 186-189 are unreachable.
 func TestCovUnreachableZlibNewReaderNeverFailsForIsDeflateDataInputs(t *testing.T) {
 	acceptedFlgs := []byte{0x01, 0x5e, 0x9c, 0xda}
 	for _, flg := range acceptedFlgs {

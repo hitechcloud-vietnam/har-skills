@@ -74,7 +74,7 @@ func TestRedactJSONArrayValues(t *testing.T) {
 // --- Value-pattern redaction (match by content, not name).---
 
 func TestRedactValuePatternsBearerToken(t *testing.T) {
-	// Bearer token 藏在自定义 header 值里
+	// ****** is hidden in a custom header value.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -492,7 +492,7 @@ func TestRedactQueryStringSimpleValuePatternFallback(t *testing.T) {
 // --- Coverage: value-pattern branch in redactKeyValuePairs. ---
 
 func TestRedactKeyValuePairsValuePattern(t *testing.T) {
-	// 表单里某字段值藏 Bearer token（明文，非 URL 编码），但字段名不在 PostDataFields
+	// A form field value contains ****** (URL-encoded), but the field name is not in PostDataFields.
 	text := `note=Bearer eyJhbGciOiJIUzI1NiJ9.abc.def&keep=1`
 	opts := RedactOptions{
 		PostDataFields: []string{},

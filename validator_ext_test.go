@@ -231,7 +231,7 @@ func TestValidateStrictCacheFields(t *testing.T) {
 	entry.SetResponseStatus(200, "OK")
 	entry.SetResponseContent(0, "text/html")
 	entry.StartedDateTime = time.Now()
-	// 设置required field is missing的Cache
+	// Set Cache where required field is missing
 	entry.Cache.BeforeRequest = &BeforeRequest{
 		ETag:     "", // required field is missing
 		HitCount: -1, // negative value

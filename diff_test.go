@@ -27,17 +27,17 @@ func createHarForDiff2() *Har {
 	h := NewHar()
 	h.SetCreator("test", "1.0")
 
-	// 相同的请求
+	// Identical requests
 	e1 := h.AddEntry("GET", "https://example.com/api/users", "HTTP/1.1", "")
 	e1.SetResponseStatus(200, "OK")
 	e1.SetResponseContent(1024, "application/json")
 
-	// 修改的请求：状态码从201变为200
+	// Modified request: status code changed from 201 to 200
 	e2 := h.AddEntry("POST", "https://example.com/api/users", "HTTP/1.1", "")
 	e2.SetResponseStatus(200, "OK")
 	e2.SetResponseContent(512, "application/json")
 
-	// 删除了 style.css，新增了 script.js
+	// Removed style.css and added script.js
 	e4 := h.AddEntry("GET", "https://example.com/static/script.js", "HTTP/1.1", "")
 	e4.SetResponseStatus(200, "OK")
 	e4.SetResponseContent(4096, "application/javascript")

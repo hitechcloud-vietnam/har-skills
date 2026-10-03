@@ -21,7 +21,7 @@
 **Depends on:** None
 **Files:** Verification only; no files are modified.
 - Read: `go.mod`
-- Read: `cmd/har/main.go`、`cmd/har/cmd/root.go`、`cmd/har/internal/*.go`
+- Read: `cmd/har/main.go`, `cmd/har/cmd/root.go`, and `cmd/har/internal/*.go`
 - Read: `.goreleaser.yaml`
 - Read: `CLAUDE.md`
 
@@ -62,7 +62,7 @@ Expected:
 Run: `go build -ldflags "-X github.com/hitechcloud-vietnam/har-skills/cmd/har/cmd.version=v0.1.2-test -X github.com/hitechcloud-vietnam/har-skills/cmd/har/cmd.commit=abc123 -X github.com/hitechcloud-vietnam/har-skills/cmd/har/cmd.date=2026-07-21" -o /tmp/har-ldflag-test ./cmd/har/ && /tmp/har-ldflag-test --version`
 Expected:
   - Exit code: 0
-  - Output contains: `HAR Skills v0.1.2-test`、`commit: abc123`、`date: 2026-07-21`
+  - Output contains: `HAR Skills v0.1.2-test`, `commit: abc123`, and `date: 2026-07-21`
   - All three variables are injected successfully. Note: quote the entire ldflags string, or the shell will split the `-X` arguments.
 
 ---

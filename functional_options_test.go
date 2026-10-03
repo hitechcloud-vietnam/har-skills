@@ -17,7 +17,7 @@ func assertDoesNotPanic(t *testing.T, fn func()) {
 	fn()
 }
 
-// ========== FilterOption 测试 ==========
+// ========== FilterOption Tests ==========
 
 func TestNewFilterOptions(t *testing.T) {
 	opts := NewFilterOptions(
@@ -171,7 +171,7 @@ func TestFilterOptionResponseHeader(t *testing.T) {
 	}
 }
 
-// ========== ReplayOption 测试 ==========
+// ========== ReplayOption Tests ==========
 
 func TestNewReplayOptions(t *testing.T) {
 	opts := NewReplayOptions(
@@ -209,7 +209,7 @@ func TestDefaultReplayOptionsFunctional(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试 ==========
+// ========== ConvertOption Tests ==========
 
 func TestNewConvertOptions(t *testing.T) {
 	opts := NewConvertOptions(
@@ -247,7 +247,7 @@ func TestConvertWithOption(t *testing.T) {
 	}
 }
 
-// ========== DiffOption 测试 ==========
+// ========== DiffOption Tests ==========
 
 func TestNewDiffOptions(t *testing.T) {
 	opts := NewDiffOptions(
@@ -290,7 +290,7 @@ func TestDiffWith(t *testing.T) {
 	})
 }
 
-// ========== MergeOption 测试 ==========
+// ========== MergeOption Tests ==========
 
 func TestNewMergeOptions(t *testing.T) {
 	opts := NewMergeOptions(
@@ -332,7 +332,7 @@ func TestMergeWith(t *testing.T) {
 	})
 }
 
-// ========== HarBuilderOption 测试 ==========
+// ========== HarBuilderOption Tests ==========
 
 func TestNewHarBuilderWithOptions(t *testing.T) {
 	builder := NewHarBuilderWithOptions(
@@ -354,7 +354,7 @@ func TestNewHarBuilderWithOptions(t *testing.T) {
 	}
 }
 
-// ========== FilterOption: WithFilterResourceType 测试 ==========
+// ========== FilterOption: WithFilterResourceType Tests ==========
 
 func TestFilterOptionResourceType(t *testing.T) {
 	opts := NewFilterOptions(
@@ -374,7 +374,7 @@ func TestFilterOptionResourceTypeEmpty(t *testing.T) {
 	}
 }
 
-// ========== ReplayOption: WithReplayTransport 测试 ==========
+// ========== ReplayOption: WithReplayTransport Tests ==========
 
 func TestReplayOptionTransport(t *testing.T) {
 	opts := NewReplayOptions(
@@ -411,7 +411,7 @@ func TestReplayOptionTransportTypedNil(t *testing.T) {
 	}
 }
 
-// ========== ReplayOption: ReplayAllWith 测试 ==========
+// ========== ReplayOption: ReplayAllWith Tests ==========
 
 func TestReplayAllWith(t *testing.T) {
 	_ = createTestHarForOpts() // verify helper works
@@ -446,7 +446,7 @@ func TestReplayAllWith(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeBodies ==========
+// ========== ConvertOption Tests: WithConvertIncludeBodies ==========
 
 func TestConvertOptionIncludeBodies(t *testing.T) {
 	opts := NewConvertOptions(
@@ -464,7 +464,7 @@ func TestConvertOptionIncludeBodies(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeCookies ==========
+// ========== ConvertOption Tests: WithConvertIncludeCookies ==========
 
 func TestConvertOptionIncludeCookies(t *testing.T) {
 	// WithConvertIncludeCookies has an empty body (cookies are handled via
@@ -479,7 +479,7 @@ func TestConvertOptionIncludeCookies(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeQueryStrings ==========
+// ========== ConvertOption Tests: WithConvertIncludeQueryStrings ==========
 
 func TestConvertOptionIncludeQueryStrings(t *testing.T) {
 	opts := NewConvertOptions(
@@ -497,7 +497,7 @@ func TestConvertOptionIncludeQueryStrings(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeSize ==========
+// ========== ConvertOption Tests: WithConvertIncludeSize ==========
 
 func TestConvertOptionIncludeSize(t *testing.T) {
 	opts := NewConvertOptions(
@@ -515,7 +515,7 @@ func TestConvertOptionIncludeSize(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeTime ==========
+// ========== ConvertOption Tests: WithConvertIncludeTime ==========
 
 func TestConvertOptionIncludeTime(t *testing.T) {
 	opts := NewConvertOptions(
@@ -533,7 +533,7 @@ func TestConvertOptionIncludeTime(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertIncludeMimeType ==========
+// ========== ConvertOption Tests: WithConvertIncludeMimeType ==========
 
 func TestConvertOptionIncludeMimeType(t *testing.T) {
 	opts := NewConvertOptions(
@@ -551,7 +551,7 @@ func TestConvertOptionIncludeMimeType(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertHeaders ==========
+// ========== ConvertOption Tests: WithConvertHeaders ==========
 
 func TestConvertOptionHeaders(t *testing.T) {
 	customHeaders := []string{"Method", "URL", "Status"}
@@ -575,7 +575,7 @@ func TestConvertOptionHeadersEmpty(t *testing.T) {
 	}
 }
 
-// ========== ConvertOption 测试: WithConvertFilter ==========
+// ========== ConvertOption Tests: WithConvertFilter ==========
 
 func TestConvertOptionFilter(t *testing.T) {
 	filter := FilterOptions{
@@ -611,7 +611,7 @@ func TestConvertOptionFilterIntegration(t *testing.T) {
 	}
 }
 
-// ========== DiffOption 测试: WithDiffIgnoreCache ==========
+// ========== DiffOption Tests: WithDiffIgnoreCache ==========
 
 func TestDiffOptionIgnoreCache(t *testing.T) {
 	opts := NewDiffOptions(
@@ -630,7 +630,7 @@ func TestDiffOptionIgnoreCache(t *testing.T) {
 	}
 }
 
-// ========== DiffOption 测试: WithDiffIgnoreComment ==========
+// ========== DiffOption Tests: WithDiffIgnoreComment ==========
 
 func TestDiffOptionIgnoreComment(t *testing.T) {
 	opts := NewDiffOptions(
@@ -648,7 +648,7 @@ func TestDiffOptionIgnoreComment(t *testing.T) {
 	}
 }
 
-// ========== DiffOption 测试: WithDiffCompareByURL ==========
+// ========== DiffOption Tests: WithDiffCompareByURL ==========
 
 func TestDiffOptionCompareByURL(t *testing.T) {
 	opts := NewDiffOptions(
@@ -679,7 +679,7 @@ func TestDiffOptionCompareByURLIntegration(t *testing.T) {
 	}
 }
 
-// ========== 辅助函数 ==========
+// ========== Helper functions ==========
 
 func createTestHarForOpts() *Har {
 	h := NewHar()
