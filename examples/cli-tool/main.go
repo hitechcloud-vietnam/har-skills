@@ -19,7 +19,7 @@ const (
 	VERSION = "0.1.0"
 )
 
-// 命令行参数
+// Command-line arguments
 type CommandArgs struct {
 	HarFile   string
 	Command   string
@@ -31,25 +31,25 @@ type CommandArgs struct {
 	Output    string
 }
 
-// 主函数
+// Main function
 func main() {
-	// 解析命令行参数
+	// Parse command-line arguments
 	args := parseArgs()
 
-	// 验证HAR文件路径
+	// Validate the HAR file path
 	if args.HarFile == "" {
-		fmt.Println("错误: 未提供HAR文件路径")
+		fmt.Println("Error: no HAR file path provided")
 		printUsage()
 		os.Exit(1)
 	}
 
-	// 加载HAR文件
+	// Load the HAR file
 	harFile, err := har.ParseFile(args.HarFile, har.WithMemoryOptimized())
 	if err != nil {
-		log.Fatalf("无法解析HAR文件: %v", err)
+		log.Fatalf("Unable to parse HAR file: %v", err)
 	}
 
-	// 执行命令
+	// Execute the command
 	switch args.Command {
 	case "info":
 		showInfo(harFile)
@@ -64,28 +64,28 @@ func main() {
 	case "extract":
 		extractContent(harFile, args)
 	default:
-		fmt.Printf("未知命令: %s\n", args.Command)
+		fmt.Printf("Unknown command: %s\n", args.Command)
 		printUsage()
 		os.Exit(1)
 	}
 }
 
-// 解析命令行参数
+// Parse command-line arguments
 func parseArgs() CommandArgs {
-	// 定义命令行参数
-	harFilePtr := flag.String("file", "", "HAR文件路径")
-	commandPtr := flag.String("cmd", "info", "要执行的命令 (info, list, find, headers, timing, extract)")
-	filterPtr := flag.String("filter", "", "筛选条件 (URL正则表达式、状态码、类型等)")
-	formatPtr := flag.String("format", "text", "输出格式 (text, json, csv)")
-	limitPtr := flag.Int("limit", 10, "结果数量限制")
-	sortFieldPtr := flag.String("sort", "time", "排序字段 (time, size, url, status)")
-	sortOrderPtr := flag.String("order", "desc", "排序顺序 (asc, desc)")
-	outputPtr := flag.String("output", "", "输出文件路径")
+	// Define command-line arguments
+	harFilePtr := flag.String("file", "", "HAR file path")
+	commandPtr := flag.String("cmd", "info", "Command to run (info, list, find, headers, timing, extract)")
+	filterPtr := flag.String("filter", "", "Filter criteria (URLregular expression、status code、type, etc.)")
+	formatPtr := flag.String("format", "text", "Output format (text, json, csv)")
+	limitPtr := flag.Int("limit", 10, "Maximum number of results")
+	sortFieldPtr := flag.String("sort", "time", "Sort field (time, size, url, status)")
+	sortOrderPtr := flag.String("order", "desc", "Sort order (asc, desc)")
+	outputPtr := flag.String("output", "", "Output file path")
 
-	// 自定义使用说明
+	// Custom usage instructions
 	flag.Usage = printUsage
 
-	// 解析参数
+	// Parse arguments
 	flag.Parse()
 
 	return CommandArgs{
@@ -100,39 +100,39 @@ func parseArgs() CommandArgs {
 	}
 }
 
-// 打印使用说明
+// Print usage instructions
 func printUsage() {
-	fmt.Printf("HAR CLI 工具 v%s - HTTP Archive 文件命令行分析工具\n\n", VERSION)
-	fmt.Println("用法: har-cli -file <har文件路径> -cmd <命令> [选项]")
-	fmt.Println("\n可用命令:")
-	fmt.Println("  info      - 显示HAR文件基本信息")
-	fmt.Println("  list      - 列出HAR文件中的请求")
-	fmt.Println("  find      - 查找匹配条件的请求")
-	fmt.Println("  headers   - 显示请求或响应头")
-	fmt.Println("  timing    - 显示请求时间分析")
-	fmt.Println("  extract   - 提取响应内容")
-	fmt.Println("\n选项:")
+	fmt.Printf("HAR CLI tool v%s - command-line analyzer for HTTP Archive files\n\n", VERSION)
+	fmt.Println("Usage: har-cli -file <HAR file path> -cmd <command> [options]")
+	fmt.Println("\nAvailable commands:")
+	fmt.Println("  info      - Show basic HAR file information")
+	fmt.Println("  list      - List requests in the HAR file")
+	fmt.Println("  find      - Find requests matching the criteria")
+	fmt.Println("  headers   - Show request or response headers")
+	fmt.Println("  timing    - Show request timing analysis")
+	fmt.Println("  extract   - Extract response content")
+	fmt.Println("\noptions:")
 	flag.PrintDefaults()
-	fmt.Println("\n示例:")
+	fmt.Println("\nExamples:")
 	fmt.Println("  har-cli -file example.har -cmd info")
 	fmt.Println("  har-cli -file example.har -cmd list -limit 20")
 	fmt.Println("  har-cli -file example.har -cmd find -filter \"api/users\"")
 	fmt.Println("  har-cli -file example.har -cmd timing -sort time -order desc")
 }
 
-// 显示HAR文件基本信息
+// Show basic HAR file information
 func showInfo(harFile har.HARProvider) {
 	entries := harFile.GetEntries()
 	pages := harFile.GetPages()
 	creator := harFile.GetCreator()
 
-	fmt.Println("=== HAR文件信息 ===")
-	fmt.Printf("版本: %s\n", harFile.GetVersion())
-	fmt.Printf("创建者: %s %s\n", creator.Name, creator.Version)
-	fmt.Printf("页面数: %d\n", len(pages))
-	fmt.Printf("请求数: %d\n", len(entries))
+	fmt.Println("=== HAR File Information ===")
+	fmt.Printf("Version: %s\n", harFile.GetVersion())
+	fmt.Printf("Creator: %s %s\n", creator.Name, creator.Version)
+	fmt.Printf("Page count: %d\n", len(pages))
+	fmt.Printf("Request count: %d\n", len(entries))
 
-	// 计算总请求大小和总响应时间
+	// Calculate total request size and response time
 	var totalSize int64
 	var totalTime float64
 	statusCodes := make(map[int]int)
@@ -145,47 +145,47 @@ func showInfo(harFile har.HARProvider) {
 		totalSize += int64(entry.Response.Content.Size)
 		totalTime += entry.Time
 
-		// 状态码统计
+		// Status code counts
 		statusCodes[entry.Response.Status]++
 
-		// 请求方法统计
+		// Request method counts
 		methods[entry.Request.Method]++
 
-		// 内容类型统计
+		// Content type counts
 		contentType := entry.Response.Content.MimeType
 		if contentType != "" {
-			// 简化内容类型
+			// Simplify content types
 			contentType = strings.Split(contentType, ";")[0]
 			contentTypes[contentType]++
 		}
 
-		// 域名统计
+		// Domain counts
 		domain := extractDomain(entry.Request.URL)
 		domains[domain]++
 	}
 
-	fmt.Printf("\n总传输大小: %.2f MB\n", float64(totalSize)/(1024*1024))
-	fmt.Printf("总响应时间: %.2f 秒\n", totalTime/1000)
+	fmt.Printf("\nTotal transfer size: %.2f MB\n", float64(totalSize)/(1024*1024))
+	fmt.Printf("Total response time: %.2f s\n", totalTime/1000)
 
 	if len(entries) > 0 {
-		fmt.Printf("平均响应大小: %.2f KB\n", float64(totalSize)/float64(len(entries))/1024)
-		fmt.Printf("平均响应时间: %.2f ms\n", totalTime/float64(len(entries)))
+		fmt.Printf("Average response size: %.2f KB\n", float64(totalSize)/float64(len(entries))/1024)
+		fmt.Printf("Average response time: %.2f ms\n", totalTime/float64(len(entries)))
 	}
 
-	// 显示状态码分布
-	fmt.Println("\n状态码分布:")
+	// Display the status code distribution
+	fmt.Println("\nStatus Code Distribution:")
 	for status, count := range statusCodes {
 		fmt.Printf("  %d: %d (%.1f%%)\n", status, count, float64(count)/float64(len(entries))*100)
 	}
 
-	// 显示请求方法分布
-	fmt.Println("\n请求方法分布:")
+	// Display request method distribution
+	fmt.Println("\nRequest method distribution:")
 	for method, count := range methods {
 		fmt.Printf("  %s: %d (%.1f%%)\n", method, count, float64(count)/float64(len(entries))*100)
 	}
 
-	// 显示前几个域名
-	fmt.Println("\n域名分布 (Top 5):")
+	// Display the top domains
+	fmt.Println("\nDomain distribution (Top 5):")
 	domainList := sortMapByValue(domains)
 	for i, item := range domainList {
 		if i >= 5 {
@@ -194,8 +194,8 @@ func showInfo(harFile har.HARProvider) {
 		fmt.Printf("  %s: %d (%.1f%%)\n", item.Key, item.Value, float64(item.Value)/float64(len(entries))*100)
 	}
 
-	// 显示前几个内容类型
-	fmt.Println("\n内容类型分布 (Top 5):")
+	// Display the top content types
+	fmt.Println("\nContent Type Distribution (Top 5):")
 	contentTypeList := sortMapByValue(contentTypes)
 	for i, item := range contentTypeList {
 		if i >= 5 {
@@ -205,63 +205,63 @@ func showInfo(harFile har.HARProvider) {
 	}
 }
 
-// 列出HAR文件中的请求
+// List requests in the HAR file
 func listEntries(harFile har.HARProvider, args CommandArgs) {
 	entries := harFile.GetEntries()
 
-	// 转换为标准格式
+	// Convert to standard format
 	var standardEntries []har.Entries
 	for _, entryProvider := range entries {
 		standardEntries = append(standardEntries, entryProvider.ToStandard())
 	}
 
-	// 排序
+	// Sort
 	sortEntries(standardEntries, args.SortField, args.SortOrder)
 
-	// 限制结果数量
+	// Limit the number of results
 	if args.Limit > 0 && args.Limit < len(standardEntries) {
 		standardEntries = standardEntries[:args.Limit]
 	}
 
-	// 打印结果
+	// Print results
 	printEntries(standardEntries, args.Format, args.Output)
 }
 
-// 按条件查找请求
+// Find requests by criteria
 func findEntries(harFile har.HARProvider, args CommandArgs) {
 	if args.Filter == "" {
-		fmt.Println("错误: 查找命令需要指定 -filter 参数")
+		fmt.Println("Error: the find command requires the -filter flag")
 		return
 	}
 
 	entries := harFile.GetEntries()
 	var filtered []har.Entries
 
-	// 检查是否是状态码筛选
+	// Check whether the filter is a status code
 	statusCode, err := strconv.Atoi(args.Filter)
 	isStatusFilter := (err == nil)
 
-	// 创建正则表达式
+	// Create a regular expression
 	var re *regexp.Regexp
 	if !isStatusFilter {
 		re, err = regexp.Compile(args.Filter)
 		if err != nil {
-			fmt.Printf("警告: 无效的正则表达式 '%s', 将使用简单字符串匹配\n", args.Filter)
+			fmt.Printf("Warning: invalid regular expression '%s'; falling back to simple string matching\n", args.Filter)
 			re = nil
 		}
 	}
 
-	// 筛选条目
+	// Filter entries
 	for _, entryProvider := range entries {
 		entry := entryProvider.ToStandard()
 
-		// 状态码筛选
+		// Status code filter
 		if isStatusFilter && entry.Response.Status == statusCode {
 			filtered = append(filtered, entry)
 			continue
 		}
 
-		// URL正则筛选
+		// URL regex filter
 		if !isStatusFilter {
 			if re != nil && re.MatchString(entry.Request.URL) {
 				filtered = append(filtered, entry)
@@ -271,27 +271,27 @@ func findEntries(harFile har.HARProvider, args CommandArgs) {
 		}
 	}
 
-	fmt.Printf("找到 %d 个匹配的请求\n", len(filtered))
+	fmt.Printf("Found %d matching requests\n", len(filtered))
 
-	// 排序
+	// Sort
 	sortEntries(filtered, args.SortField, args.SortOrder)
 
-	// 限制结果数量
+	// Limit the number of results
 	if args.Limit > 0 && args.Limit < len(filtered) {
 		filtered = filtered[:args.Limit]
 	}
 
-	// 打印结果
+	// Print results
 	printEntries(filtered, args.Format, args.Output)
 }
 
-// 排序用的键值对
+// Key-value pair used for sorting
 type KeyValue struct {
 	Key   string
 	Value int
 }
 
-// 从URL中提取域名
+// Extract the domain from a URL
 func extractDomain(url string) string {
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")
@@ -299,7 +299,7 @@ func extractDomain(url string) string {
 	return parts[0]
 }
 
-// 按值排序map
+// Sort a map by value
 func sortMapByValue(m map[string]int) []KeyValue {
 	var ss []KeyValue
 	for k, v := range m {
@@ -313,7 +313,7 @@ func sortMapByValue(m map[string]int) []KeyValue {
 	return ss
 }
 
-// 排序条目列表
+// Sort the entry list
 func sortEntries(entries []har.Entries, field, order string) {
 	sort.Slice(entries, func(i, j int) bool {
 		var less bool
@@ -337,10 +337,10 @@ func sortEntries(entries []har.Entries, field, order string) {
 	})
 }
 
-// 打印条目列表
+// Print the entry list
 func printEntries(entries []har.Entries, format, outputPath string) {
 	if len(entries) == 0 {
-		fmt.Println("无结果")
+		fmt.Println("No results")
 		return
 	}
 
@@ -354,15 +354,15 @@ func printEntries(entries []har.Entries, format, outputPath string) {
 	}
 }
 
-// 打印条目(文本格式)
+// Print entries (text format)
 func printEntriesText(entries []har.Entries, outputPath string) {
-	// 创建输出流
+	// Create the output stream
 	var output *os.File
 	var err error
 	if outputPath != "" {
 		output, err = os.Create(outputPath)
 		if err != nil {
-			fmt.Printf("无法创建输出文件: %v\n", err)
+			fmt.Printf("Unable to create output file: %v\n", err)
 			output = os.Stdout
 		}
 		defer output.Close()
@@ -370,9 +370,9 @@ func printEntriesText(entries []har.Entries, outputPath string) {
 		output = os.Stdout
 	}
 
-	// 使用表格格式化
+	// Format as a table
 	w := tabwriter.NewWriter(output, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "索引\t方法\t状态\t大小(KB)\t时间(ms)\tURL")
+	fmt.Fprintln(w, "Index\tMethod\tStatus\tSize(KB)\tTime(ms)\tURL")
 	fmt.Fprintln(w, "----\t----\t----\t--------\t--------\t---")
 
 	for i, entry := range entries {
@@ -388,9 +388,9 @@ func printEntriesText(entries []har.Entries, outputPath string) {
 	w.Flush()
 }
 
-// 打印条目(JSON格式)
+// Print entries (JSON format)
 func printEntriesJSON(entries []har.Entries, outputPath string) {
-	// 创建简化的输出结构
+	// Create a simplified output structure
 	type SimpleEntry struct {
 		Method     string  `json:"method"`
 		URL        string  `json:"url"`
@@ -414,36 +414,36 @@ func printEntriesJSON(entries []har.Entries, outputPath string) {
 		})
 	}
 
-	// 序列化为JSON
+	// Serialize as JSON
 	jsonData, err := json.MarshalIndent(simpleEntries, "", "  ")
 	if err != nil {
-		fmt.Printf("JSON序列化失败: %v\n", err)
+		fmt.Printf("JSON serialization failed: %v\n", err)
 		return
 	}
 
-	// 输出
+	// Write output
 	if outputPath != "" {
 		err := os.WriteFile(outputPath, jsonData, 0644)
 		if err != nil {
-			fmt.Printf("写入文件失败: %v\n", err)
+			fmt.Printf("Failed to write file: %v\n", err)
 			fmt.Println(string(jsonData))
 		} else {
-			fmt.Printf("已写入 %d 条记录到 %s\n", len(entries), outputPath)
+			fmt.Printf("Wrote %d records to %s\n", len(entries), outputPath)
 		}
 	} else {
 		fmt.Println(string(jsonData))
 	}
 }
 
-// 打印条目(CSV格式)
+// Print entries (CSV format)
 func printEntriesCSV(entries []har.Entries, outputPath string) {
-	// 创建输出流
+	// Create the output stream
 	var output *os.File
 	var err error
 	if outputPath != "" {
 		output, err = os.Create(outputPath)
 		if err != nil {
-			fmt.Printf("无法创建输出文件: %v\n", err)
+			fmt.Printf("Unable to create output file: %v\n", err)
 			output = os.Stdout
 		}
 		defer output.Close()
@@ -451,12 +451,12 @@ func printEntriesCSV(entries []har.Entries, outputPath string) {
 		output = os.Stdout
 	}
 
-	// 写入CSV头
+	// Write the CSV header
 	fmt.Fprintln(output, "method,url,status,statusText,mimeType,size,time")
 
-	// 写入数据行
+	// Write data rows
 	for _, entry := range entries {
-		// 处理URL中的逗号，确保CSV格式正确
+		// Handle commas in URLs to preserve valid CSV formatting
 		url := strings.ReplaceAll(entry.Request.URL, ",", "%2C")
 		statusText := strings.ReplaceAll(entry.Response.StatusText, ",", " ")
 		mimeType := strings.ReplaceAll(entry.Response.Content.MimeType, ",", " ")
@@ -473,14 +473,14 @@ func printEntriesCSV(entries []har.Entries, outputPath string) {
 	}
 
 	if outputPath != "" {
-		fmt.Printf("已写入 %d 条记录到 %s\n", len(entries), outputPath)
+		fmt.Printf("Wrote %d records to %s\n", len(entries), outputPath)
 	}
 }
 
-// 显示请求或响应头
+// Show request or response headers
 func showHeaders(harFile har.HARProvider, args CommandArgs) {
 	if args.Filter == "" {
-		fmt.Println("错误: 请指定 -filter 参数来匹配URL")
+		fmt.Println("Error: specify the -filter flag to match a URL")
 		return
 	}
 
@@ -493,21 +493,21 @@ func showHeaders(harFile har.HARProvider, args CommandArgs) {
 			found = true
 			fmt.Printf("=== %s %s ===\n", entry.Request.Method, entry.Request.URL)
 
-			fmt.Println("\n请求头:")
+			fmt.Println("\nRequest headers:")
 			for _, header := range entry.Request.Headers {
 				fmt.Printf("  %s: %s\n", header.Name, header.Value)
 			}
 
-			fmt.Println("\n响应头:")
+			fmt.Println("\nResponse headers:")
 			for _, header := range entry.Response.Headers {
 				fmt.Printf("  %s: %s\n", header.Name, header.Value)
 			}
 
-			fmt.Println("\n响应状态:", entry.Response.Status, entry.Response.StatusText)
-			fmt.Println("内容类型:", entry.Response.Content.MimeType)
-			fmt.Println("内容大小:", entry.Response.Content.Size, "字节")
+			fmt.Println("\nResponse status:", entry.Response.Status, entry.Response.StatusText)
+			fmt.Println("Content type:", entry.Response.Content.MimeType)
+			fmt.Println("Content size:", entry.Response.Content.Size, "bytes")
 
-			// 如果找到多个匹配，只处理第一个
+			// If multiple requests match, process only the first
 			if args.Limit <= 1 {
 				break
 			}
@@ -515,15 +515,15 @@ func showHeaders(harFile har.HARProvider, args CommandArgs) {
 	}
 
 	if !found {
-		fmt.Println("未找到匹配的请求")
+		fmt.Println("No matching requests found")
 	}
 }
 
-// 显示请求时间分析
+// Show request timing analysis
 func showTiming(harFile har.HARProvider, args CommandArgs) {
 	entries := harFile.GetEntries()
 
-	// 转换为标准格式并预处理
+	// Convert to standard format and preprocess
 	var timingEntries []struct {
 		URL     string
 		Method  string
@@ -541,7 +541,7 @@ func showTiming(harFile har.HARProvider, args CommandArgs) {
 	for _, entryProvider := range entries {
 		entry := entryProvider.ToStandard()
 
-		// 如果有过滤条件，跳过不匹配的
+		// If a filter is set, skip non-matching entries
 		if args.Filter != "" && !strings.Contains(entry.Request.URL, args.Filter) {
 			continue
 		}
@@ -575,7 +575,7 @@ func showTiming(harFile har.HARProvider, args CommandArgs) {
 		timingEntries = append(timingEntries, timing)
 	}
 
-	// 排序
+	// Sort
 	sort.Slice(timingEntries, func(i, j int) bool {
 		if args.SortField == "time" {
 			return timingEntries[i].Time > timingEntries[j].Time
@@ -583,21 +583,21 @@ func showTiming(harFile har.HARProvider, args CommandArgs) {
 		return timingEntries[i].Wait > timingEntries[j].Wait
 	})
 
-	// 限制结果数
+	// Limit the number of results
 	if args.Limit > 0 && args.Limit < len(timingEntries) {
 		timingEntries = timingEntries[:args.Limit]
 	}
 
-	// 打印结果
-	fmt.Println("=== 请求时间分析 ===")
-	fmt.Println("(时间单位: 毫秒)")
+	// Print results
+	fmt.Println("=== Request Timing Analysis ===")
+	fmt.Println("(Time unit: ms)")
 	fmt.Println()
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\t总时间\t阻塞\tDNS\t连接\tSSL\t发送\t等待\t接收")
+	fmt.Fprintln(w, "URL\tTotal time\tBlocked\tDNS\tConnect\tSSL\tSend\tWait\tReceive")
 
 	for _, t := range timingEntries {
-		// 简化URL显示
+		// Simplify the displayed URL
 		url := t.URL
 		if len(url) > 50 {
 			url = url[:47] + "..."
@@ -609,15 +609,15 @@ func showTiming(harFile har.HARProvider, args CommandArgs) {
 	w.Flush()
 }
 
-// 提取响应内容
+// Extract response content
 func extractContent(harFile har.HARProvider, args CommandArgs) {
 	if args.Filter == "" {
-		fmt.Println("错误: 请指定 -filter 参数来匹配URL")
+		fmt.Println("Error: specify the -filter flag to match a URL")
 		return
 	}
 
 	if args.Output == "" {
-		fmt.Println("错误: 请指定 -output 参数来设置输出文件")
+		fmt.Println("Error: specify the -output flag to set the output file")
 		return
 	}
 
@@ -629,16 +629,16 @@ func extractContent(harFile har.HARProvider, args CommandArgs) {
 		if strings.Contains(entry.Request.URL, args.Filter) {
 			found = true
 
-			// 确认输出文件
-			fmt.Printf("找到匹配请求: %s\n", entry.Request.URL)
-			fmt.Printf("内容类型: %s, 大小: %d 字节\n",
+			// Confirm the output file
+			fmt.Printf("Found matching request: %s\n", entry.Request.URL)
+			fmt.Printf("Content type: %s, size: %d bytes\n",
 				entry.Response.Content.MimeType, entry.Response.Content.Size)
 
-			// 实际代码中应该从HAR中提取内容，这里为演示简化处理
-			fmt.Println("注意: 当前版本不支持从HAR中提取实际内容")
-			fmt.Printf("将在未来版本添加此功能，会写入到: %s\n", args.Output)
+			// In production, content should be extracted from the HAR; this example uses simplified handling
+			fmt.Println("Note: this version does not support extracting actual content from a HAR file")
+			fmt.Printf("This feature will be added in a future version; output would be written to: %s\n", args.Output)
 
-			// 如果找到多个匹配，只处理第一个
+			// If multiple requests match, process only the first
 			if args.Limit <= 1 {
 				break
 			}
@@ -646,6 +646,6 @@ func extractContent(harFile har.HARProvider, args CommandArgs) {
 	}
 
 	if !found {
-		fmt.Println("未找到匹配的请求")
+		fmt.Println("No matching requests found")
 	}
 }

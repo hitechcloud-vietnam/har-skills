@@ -8,15 +8,15 @@ import (
 	"strings"
 )
 
-// ParseHarWithOptions 解析HAR格式的字节数据，使用自定义解析选项
+// ParseHarWithOptions parses HAR bytes using custom parsing options.
 func ParseHarWithOptions(harFileBytes []byte, options ParseOptions) (*Har, error) {
 	if len(harFileBytes) == 0 {
-		return nil, NewInvalidFormatError("输入为空")
+		return nil, NewInvalidFormatError("Input is empty")
 	}
 
-	// 检查文件是否是JSON格式
+	// Check whether the file is JSON.
 	if !isJSONContent(harFileBytes) {
-		return nil, NewInvalidFormatError("输入不是有效的JSON格式")
+		return nil, NewInvalidFormatError("Input is not valid JSON")
 	}
 
 	// 如果是严格模式，直接解析
@@ -37,15 +37,15 @@ func ParseHarWithOptions(harFileBytes []byte, options ParseOptions) (*Har, error
 		return har, nil
 	}
 
-	// 宽松模式（Lenient）：尝试解析尽可能多的内容
+	// Lenient mode: attempt to parse as much content as possible.
 	return parseLenient(harFileBytes, options)
 }
 
-// ParseHarFileWithOptions 解析HAR格式的文件，使用自定义解析选项
+// ParseHarFileWithOptions parses a HAR file using custom parsing options.
 func ParseHarFileWithOptions(harFilePath string, options ParseOptions) (*Har, error) {
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError(fmt.Sprintf("无法读取文件 '%s'", harFilePath), err)
+		return nil, NewFileSystemError(fmt.Sprintf("Unable to read file '%s'", harFilePath), err)
 	}
 
 	har, err := ParseHarWithOptions(harFileBytes, options)
@@ -60,27 +60,27 @@ func ParseHarFileWithOptions(harFilePath string, options ParseOptions) (*Har, er
 	return har, nil
 }
 
-// ParseHarEnhanced 增强版HAR解析，提供详细错误信息
+// ParseHarEnhanced parses HAR data and provides detailed error information.
 func ParseHarEnhanced(harFileBytes []byte) (*Har, *HarError) {
 	har, err := ParseHarWithOptions(harFileBytes, DefaultParseOptions())
 	if err != nil {
-		// ParseHarWithOptions 的所有错误路径均返回 *HarError
+		// All error paths in ParseHarWithOptions return *HarError.
 		return nil, err.(*HarError)
 	}
 	return har, nil
 }
 
-// ParseHarFileEnhanced 增强版HAR文件解析，提供详细错误信息
+// ParseHarFileEnhanced parses HAR files with detailed error information.
 func ParseHarFileEnhanced(harFilePath string) (*Har, *HarError) {
 	har, err := ParseHarFileWithOptions(harFilePath, DefaultParseOptions())
 	if err != nil {
-		// ParseHarFileWithOptions 的所有错误路径均返回 *HarError
+		// All error paths in ParseHarFileWithOptions return *HarError.
 		return nil, err.(*HarError)
 	}
 	return har, nil
 }
 
-// ParseHarLenient 宽松模式解析HAR文件内容
+// ParseHarLenient parses HAR file contents in lenient mode.
 func ParseHarLenient(harFileBytes []byte) (*Har, error) {
 	options := DefaultParseOptions()
 	options.Lenient = true
@@ -88,7 +88,7 @@ func ParseHarLenient(harFileBytes []byte) (*Har, error) {
 	return ParseHarWithOptions(harFileBytes, options)
 }
 
-// ParseHarFileLenient 宽松模式解析HAR文件
+// ParseHarFileLenient parses a HAR file in lenient mode.
 func ParseHarFileLenient(harFilePath string) (*Har, error) {
 	options := DefaultParseOptions()
 	options.Lenient = true
@@ -96,26 +96,26 @@ func ParseHarFileLenient(harFilePath string) (*Har, error) {
 	return ParseHarFileWithOptions(harFilePath, options)
 }
 
-// isJSONContent 检查内容是否是JSON格式
+// isJSONContent checks whether the content is JSON.
 func isJSONContent(content []byte) bool {
 	trimmed := strings.TrimSpace(string(content))
 	return (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
 		(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]"))
 }
 
-// validateHar 验证HAR对象内容的有效性
-// 该函数现在转发到validator.go中实现的ValidateHarFile
+// validateHar validates the contents of a Har object.
+// This function now delegates to ValidateHarFile, implemented in validator.go.
 func validateHar(har *Har) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	return ValidateHarFile(har)
 }
 
-// parseLenient 宽松模式解析，尝试解析尽可能多的内容
+// parseLenient parses in lenient mode, attempting to parse as much content as possible.
 func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
-	// 创建一个空的HAR对象
+	// Create an empty Har object.
 	har := &Har{
 		Log: Log{
 			Entries: []Entries{},
@@ -123,48 +123,48 @@ func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
 		},
 	}
 
-	// 使用map来进行初步解析，这样即使部分字段无效也能解析其他部分
+	// Use a map for initial parsing so other fields can still be parsed when some fields are invalid.
 	var rawData map[string]json.RawMessage
 	if err := json.Unmarshal(harFileBytes, &rawData); err != nil {
 		return nil, WrapJSONUnmarshalError(err)
 	}
 
-	// 跟踪所有错误
+	// Track all errors.
 	rootError := &HarError{
 		Code:    ErrCodeJSONParse,
-		Message: "HAR解析过程中发生错误，但部分内容已成功解析",
+		Message: "An error occurred while parsing the HAR file, but some content was parsed successfully",
 	}
 
-	// 解析log字段
+	// Parse the log field.
 	if logBytes, ok := rawData["log"]; ok {
 		var logData map[string]json.RawMessage
 		if err := json.Unmarshal(logBytes, &logData); err != nil {
 			_ = rootError.AddPartialError(
-				NewJSONParseError("无法解析log字段", err).WithField("log"))
+				NewJSONParseError("Unable to parse the log field", err).WithField("log"))
 		} else {
-			// 解析version字段
+			// Parse the version field.
 			if versionBytes, ok := logData["version"]; ok {
 				var version string
 				if err := json.Unmarshal(versionBytes, &version); err == nil {
 					har.Log.Version = version
 				} else {
 					_ = rootError.AddPartialError(
-						NewJSONParseError("无法解析version字段", err).WithField("log.version"))
+						NewJSONParseError("Unable to parse the version field", err).WithField("log.version"))
 				}
 			}
 
-			// 解析creator字段
+			// Parse the creator field.
 			if creatorBytes, ok := logData["creator"]; ok {
 				var creator Creator
 				if err := json.Unmarshal(creatorBytes, &creator); err == nil {
 					har.Log.Creator = creator
 				} else {
 					_ = rootError.AddPartialError(
-						NewJSONParseError("无法解析creator字段", err).WithField("log.creator"))
+						NewJSONParseError("Unable to parse the creator field", err).WithField("log.creator"))
 				}
 			}
 
-			// 解析pages字段
+			// Parse the pages field.
 			if pagesBytes, ok := logData["pages"]; ok {
 				var pages []json.RawMessage
 				if err := json.Unmarshal(pagesBytes, &pages); err == nil {
@@ -181,11 +181,11 @@ func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
 					}
 				} else {
 					_ = rootError.AddPartialError(
-						NewJSONParseError("无法解析pages字段", err).WithField("log.pages"))
+						NewJSONParseError("Unable to parse the pages field", err).WithField("log.pages"))
 				}
 			}
 
-			// 解析entries字段，这是最重要的部分
+			// Parse the entries field, which is the most important part.
 			if entriesBytes, ok := logData["entries"]; ok {
 				var entries []json.RawMessage
 				if err := json.Unmarshal(entriesBytes, &entries); err == nil {
@@ -196,13 +196,13 @@ func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
 						} else {
 							_ = rootError.AddPartialError(
 								NewJSONParseError(
-									fmt.Sprintf("无法解析第%d个entry", i+1), err).
+									fmt.Sprintf("Unable to parse entry %d", i+1), err).
 									WithField(fmt.Sprintf("log.entries[%d]", i)))
 						}
 					}
 				} else {
 					_ = rootError.AddPartialError(
-						NewJSONParseError("无法解析entries字段", err).WithField("log.entries"))
+						NewJSONParseError("Unable to parse the entries field", err).WithField("log.entries"))
 				}
 			}
 		}
@@ -210,63 +210,63 @@ func parseLenient(harFileBytes []byte, options ParseOptions) (*Har, error) {
 		_ = rootError.AddPartialError(NewMissingFieldError("log"))
 	}
 
-	// 如果有错误，并且选项指定收集警告
+	// If there are errors and the options specify collecting warnings.
 	if rootError.HasPartialErrors() && options.CollectWarnings {
-		// 如果解析了部分内容，返回HAR对象和错误
+		// If some content was parsed, return the Har object and the error.
 		if har.Log.Version != "" || len(har.Log.Entries) > 0 || len(har.Log.Pages) > 0 {
 			return har, rootError
 		}
-		// 否则认为解析完全失败
+		// Otherwise, treat parsing as a complete failure.
 		return nil, rootError
 	} else if rootError.HasPartialErrors() {
-		// 如果有错误但不收集警告，只返回错误
+		// If there are errors but warnings are not collected, return only the error.
 		return nil, rootError
 	}
 
 	return har, nil
 }
 
-// Result 解析结果，包含HAR对象和可能的警告
+// Result contains the parsed Har object and any warnings.
 type Result struct {
 	Har      *Har
 	Warnings []*HarError
 }
 
-// ParseHarWithWarnings 解析HAR文件同时返回警告信息
-// 该函数使用宽松模式解析，并收集所有警告而不是直接失败
+// ParseHarWithWarnings parses a HAR file and returns warnings.
+// This function parses in lenient mode and collects all warnings instead of failing immediately.
 func ParseHarWithWarnings(harFileBytes []byte) (*Result, error) {
-	// 使用宽松模式和警告收集
+	// Use lenient mode and collect warnings.
 	options := DefaultParseOptions()
 	options.Lenient = true
 	options.CollectWarnings = true
 
-	// 解析HAR数据
+	// Parse HAR data.
 	har, err := ParseHarWithOptions(harFileBytes, options)
 
-	// 初始化结果对象
+	// Initialize the result object.
 	result := &Result{
 		Har:      har,
 		Warnings: []*HarError{},
 	}
 
-	// 处理解析阶段的警告
+	// Handle warnings from the parsing phase.
 	if err != nil {
 		if harErr, ok := err.(*HarError); ok && har != nil {
-			// 在宽松模式下，将解析错误转换为警告
+			// In lenient mode, convert parsing errors into warnings.
 			result.Warnings = appendWarnings(result.Warnings, harErr.GetPartialErrors())
 		} else {
-			// 解析完全失败的情况
+			// Handle the case where parsing fails completely.
 			return nil, err
 		}
 	}
 
-	// 执行URL验证
+	// Validate URLs.
 	urlWarnings := validateURLs(har)
 	if len(urlWarnings) > 0 {
 		result.Warnings = appendWarnings(result.Warnings, urlWarnings)
 	}
 
-	// 如果仍未找到警告，尝试运行完整验证
+	// If no warnings have been found, attempt full validation.
 	if len(result.Warnings) == 0 {
 		validationWarnings := performFullValidation(har)
 		result.Warnings = appendWarnings(result.Warnings, validationWarnings)
@@ -275,7 +275,7 @@ func ParseHarWithWarnings(harFileBytes []byte) (*Result, error) {
 	return result, nil
 }
 
-// validateURLs 验证所有条目中的URL字段
+// validateURLs validates URL fields in all entries.
 func validateURLs(har *Har) []*HarError {
 	if har == nil || len(har.Log.Entries) == 0 {
 		return nil
@@ -287,20 +287,20 @@ func validateURLs(har *Har) []*HarError {
 			continue
 		}
 
-		// 严格URL验证
+		// Strict URL validation.
 		if _, err := url.Parse(entry.Request.URL); err != nil {
 			urlError := NewValidationError(
-				fmt.Sprintf("无效的URL格式: %s", err.Error()),
+				fmt.Sprintf("Invalid URL format: %s", err.Error()),
 				fmt.Sprintf("log.entries[%d].request.url", i),
 			)
 			warnings = append(warnings, urlError)
 			continue
 		}
 
-		// 额外检查常见URL问题
+		// Check for common URL issues as well.
 		if strings.Contains(entry.Request.URL, " ") {
 			urlError := NewValidationError(
-				fmt.Sprintf("URL包含空格: %s", entry.Request.URL),
+				fmt.Sprintf("URL contains spaces: %s", entry.Request.URL),
 				fmt.Sprintf("log.entries[%d].request.url", i),
 			)
 			warnings = append(warnings, urlError)
@@ -308,7 +308,7 @@ func validateURLs(har *Har) []*HarError {
 
 		if !strings.Contains(entry.Request.URL, "://") {
 			urlError := NewValidationError(
-				fmt.Sprintf("URL缺少协议: %s", entry.Request.URL),
+				fmt.Sprintf("URL is missing a scheme: %s", entry.Request.URL),
 				fmt.Sprintf("log.entries[%d].request.url", i),
 			)
 			warnings = append(warnings, urlError)
@@ -318,7 +318,7 @@ func validateURLs(har *Har) []*HarError {
 	return warnings
 }
 
-// performFullValidation 执行完整的HAR验证，并将错误转换为警告
+// performFullValidation runs full HAR validation and converts errors to warnings.
 func performFullValidation(har *Har) []*HarError {
 	if har == nil {
 		return nil
@@ -329,11 +329,11 @@ func performFullValidation(har *Har) []*HarError {
 		return nil
 	}
 
-	// ValidateHarFile 的所有错误路径均返回 *HarError
+	// All error paths in ValidateHarFile return *HarError.
 	return validationErr.(*HarError).GetPartialErrors()
 }
 
-// appendWarnings 将新警告追加到现有警告列表，避免重复
+// appendWarnings adds new warnings to the existing list without duplicates.
 func appendWarnings(existing []*HarError, newWarnings []*HarError) []*HarError {
 	if len(newWarnings) == 0 {
 		return existing
@@ -343,14 +343,14 @@ func appendWarnings(existing []*HarError, newWarnings []*HarError) []*HarError {
 		return newWarnings
 	}
 
-	// 使用映射检测重复
+	// Use a map to detect duplicates.
 	warningMap := make(map[string]bool)
 	for _, warn := range existing {
 		key := warn.Field + ":" + warn.Message
 		warningMap[key] = true
 	}
 
-	// 添加非重复的警告
+	// Add warnings that are not duplicates.
 	for _, warn := range newWarnings {
 		key := warn.Field + ":" + warn.Message
 		if !warningMap[key] {
@@ -362,11 +362,11 @@ func appendWarnings(existing []*HarError, newWarnings []*HarError) []*HarError {
 	return existing
 }
 
-// ParseHarFileWithWarnings 解析HAR文件同时返回警告信息
+// ParseHarFileWithWarnings parses a HAR file and returns warnings.
 func ParseHarFileWithWarnings(harFilePath string) (*Result, error) {
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError(fmt.Sprintf("无法读取文件 '%s'", harFilePath), err)
+		return nil, NewFileSystemError(fmt.Sprintf("Unable to read file '%s'", harFilePath), err)
 	}
 
 	return ParseHarWithWarnings(harFileBytes)

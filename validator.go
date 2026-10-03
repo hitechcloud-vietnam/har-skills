@@ -20,13 +20,13 @@ const (
 // 支持不同版本的HAR规范
 func ValidateHarFile(har *Har) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	// 创建根错误
 	rootError := &HarError{
 		Code:    ErrCodeValidation,
-		Message: "HAR验证失败",
+		Message: "HAR validation failed",
 	}
 
 	// 验证基本结构
@@ -44,7 +44,7 @@ func ValidateHarFile(har *Har) error {
 		validateHarV13(har, rootError)
 	default:
 		_ = rootError.AddPartialError(NewValidationError(
-			fmt.Sprintf("不支持的HAR版本: %s", har.Log.Version),
+			fmt.Sprintf("Unsupported HAR version: %s", har.Log.Version),
 			"log.version",
 		))
 	}
@@ -418,7 +418,7 @@ func validatePages(pages []Pages, rootError *HarError) {
 		// 验证页面标题
 		if page.Title == "" {
 			_ = rootError.AddPartialError(NewValidationError(
-				"页面必须有标题",
+				"Page must have a title",
 				fmt.Sprintf("%s.title", pagePath),
 			))
 		}
@@ -431,14 +431,14 @@ func validatePageTimings(timings PageTimings, fieldPath string, rootError *HarEr
 	// 但不应为极端值
 	if timings.OnContentLoad < -1 {
 		_ = rootError.AddPartialError(NewValidationError(
-			fmt.Sprintf("页面内容加载时间异常: %f", timings.OnContentLoad),
+			fmt.Sprintf("Invalid page content load time: %f", timings.OnContentLoad),
 			fmt.Sprintf("%s.onContentLoad", fieldPath),
 		))
 	}
 
 	if timings.OnLoad < -1 {
 		_ = rootError.AddPartialError(NewValidationError(
-			fmt.Sprintf("页面加载时间异常: %f", timings.OnLoad),
+			fmt.Sprintf("Invalid page load time: %f", timings.OnLoad),
 			fmt.Sprintf("%s.onLoad", fieldPath),
 		))
 	}

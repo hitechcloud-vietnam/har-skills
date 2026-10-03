@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// NewHar 创建一个新的HAR对象
+// NewHar creates a new Har object.
 func NewHar() *Har {
 	return &Har{
 		Log: Log{
@@ -22,7 +22,7 @@ func NewHar() *Har {
 	}
 }
 
-// SetBrowser 设置HAR文件的浏览器信息
+// SetBrowser sets the browser information for a HAR file.
 func (h *Har) SetBrowser(name, version string) *Har {
 	if h == nil {
 		return nil
@@ -34,7 +34,7 @@ func (h *Har) SetBrowser(name, version string) *Har {
 	return h
 }
 
-// SetVersion 设置HAR规范版本
+// SetVersion sets the HAR specification version.
 func (h *Har) SetVersion(version string) *Har {
 	if h == nil {
 		return nil
@@ -43,7 +43,7 @@ func (h *Har) SetVersion(version string) *Har {
 	return h
 }
 
-// SetCreator 设置HAR文件的创建者信息
+// SetCreator sets the creator information for a HAR file.
 func (h *Har) SetCreator(name, version string) *Har {
 	if h == nil {
 		return nil
@@ -53,7 +53,7 @@ func (h *Har) SetCreator(name, version string) *Har {
 	return h
 }
 
-// AddPage 添加页面信息
+// AddPage adds page information.
 func (h *Har) AddPage(id, title string) *Pages {
 	if h == nil {
 		return nil
@@ -72,7 +72,7 @@ func (h *Har) AddPage(id, title string) *Pages {
 	return &h.Log.Pages[len(h.Log.Pages)-1]
 }
 
-// SetPageTimings 设置页面加载时间
+// SetPageTimings sets page load timings.
 func (p *Pages) SetPageTimings(onContentLoad, onLoad float64) *Pages {
 	if p == nil {
 		return nil
@@ -82,7 +82,7 @@ func (p *Pages) SetPageTimings(onContentLoad, onLoad float64) *Pages {
 	return p
 }
 
-// AddEntry 添加一个请求/响应条目
+// AddEntry adds a request/response entry.
 func (h *Har) AddEntry(method, url, httpVersion string, pageref string) *Entries {
 	if h == nil {
 		return nil
@@ -132,7 +132,7 @@ func (h *Har) AddEntry(method, url, httpVersion string, pageref string) *Entries
 	return &h.Log.Entries[len(h.Log.Entries)-1]
 }
 
-// AddRequestHeader 添加请求头
+// AddRequestHeader adds a request header.
 func (e *Entries) AddRequestHeader(name, value string) *Entries {
 	if e == nil {
 		return nil
@@ -144,7 +144,7 @@ func (e *Entries) AddRequestHeader(name, value string) *Entries {
 	return e
 }
 
-// AddResponseHeader 添加响应头
+// AddResponseHeader adds a response header.
 func (e *Entries) AddResponseHeader(name, value string) *Entries {
 	if e == nil {
 		return nil
@@ -156,7 +156,7 @@ func (e *Entries) AddResponseHeader(name, value string) *Entries {
 	return e
 }
 
-// SetResponseStatus 设置响应状态
+// SetResponseStatus sets the response status.
 func (e *Entries) SetResponseStatus(status int, statusText string) *Entries {
 	if e == nil {
 		return nil
@@ -166,7 +166,7 @@ func (e *Entries) SetResponseStatus(status int, statusText string) *Entries {
 	return e
 }
 
-// SetResponseContent 设置响应内容
+// SetResponseContent sets the response content.
 func (e *Entries) SetResponseContent(size int, mimeType string) *Entries {
 	if e == nil {
 		return nil
@@ -176,7 +176,7 @@ func (e *Entries) SetResponseContent(size int, mimeType string) *Entries {
 	return e
 }
 
-// SetTimings 设置时间数据
+// SetTimings sets timing data.
 func (e *Entries) SetTimings(blocked, dns, connect, send, wait, receive, ssl float64) *Entries {
 	if e == nil {
 		return nil
@@ -189,13 +189,13 @@ func (e *Entries) SetTimings(blocked, dns, connect, send, wait, receive, ssl flo
 	e.Timings.Receive = receive
 	e.Timings.Ssl = ssl
 
-	// 计算总时间
-	// 注意：根据HAR规范，SSL时间包含在connect时间内，不重复计算
+	// Calculate the total time.
+	// Note: according to the HAR specification, SSL time is included in connect time and must not be counted twice.
 	e.Time = blocked + dns + connect + send + wait + receive
 	return e
 }
 
-// AddCookie 添加请求Cookie
+// AddCookie adds a request cookie.
 func (e *Entries) AddCookie(name, value string) *Entries {
 	if e == nil {
 		return nil
@@ -207,7 +207,7 @@ func (e *Entries) AddCookie(name, value string) *Entries {
 	return e
 }
 
-// AddResponseCookie 添加响应Cookie
+// AddResponseCookie adds a response cookie.
 func (e *Entries) AddResponseCookie(name, value string) *Entries {
 	if e == nil {
 		return nil
@@ -219,7 +219,7 @@ func (e *Entries) AddResponseCookie(name, value string) *Entries {
 	return e
 }
 
-// AddQueryParameter 添加查询参数
+// AddQueryParameter adds a query parameter.
 func (e *Entries) AddQueryParameter(name, value string) *Entries {
 	if e == nil {
 		return nil
@@ -231,7 +231,7 @@ func (e *Entries) AddQueryParameter(name, value string) *Entries {
 	return e
 }
 
-// SetPostData 设置POST请求体
+// SetPostData sets the POST request body.
 func (e *Entries) SetPostData(mimeType, text string) *Entries {
 	if e == nil {
 		return nil
@@ -243,7 +243,7 @@ func (e *Entries) SetPostData(mimeType, text string) *Entries {
 	return e
 }
 
-// SetPostDataParams 设置POST表单参数
+// SetPostDataParams sets POST form parameters.
 func (e *Entries) SetPostDataParams(mimeType string, params []Param) *Entries {
 	if e == nil {
 		return nil
@@ -255,7 +255,7 @@ func (e *Entries) SetPostDataParams(mimeType string, params []Param) *Entries {
 	return e
 }
 
-// SetResponseContentText 设置响应内容文本
+// SetResponseContentText sets the response content text.
 func (e *Entries) SetResponseContentText(text string) *Entries {
 	if e == nil {
 		return nil
@@ -265,7 +265,7 @@ func (e *Entries) SetResponseContentText(text string) *Entries {
 	return e
 }
 
-// SetServerIP 设置服务器IP地址
+// SetServerIP sets the server IP address.
 func (e *Entries) SetServerIP(ip string) *Entries {
 	if e == nil {
 		return nil
@@ -274,7 +274,7 @@ func (e *Entries) SetServerIP(ip string) *Entries {
 	return e
 }
 
-// SetConnection 设置连接ID
+// SetConnection sets the connection ID.
 func (e *Entries) SetConnection(id string) *Entries {
 	if e == nil {
 		return nil
@@ -283,7 +283,7 @@ func (e *Entries) SetConnection(id string) *Entries {
 	return e
 }
 
-// SetPageref 设置页面引用
+// SetPageref sets the page reference.
 func (e *Entries) SetPageref(ref string) *Entries {
 	if e == nil {
 		return nil
@@ -292,10 +292,10 @@ func (e *Entries) SetPageref(ref string) *Entries {
 	return e
 }
 
-// ToJSON 将HAR对象转换为JSON字节
+// ToJSON converts a Har object to JSON bytes.
 func (h *Har) ToJSON(indent bool) ([]byte, error) {
 	if h == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
 	var (
@@ -308,15 +308,15 @@ func (h *Har) ToJSON(indent bool) ([]byte, error) {
 		data, err = json.Marshal(h)
 	}
 	if err != nil {
-		return nil, NewJSONParseError("JSON序列化失败", err)
+		return nil, NewJSONParseError("JSON serialization failed", err)
 	}
 	return data, nil
 }
 
-// SaveToFile 将HAR对象保存到文件
+// SaveToFile saves a Har object to a file.
 func (h *Har) SaveToFile(filePath string, indent bool) error {
 	if h == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	data, err := h.ToJSON(indent)
@@ -324,7 +324,7 @@ func (h *Har) SaveToFile(filePath string, indent bool) error {
 		return err
 	}
 	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return NewFileSystemError(fmt.Sprintf("无法写入文件 '%s'", filePath), err)
+		return NewFileSystemError(fmt.Sprintf("Unable to write file '%s'", filePath), err)
 	}
 
 	return nil

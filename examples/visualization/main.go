@@ -12,7 +12,7 @@ import (
 	"github.com/hitechcloud-vietnam/har-skills"
 )
 
-// 简易可视化类型
+// Basic visualization types
 type Visualization struct {
 	TotalRequests    int
 	TotalSize        float64 // MB
@@ -23,75 +23,75 @@ type Visualization struct {
 	WaterfallData    []WaterfallEntry
 }
 
-// 时间线条目
+// Timeline entry
 type TimelineEntry struct {
 	Timestamp time.Time
 	EventType string
 	URL       string
 }
 
-// 瀑布图条目
+// Waterfall entry
 type WaterfallEntry struct {
 	URL      string
 	Method   string
 	Status   int
-	Start    float64 // 相对时间（毫秒）
-	Duration float64 // 时长（毫秒）
-	Size     float64 // 大小（KB）
-	Type     string  // 内容类型
-	Blocked  float64 // 阻塞时间
-	DNS      float64 // DNS查询时间
-	Connect  float64 // 连接时间
-	Send     float64 // 发送时间
-	Wait     float64 // 等待时间
-	Receive  float64 // 接收时间
+	Start    float64 // Relative time (ms)
+	Duration float64 // Duration (ms)
+	Size     float64 // Size (KB)
+	Type     string  // Content type
+	Blocked  float64 // Blocked time
+	DNS      float64 // DNS lookup time
+	Connect  float64 // Connection time
+	Send     float64 // Send time
+	Wait     float64 // Wait time
+	Receive  float64 // Receive time
 }
 
 func main() {
-	// 解析命令行参数
-	harPath := flag.String("file", "", "HAR文件路径")
-	outputDir := flag.String("output", "har_viz", "输出目录")
+	// Parse command-line arguments
+	harPath := flag.String("file", "", "HAR file path")
+	outputDir := flag.String("output", "har_viz", "Output directory")
 	flag.Parse()
 
-	// 验证HAR文件路径
+	// Validate the HAR file path
 	if *harPath == "" {
-		fmt.Println("请提供HAR文件路径。使用 -file 参数。")
+		fmt.Println("Please provide a HAR file path using the -file flag.")
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	// 创建输出目录
+	// Create the output directory
 	if err := os.MkdirAll(*outputDir, 0755); err != nil {
-		log.Fatalf("无法创建输出目录: %v", err)
+		log.Fatalf("Unable to create output directory: %v", err)
 	}
 
-	// 加载HAR文件
-	fmt.Printf("正在分析HAR文件: %s\n", *harPath)
+	// Load the HAR file
+	fmt.Printf("Analyzing HAR file: %s\n", *harPath)
 	harFile, err := har.ParseFile(*harPath)
 	if err != nil {
-		log.Fatalf("无法解析HAR文件: %v", err)
+		log.Fatalf("Unable to parse HAR file: %v", err)
 	}
 
-	// 生成可视化数据
+	// Generate visualization data
 	vizData := generateVisualization(harFile)
 
-	// 输出可视化HTML
+	// Write the visualization HTML
 	htmlPath := fmt.Sprintf("%s/visualization.html", *outputDir)
 	if err := generateHTML(vizData, htmlPath); err != nil {
-		log.Fatalf("生成HTML失败: %v", err)
+		log.Fatalf("Failed to generate HTML: %v", err)
 	}
 
-	fmt.Printf("可视化HTML已生成: %s\n", htmlPath)
+	fmt.Printf("Visualization HTML generated: %s\n", htmlPath)
 }
 
-// 生成可视化数据
+// Generate visualization data
 func generateVisualization(harFile har.HARProvider) Visualization {
 	viz := Visualization{
 		ContentTypeChart: make(map[string]int),
 		DomainChart:      make(map[string]int),
 	}
 
-	// 获取所有条目
+	// Get all entries
 	entries := harFile.GetEntries()
 	if len(entries) == 0 {
 		return viz
@@ -99,7 +99,7 @@ func generateVisualization(harFile har.HARProvider) Visualization {
 
 	viz.TotalRequests = len(entries)
 
-	// 寻找最早的请求时间
+	// Find the earliest request time
 	var firstRequestTime time.Time
 	for _, entryProvider := range entries {
 		entry := entryProvider.ToStandard()
@@ -108,30 +108,30 @@ func generateVisualization(harFile har.HARProvider) Visualization {
 		}
 	}
 
-	// 处理每个条目
+	// Process each entry
 	for _, entryProvider := range entries {
 		entry := entryProvider.ToStandard()
 
-		// 统计条目信息
+		// Count entry information
 		domain := extractDomain(entry.Request.URL)
 		contentType := extractContentType(entry.Response.Content.MimeType)
 
-		// 更新总大小
-		viz.TotalSize += float64(entry.Response.Content.Size) / (1024 * 1024) // 转换为MB
+		// Update total size
+		viz.TotalSize += float64(entry.Response.Content.Size) / (1024 * 1024) // Convert to MB
 
-		// 更新总时长
+		// Update total duration
 		viz.TotalDuration += entry.Time
 
-		// 更新内容类型统计
+		// Update content-type statistics
 		viz.ContentTypeChart[contentType]++
 
-		// 更新域名统计
+		// Update domain statistics
 		viz.DomainChart[domain]++
 
-		// 添加到时间线
+		// Add to the timeline
 		relativeStart := entry.StartedDateTime.Sub(firstRequestTime).Milliseconds()
 
-		// 创建瀑布图条目
+		// Create a waterfall entry
 		waterfall := WaterfallEntry{
 			URL:      entry.Request.URL,
 			Method:   entry.Request.Method,
@@ -142,7 +142,7 @@ func generateVisualization(harFile har.HARProvider) Visualization {
 			Type:     contentType,
 		}
 
-		// 添加计时信息
+		// Add timing information
 		waterfall.Blocked = entry.Timings.Blocked
 		waterfall.DNS = entry.Timings.DNS
 		waterfall.Connect = entry.Timings.Connect
@@ -153,7 +153,7 @@ func generateVisualization(harFile har.HARProvider) Visualization {
 		viz.WaterfallData = append(viz.WaterfallData, waterfall)
 	}
 
-	// 按照开始时间排序瀑布图数据
+	// Sort waterfall data by start time
 	sort.Slice(viz.WaterfallData, func(i, j int) bool {
 		return viz.WaterfallData[i].Start < viz.WaterfallData[j].Start
 	})
@@ -161,7 +161,7 @@ func generateVisualization(harFile har.HARProvider) Visualization {
 	return viz
 }
 
-// 从URL中提取域名
+// Extract the domain from a URL.
 func extractDomain(url string) string {
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")
@@ -169,9 +169,9 @@ func extractDomain(url string) string {
 	return parts[0]
 }
 
-// 提取内容类型
+// Extract the content type
 func extractContentType(mimeType string) string {
-	// 简化MIME类型
+	// Simplify the MIME type
 	if strings.Contains(mimeType, "javascript") || strings.Contains(mimeType, "json") {
 		return "JS"
 	} else if strings.Contains(mimeType, "css") {
@@ -179,32 +179,32 @@ func extractContentType(mimeType string) string {
 	} else if strings.Contains(mimeType, "html") {
 		return "HTML"
 	} else if strings.Contains(mimeType, "image") {
-		return "图片"
+		return "Image"
 	} else if strings.Contains(mimeType, "font") {
-		return "字体"
+		return "Font"
 	} else if strings.Contains(mimeType, "audio") || strings.Contains(mimeType, "video") {
-		return "媒体"
+		return "Media"
 	} else if strings.Contains(mimeType, "text") {
-		return "文本"
+		return "Text"
 	}
-	return "其他"
+	return "Other"
 }
 
-// 生成HTML文件
+// Generate the HTML file
 func generateHTML(viz Visualization, outputPath string) error {
-	// 创建HTML文件
+	// Create the HTML file
 	file, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	// 写入HTML头部
+	// Write the HTML header
 	file.WriteString(`<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>HAR文件可视化</title>
+    <title>HAR File Visualization</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -238,34 +238,34 @@ func generateHTML(viz Visualization, outputPath string) error {
 </head>
 <body>
     <div class="container">
-        <h1>HAR文件可视化</h1>
+        <h1>HAR File Visualization</h1>
 `)
 
-	// 写入摘要信息
+	// Write summary information
 	file.WriteString(fmt.Sprintf(`
         <div class="section">
-            <h2>摘要信息</h2>
+            <h2>Summary</h2>
             <div class="summary">
                 <div class="summary-item">
-                    <h3>总请求数</h3>
+                    <h3>Total Requests</h3>
                     <div>%d</div>
                 </div>
                 <div class="summary-item">
-                    <h3>总传输大小</h3>
+                    <h3>Total Transfer Size</h3>
                     <div>%.2f MB</div>
                 </div>
                 <div class="summary-item">
-                    <h3>总加载时间</h3>
-                    <div>%.2f 秒</div>
+                    <h3>Total Load Time</h3>
+                    <div>%.2f s</div>
                 </div>
             </div>
         </div>
 `, viz.TotalRequests, viz.TotalSize, viz.TotalDuration/1000))
 
-	// 写入图表部分
+	// Write the charts section
 	file.WriteString(`
         <div class="section">
-            <h2>统计图表</h2>
+            <h2>Charts</h2>
             <div class="chart-container">
                 <div class="chart">
                     <canvas id="contentTypeChart"></canvas>
@@ -277,40 +277,40 @@ func generateHTML(viz Visualization, outputPath string) error {
         </div>
 `)
 
-	// 写入瀑布图部分
+	// Write the waterfall section
 	file.WriteString(`
         <div class="section">
-            <h2>请求瀑布图</h2>
+            <h2>Request Waterfall</h2>
             <div class="legend">
-                <div class="legend-item"><div class="legend-color blocked"></div> 阻塞</div>
+                <div class="legend-item"><div class="legend-color blocked"></div> Blocked</div>
                 <div class="legend-item"><div class="legend-color dns"></div> DNS</div>
-                <div class="legend-item"><div class="legend-color connect"></div> 连接</div>
-                <div class="legend-item"><div class="legend-color send"></div> 发送</div>
-                <div class="legend-item"><div class="legend-color wait"></div> 等待</div>
-                <div class="legend-item"><div class="legend-color receive"></div> 接收</div>
+                <div class="legend-item"><div class="legend-color connect"></div> Connect</div>
+                <div class="legend-item"><div class="legend-color send"></div> Send</div>
+                <div class="legend-item"><div class="legend-color wait"></div> Wait</div>
+                <div class="legend-item"><div class="legend-color receive"></div> Receive</div>
             </div>
             <table class="waterfall">
                 <thead>
                     <tr>
                         <th>URL</th>
-                        <th>方法</th>
-                        <th>状态</th>
-                        <th>类型</th>
-                        <th>大小</th>
-                        <th>时间</th>
-                        <th>时间线</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Time</th>
+                        <th>Timeline</th>
                     </tr>
                 </thead>
                 <tbody>
 `)
 
-	// 写入瀑布图行
+	// Write waterfall rows
 	maxTime := viz.WaterfallData[len(viz.WaterfallData)-1].Start + viz.WaterfallData[len(viz.WaterfallData)-1].Duration
 	for _, entry := range viz.WaterfallData {
-		// 计算开始比例
+		// Calculate the start percentage
 		startPercent := entry.Start / maxTime * 100
 
-		// 计算时间段的宽度比例
+		// Calculate the duration-width percentage
 		blockedWidth := entry.Blocked / entry.Duration * 100
 		dnsWidth := entry.DNS / entry.Duration * 100
 		connectWidth := entry.Connect / entry.Duration * 100
@@ -318,7 +318,7 @@ func generateHTML(viz Visualization, outputPath string) error {
 		waitWidth := entry.Wait / entry.Duration * 100
 		receiveWidth := entry.Receive / entry.Duration * 100
 
-		// URL显示简化
+		// Simplify the displayed URL
 		displayURL := entry.URL
 		if len(displayURL) > 50 {
 			displayURL = displayURL[:47] + "..."
@@ -354,7 +354,7 @@ func generateHTML(viz Visualization, outputPath string) error {
 		))
 	}
 
-	// 关闭表格和容器
+	// Close the table and container
 	file.WriteString(`
                 </tbody>
             </table>
@@ -362,14 +362,14 @@ func generateHTML(viz Visualization, outputPath string) error {
     </div>
 `)
 
-	// 写入JavaScript图表代码
+	// Write the JavaScript chart code
 	file.WriteString(`
     <script>
-        // 内容类型图表
+        // Content-type chart
         const contentTypeData = {
             labels: [`)
 
-	// 写入内容类型标签
+	// Write content-type labels
 	var contentTypeLabels []string
 	var contentTypeValues []int
 	for label, value := range viz.ContentTypeChart {
@@ -385,10 +385,10 @@ func generateHTML(viz Visualization, outputPath string) error {
 
 	file.WriteString(`],
             datasets: [{
-                label: '请求数',
+                label: 'Request count',
                 data: [`)
 
-	// 写入内容类型值
+	// Write content-type values
 	for i, value := range contentTypeValues {
 		if i > 0 {
 			file.WriteString(", ")
@@ -403,11 +403,11 @@ func generateHTML(viz Visualization, outputPath string) error {
             }]
         };
 
-        // 域名图表
+        // Domain chart
         const domainData = {
             labels: [`)
 
-	// 写入域名标签
+	// Write domain labels
 	var domainLabels []string
 	var domainValues []int
 	for label, value := range viz.DomainChart {
@@ -423,10 +423,10 @@ func generateHTML(viz Visualization, outputPath string) error {
 
 	file.WriteString(`],
             datasets: [{
-                label: '请求数',
+                label: 'Request count',
                 data: [`)
 
-	// 写入域名值
+	// Write domain values
 	for i, value := range domainValues {
 		if i > 0 {
 			file.WriteString(", ")
@@ -442,9 +442,9 @@ func generateHTML(viz Visualization, outputPath string) error {
             }]
         };
 
-        // 渲染图表
+        // Render charts
         window.onload = function() {
-            // 内容类型图表
+            // Content-type chart
             new Chart(document.getElementById('contentTypeChart').getContext('2d'), {
                 type: 'pie',
                 data: contentTypeData,
@@ -453,13 +453,13 @@ func generateHTML(viz Visualization, outputPath string) error {
                     plugins: {
                         title: {
                             display: true,
-                            text: '按内容类型分布'
+                            text: 'Distribution by Content Type'
                         }
                     }
                 }
             });
 
-            // 域名图表
+            // Domain chart
             new Chart(document.getElementById('domainChart').getContext('2d'), {
                 type: 'pie',
                 data: domainData,
@@ -468,7 +468,7 @@ func generateHTML(viz Visualization, outputPath string) error {
                     plugins: {
                         title: {
                             display: true,
-                            text: '按域名分布'
+                            text: 'Distribution by Domain'
                         }
                     }
                 }

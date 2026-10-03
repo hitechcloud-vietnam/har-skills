@@ -39,7 +39,7 @@ var customRules []ValidationRule
 // 注册的规则将在调用ValidateWithRules时执行。
 // 规则名称必须唯一，重复注册会覆盖之前的规则。
 //
-// 示例:
+// Example:
 //
 //	har.RegisterValidator("no-internal-ips", har.ValidationRule{
 //	    Name:        "no-internal-ips",
@@ -92,7 +92,7 @@ func ListValidators() []ValidationRule {
 // 返回标准验证错误和自定义规则验证错误。
 func ValidateWithRules(har *Har) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	// 执行标准验证
@@ -132,7 +132,7 @@ func ValidateWithRules(har *Har) error {
 	if len(customErrors) > 0 {
 		rootError := &HarError{
 			Code:    ErrCodeValidation,
-			Message: "HAR验证失败（包含自定义规则）",
+			Message: "HAR validation failed（包含自定义规则）",
 		}
 		for _, ce := range customErrors {
 			_ = rootError.AddPartialError(NewValidationError(
@@ -158,7 +158,7 @@ func ValidateWithRules(har *Har) error {
 // - 验证Cache的必填字段
 func ValidateStrict(har *Har) error {
 	if har == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 
 	// 先执行标准验证
@@ -371,7 +371,7 @@ func ValidateURL(rawURL string) *ValidationError {
 	if rawURL == "" {
 		return &ValidationError{
 			Field:   "url",
-			Message: "URL不能为空",
+			Message: "URL cannot be empty",
 		}
 	}
 
@@ -379,21 +379,21 @@ func ValidateURL(rawURL string) *ValidationError {
 	if err != nil {
 		return &ValidationError{
 			Field:   "url",
-			Message: fmt.Sprintf("URL解析失败: %v", err),
+			Message: fmt.Sprintf("URL parsing failed: %v", err),
 		}
 	}
 
 	if parsed.Scheme == "" {
 		return &ValidationError{
 			Field:   "url.scheme",
-			Message: "URL缺少scheme（如http://或https://）",
+			Message: "URL is missing a scheme (such as http:// or https://)",
 		}
 	}
 
 	if parsed.Host == "" {
 		return &ValidationError{
 			Field:   "url.host",
-			Message: "URL缺少host",
+			Message: "URL is missing a host",
 		}
 	}
 
@@ -411,7 +411,7 @@ func ValidateTimingsConsistency(har *Har, tolerance float64) []*ValidationError 
 		return []*ValidationError{
 			{
 				Field:   "har",
-				Message: "HAR对象为空",
+				Message: "HAR object is nil",
 				Rule:    "timings-consistency",
 			},
 		}

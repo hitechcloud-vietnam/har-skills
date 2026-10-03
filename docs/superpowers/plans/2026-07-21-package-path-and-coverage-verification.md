@@ -110,10 +110,10 @@ Expected:
 
 Verification results (2026-07-21):
 
-| 需求 | 状态 | 证据 |
+| Requirement | Status | Evidence |
 |------|------|------|
-| 包路径与 GitHub 仓库一致 | ✅ 已一致 | `module github.com/hitechcloud-vietnam/har-skills` = GitHub `hitechcloud-vietnam/har-skills`；全仓库零旧路径 `go-har` 残留；ldflags 注入路径与实际包路径对齐；本地构建 `--version` 三变量注入成功 |
-| 单元测试覆盖率 100% | ✅ 已达 100% | 常规模式 `coverage: 100.0%`；race 模式 `coverage: 100.0%`；函数级无未达 100% 的函数 |
+| Package path matches the GitHub repository | ✅ Verified | `module github.com/hitechcloud-vietnam/har-skills` matches GitHub `hitechcloud-vietnam/har-skills`; no old `go-har` paths remain; ldflags match the actual package path; all three version variables were injected in a local build and verified with `--version`. |
+| Unit test coverage is 100% | ✅ Verified | Standard mode: `coverage: 100.0%`; race mode: `coverage: 100.0%`; every function has 100% coverage. |
 
 - [x] **Step 2: Commit the plan document**
 

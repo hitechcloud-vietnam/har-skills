@@ -8,19 +8,19 @@ import (
 	"time"
 )
 
-// HarStatistics 表示HAR文件的统计信息
+// HarStatistics contains statistics about a HAR file.
 type HarStatistics struct {
 	TotalRequests     int            // 总请求数
-	TotalTransferred  int64          // 总传输字节数
-	TotalUncompressed int64          // 总未压缩字节数
-	TotalTime         float64        // 从第一个请求到最后一个响应的总时间(ms)
-	AvgTime           float64        // 平均请求时间(ms)
-	MaxTime           float64        // 最大请求时间(ms)
-	MinTime           float64        // 最小请求时间(ms)
-	MedianTime        float64        // 中位数请求时间(ms)
-	P95Time           float64        // 95百分位请求时间(ms)
-	P99Time           float64        // 99百分位请求时间(ms)
-	Methods           map[string]int // HTTP方法分布
+	TotalTransferred  int64          // Total transferred bytes.
+	TotalUncompressed int64          // Total uncompressed bytes.
+	TotalTime         float64        // Total time (ms) from the first request to the last response.
+	AvgTime           float64        // Average request duration (ms).
+	MaxTime           float64        // Maximum request duration (ms).
+	MinTime           float64        // Minimum request duration (ms).
+	MedianTime        float64        // Median request duration (ms).
+	P95Time           float64        // 95th-percentile request duration (ms).
+	P99Time           float64        // 99th-percentile request duration (ms).
+	Methods           map[string]int // HTTP method distribution.
 	StatusCodes       map[int]int    // 状态码分布
 	ContentTypes      map[string]int // 内容类型分布
 	Domains           map[string]int // 域名分布
@@ -61,7 +61,7 @@ type DomainStats struct {
 	RequestCount     int     // 请求数
 	TotalTime        float64 // 总耗时(ms)
 	AvgTime          float64 // 平均耗时(ms)
-	TotalTransferred int64   // 总传输字节数
+	TotalTransferred int64   // Total transferred bytes.
 	ErrorCount       int     // 错误数
 }
 
@@ -116,7 +116,7 @@ func (h *Har) Statistics() *HarStatistics {
 			stats.TotalUncompressed += int64(entry.Response.Content.Size)
 		}
 
-		// HTTP方法分布
+		// HTTP method distribution.
 		stats.Methods[entry.Request.Method]++
 
 		// 状态码分布
@@ -468,7 +468,7 @@ func (h *Har) Summary() string {
 	return sb.String()
 }
 
-// extractDomain 从URL中提取域名
+// extractDomain extracts the domain from a URL.
 func extractDomain(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -477,7 +477,7 @@ func extractDomain(rawURL string) string {
 	return u.Host
 }
 
-// percentile 计算百分位数
+// percentile calculates a percentile.
 func percentile(values []float64, p int) float64 {
 	if len(values) == 0 {
 		return 0
@@ -505,7 +505,7 @@ func percentile(values []float64, p int) float64 {
 	return sorted[lower]*(1-fraction) + sorted[upper]*fraction
 }
 
-// formatBytes 格式化字节数为人类可读格式（内部使用FormatBytes）
+// formatBytes formats bytes as a human-readable string (uses FormatBytes internally).
 func formatBytes(bytes int64) string {
 	return FormatBytes(int(bytes))
 }

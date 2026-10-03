@@ -9,118 +9,118 @@ import (
 )
 
 func main() {
-	fmt.Println("========= HAR 错误处理增强示例 =========")
+	fmt.Println("========= Enhanced HAR Error Handling Example =========")
 
-	// 示例1: 使用增强的解析API，获取详细错误信息
-	fmt.Println("\n【示例1】详细错误信息")
+	// Example 1: Use the enhanced parsing API to get detailed error information
+	fmt.Println("\n[Example 1] Detailed Error Information")
 	harFilePath := "../../data/www.google.com.har"
 	harFile, harErr := har.ParseHarFileEnhanced(harFilePath)
 	if harErr != nil {
-		fmt.Println("解析失败，详细错误信息:")
+		fmt.Println("Parsing failed; detailed error information:")
 		printHarError(harErr, 0)
 	} else {
-		fmt.Printf("成功解析HAR文件，包含 %d 个请求条目\n", len(harFile.Log.Entries))
+		fmt.Printf("Successfully parsed the HAR file with %d request entries\n", len(harFile.Log.Entries))
 	}
 
-	// 示例2: 处理不存在的文件 - 文件系统错误
-	fmt.Println("\n【示例2】处理文件系统错误")
+	// Example 2: Handle a missing file (filesystem error)
+	fmt.Println("\n[Example 2] Handle a Filesystem Error")
 	nonExistentFile := "non-existent.har"
 	_, harErr = har.ParseHarFileEnhanced(nonExistentFile)
 	if harErr != nil {
-		fmt.Printf("错误类型: %v\n", harErr.GetCode())
-		fmt.Printf("是否为文件系统错误: %v\n", harErr.IsFileSystemError())
-		fmt.Printf("错误信息: %s\n", harErr.Error())
+		fmt.Printf("Error code: %v\n", harErr.GetCode())
+		fmt.Printf("Is filesystem error: %v\n", harErr.IsFileSystemError())
+		fmt.Printf("Error message: %s\n", harErr.Error())
 
 		if harErr.Metadata != nil {
-			fmt.Println("元数据:")
+			fmt.Println("Metadata:")
 			for k, v := range harErr.Metadata {
 				fmt.Printf("  %s: %v\n", k, v)
 			}
 		}
 	}
 
-	// 示例3: 创建包含无效字段的JSON，测试部分解析
-	fmt.Println("\n【示例3】部分解析 - 处理无效字段")
+	// Example 3: Create JSON with invalid fields to test partial parsing
+	fmt.Println("\n[Example 3] Partial Parsing — Handle Invalid Fields")
 	invalidJSON := createInvalidJSON()
 	tempFile := "temp_invalid.har"
 
-	// 写入临时文件
+	// Write a temporary file
 	err := os.WriteFile(tempFile, []byte(invalidJSON), 0644)
 	if err != nil {
-		fmt.Println("创建临时文件失败:", err)
+		fmt.Println("Failed to create temporary file:", err)
 		return
 	}
-	defer os.Remove(tempFile) // 清理临时文件
+	defer os.Remove(tempFile) // Clean up the temporary file.
 
-	// 使用宽松模式解析
-	fmt.Println("使用宽松解析模式:")
+	// Parse in lenient mode
+	fmt.Println("Using lenient parsing mode::")
 	harFile, err = har.ParseHarFileLenient(tempFile)
 	if err != nil {
 		if harErr, ok := err.(*har.HarError); ok {
-			fmt.Println("解析过程中发生以下警告，但仍然返回了部分解析结果:")
+			fmt.Println("The following warnings occurred during parsing, but a partial result was still returned::")
 			printHarError(harErr, 0)
 
-			// 输出成功解析的部分
+			// Print the successfully parsed portion
 			if harFile != nil {
-				fmt.Println("\n成功解析的部分:")
-				fmt.Printf("  版本: %s\n", harFile.Log.Version)
+				fmt.Println("\nSuccessfully parsed portion::")
+				fmt.Printf("  Version: %s\n", harFile.Log.Version)
 				fmt.Printf("  Creator: %s %s\n", harFile.Log.Creator.Name, harFile.Log.Creator.Version)
-				fmt.Printf("  页面数: %d\n", len(harFile.Log.Pages))
-				fmt.Printf("  条目数: %d\n", len(harFile.Log.Entries))
+				fmt.Printf("  Page count: %d\n", len(harFile.Log.Pages))
+				fmt.Printf("  Entry count: %d\n", len(harFile.Log.Entries))
 			}
 		} else {
-			fmt.Println("解析失败:", err)
+			fmt.Println("Parsing failed:", err)
 		}
 	} else {
-		fmt.Println("完全成功解析，没有警告")
+		fmt.Println("Parsing completed successfully with no warnings")
 	}
 
-	// 示例4: 使用带警告的解析
-	fmt.Println("\n【示例4】收集警告信息")
+	// Example 4: Parse and collect warnings
+	fmt.Println("\n[Example 4] Collect Warnings")
 	result, err := har.ParseHarFileWithWarnings(tempFile)
 	if err != nil {
-		fmt.Println("解析完全失败:", err)
+		fmt.Println("Parsing failed completely:", err)
 	} else {
-		fmt.Printf("解析成功，收集到 %d 个警告\n", len(result.Warnings))
+		fmt.Printf("Parsing succeeded with %d warnings\n", len(result.Warnings))
 		for i, warning := range result.Warnings {
-			fmt.Printf("警告 %d: %s\n", i+1, warning.Error())
+			fmt.Printf("Warning %d: %s\n", i+1, warning.Error())
 		}
 
-		// 输出成功解析的部分
-		fmt.Println("\n成功解析的部分:")
-		fmt.Printf("  版本: %s\n", result.Har.Log.Version)
+		// Print the successfully parsed portion
+		fmt.Println("\nSuccessfully parsed portion::")
+		fmt.Printf("  Version: %s\n", result.Har.Log.Version)
 		fmt.Printf("  Creator: %s %s\n", result.Har.Log.Creator.Name, result.Har.Log.Creator.Version)
-		fmt.Printf("  页面数: %d\n", len(result.Har.Log.Pages))
-		fmt.Printf("  条目数: %d\n", len(result.Har.Log.Entries))
+		fmt.Printf("  Page count: %d\n", len(result.Har.Log.Pages))
+		fmt.Printf("  Entry count: %d\n", len(result.Har.Log.Entries))
 	}
 }
 
-// 打印HAR错误信息，包括嵌套的部分错误
+// Print HAR error information, including nested partial errors
 func printHarError(harErr *har.HarError, level int) {
 	prefix := strings.Repeat("  ", level)
-	fmt.Printf("%s错误: %s\n", prefix, harErr.Message)
+	fmt.Printf("%sError: %s\n", prefix, harErr.Message)
 
 	if harErr.Field != "" {
-		fmt.Printf("%s字段: %s\n", prefix, harErr.Field)
+		fmt.Printf("%sField: %s\n", prefix, harErr.Field)
 	}
 
 	if harErr.Metadata != nil && len(harErr.Metadata) > 0 {
-		fmt.Printf("%s元数据:\n", prefix)
+		fmt.Printf("%sMetadata:\n", prefix)
 		for k, v := range harErr.Metadata {
 			fmt.Printf("%s  %s: %v\n", prefix, k, v)
 		}
 	}
 
 	if harErr.HasPartialErrors() {
-		fmt.Printf("%s包含 %d 个部分错误:\n", prefix, len(harErr.GetPartialErrors()))
+		fmt.Printf("%sContains %d partial errors:\n", prefix, len(harErr.GetPartialErrors()))
 		for i, pe := range harErr.GetPartialErrors() {
-			fmt.Printf("%s部分错误 %d:\n", prefix, i+1)
+			fmt.Printf("%sPartial error %d:\n", prefix, i+1)
 			printHarError(pe, level+1)
 		}
 	}
 }
 
-// 创建一个包含无效字段的JSON
+// Create JSON containing invalid fields
 func createInvalidJSON() string {
 	return `{
 		"log": {

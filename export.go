@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-// FormatJSON JSON格式常量
+// FormatJSON is the JSON format constant.
 const FormatJSON ConvertFormat = "json"
 
 // ---------------------------------------------------------------------------
-// cURL 导出
+// cURL export.
 // ---------------------------------------------------------------------------
 
-// ToCurl 生成所有条目的cURL命令
+// ToCurl generates cURL commands for all entries.
 func (h *Har) ToCurl() string {
 	if h == nil || len(h.Log.Entries) == 0 {
 		return ""
@@ -30,7 +30,7 @@ func (h *Har) ToCurl() string {
 	return sb.String()
 }
 
-// ToCurl 生成单条目的cURL命令
+// ToCurl generates a cURL command for a single entry.
 func (e *Entries) ToCurl() string {
 	if e == nil {
 		return ""
@@ -38,7 +38,7 @@ func (e *Entries) ToCurl() string {
 	return entryToCurl(e)
 }
 
-// entryToCurl 将单条HAR条目转换为cURL命令
+// entryToCurl converts a single HAR entry to a cURL command.
 func entryToCurl(entry *Entries) string {
 	if entry == nil {
 		return ""
@@ -46,18 +46,18 @@ func entryToCurl(entry *Entries) string {
 
 	var parts []string
 
-	// curl 命令
+	// cURL command.
 	parts = append(parts, "curl")
 
-	// 非GET方法使用 -X
+	// Use -X for non-GET methods.
 	method := strings.ToUpper(entry.Request.Method)
 	if method != "GET" {
 		parts = append(parts, fmt.Sprintf("-X %s", method))
 	}
 
-	// 请求头
+	// Request headers.
 	for _, h := range entry.Request.Headers {
-		// 跳过 Host 头，curl会自动添加
+		// Skip the Host header; cURL adds it automatically.
 		if strings.EqualFold(h.Name, "Host") {
 			continue
 		}
@@ -65,38 +65,38 @@ func entryToCurl(entry *Entries) string {
 		parts = append(parts, fmt.Sprintf("-H '%s: %s'", h.Name, escaped))
 	}
 
-	// POST数据
+	// POST data.
 	if entry.Request.PostData != nil && entry.Request.PostData.Text != "" {
 		escaped := escapeSingleQuotes(entry.Request.PostData.Text)
 		parts = append(parts, fmt.Sprintf("--data '%s'", escaped))
 	}
 
-	// 检查 Accept-Encoding 是否包含 gzip/deflate
+	// Check whether Accept-Encoding contains gzip or deflate.
 	if hasAcceptEncoding(entry) {
 		parts = append(parts, "--compressed")
 	}
 
-	// 检查是否跳过SSL验证（根据URL判断是否为HTTPS）
+	// Check whether to skip SSL verification (based on whether the URL uses HTTPS).
 	parsedURL, err := url.Parse(entry.Request.URL)
 	if err == nil && parsedURL.Scheme == "https" {
-		// 如果存在 _error 字段或URL为自签名证书场景，添加 -k
-		// 这里保守地检查响应中是否有SSL相关错误
+		// Add -k if the _error field exists or the URL uses a self-signed certificate.
+		// Conservatively check for SSL-related errors in the response.
 		if entry.Response.Error != nil {
 			parts = append(parts, "-k")
 		}
 	}
 
-	// URL（单引号包裹）
+	// URL (wrapped in single quotes).
 	parts = append(parts, fmt.Sprintf("'%s'", entry.Request.URL))
 
 	return strings.Join(parts, " \\\n  ")
 }
 
 // ---------------------------------------------------------------------------
-// Wget 导出
+// Wget export.
 // ---------------------------------------------------------------------------
 
-// ToWget 生成所有条目的wget命令
+// ToWget generates wget commands for all entries.
 func (h *Har) ToWget() string {
 	if h == nil || len(h.Log.Entries) == 0 {
 		return ""
@@ -111,7 +111,7 @@ func (h *Har) ToWget() string {
 	return sb.String()
 }
 
-// ToWget 生成单条目的wget命令
+// ToWget generates a wget command for a single entry.
 func (e *Entries) ToWget() string {
 	if e == nil {
 		return ""
@@ -119,7 +119,7 @@ func (e *Entries) ToWget() string {
 	return entryToWget(e)
 }
 
-// entryToWget 将单条HAR条目转换为wget命令
+// entryToWget converts a single HAR entry to a wget command.
 func entryToWget(entry *Entries) string {
 	if entry == nil {
 		return ""
@@ -130,12 +130,12 @@ func entryToWget(entry *Entries) string {
 	parts = append(parts, "wget")
 
 	method := strings.ToUpper(entry.Request.Method)
-	// wget 默认是GET，对于非GET需要使用 --method
+	// wget uses GET by default; use --method for other methods.
 	if method != "GET" {
 		parts = append(parts, fmt.Sprintf("--method=%s", method))
 	}
 
-	// 请求头
+	// Request headers.
 	for _, h := range entry.Request.Headers {
 		if strings.EqualFold(h.Name, "Host") {
 			continue
@@ -144,19 +144,19 @@ func entryToWget(entry *Entries) string {
 		parts = append(parts, fmt.Sprintf("--header='%s: %s'", h.Name, escaped))
 	}
 
-	// POST数据
+	// POST data.
 	if entry.Request.PostData != nil && entry.Request.PostData.Text != "" {
 		escaped := escapeSingleQuotes(entry.Request.PostData.Text)
 		parts = append(parts, fmt.Sprintf("--post-data='%s'", escaped))
 	}
 
-	// 不验证SSL
+	// Skip SSL verification.
 	parsedURL, err := url.Parse(entry.Request.URL)
 	if err == nil && parsedURL.Scheme == "https" {
 		parts = append(parts, "--no-check-certificate")
 	}
 
-	// 静默模式 + 输出到stdout
+	// Quiet mode and write to stdout.
 	parts = append(parts, "-qO-")
 
 	// URL
@@ -166,10 +166,10 @@ func entryToWget(entry *Entries) string {
 }
 
 // ---------------------------------------------------------------------------
-// Python Requests 导出
+// Python Requests export.
 // ---------------------------------------------------------------------------
 
-// ToPythonRequests 生成所有条目的Python requests代码
+// ToPythonRequests generates Python requests code for all entries.
 func (h *Har) ToPythonRequests() string {
 	if h == nil || len(h.Log.Entries) == 0 {
 		return ""
@@ -186,7 +186,7 @@ func (h *Har) ToPythonRequests() string {
 	return sb.String()
 }
 
-// ToPythonRequests 生成单条目的Python requests代码
+// ToPythonRequests generates Python requests code for a single entry.
 func (e *Entries) ToPythonRequests() string {
 	if e == nil {
 		return ""
@@ -194,7 +194,7 @@ func (e *Entries) ToPythonRequests() string {
 	return entryToPythonRequests(e)
 }
 
-// entryToPythonRequests 将单条HAR条目转换为Python requests代码
+// entryToPythonRequests converts a single HAR entry to Python requests code.
 func entryToPythonRequests(entry *Entries) string {
 	if entry == nil {
 		return ""
@@ -204,21 +204,21 @@ func entryToPythonRequests(entry *Entries) string {
 
 	method := strings.ToLower(entry.Request.Method)
 
-	// 构建headers字典
+	// Build the headers dictionary.
 	headers := buildHeadersDict(entry)
 
-	// 构建请求调用
+	// Build the request call.
 	if len(headers) > 0 {
 		sb.WriteString(fmt.Sprintf("headers = %s\n", headers))
 	}
 
-	// 构建请求参数
+	// Build the request parameters.
 	args := []string{fmt.Sprintf("'%s'", entry.Request.URL)}
 	if len(headers) > 0 {
 		args = append(args, "headers=headers")
 	}
 
-	// POST数据
+	// POST data.
 	if entry.Request.PostData != nil && entry.Request.PostData.Text != "" {
 		escaped := escapePythonString(entry.Request.PostData.Text)
 		args = append(args, fmt.Sprintf("data='%s'", escaped))
@@ -231,7 +231,7 @@ func entryToPythonRequests(entry *Entries) string {
 	return sb.String()
 }
 
-// buildHeadersDict 构建Python字典格式的headers字符串
+// buildHeadersDict builds a Python-dictionary-formatted headers string.
 func buildHeadersDict(entry *Entries) string {
 	if entry == nil {
 		return ""
@@ -249,28 +249,28 @@ func buildHeadersDict(entry *Entries) string {
 }
 
 // ---------------------------------------------------------------------------
-// Postman Collection v2.1 导出
+// Postman Collection v2.1 export.
 // ---------------------------------------------------------------------------
 
-// PostmanCollection 表示Postman Collection v2.1格式
+// PostmanCollection represents the Postman Collection v2.1 format.
 type PostmanCollection struct {
 	Info PostmanInfo   `json:"info"`
 	Item []PostmanItem `json:"item"`
 }
 
-// PostmanInfo Postman Collection信息
+// PostmanInfo contains Postman Collection information.
 type PostmanInfo struct {
 	Name   string `json:"name"`
 	Schema string `json:"schema"`
 }
 
-// PostmanItem Postman Collection中的请求项
+// PostmanItem represents a request item in a Postman Collection.
 type PostmanItem struct {
 	Name    string         `json:"name"`
 	Request PostmanRequest `json:"request"`
 }
 
-// PostmanRequest Postman请求定义
+// PostmanRequest defines a Postman request.
 type PostmanRequest struct {
 	Method string          `json:"method"`
 	Header []PostmanHeader `json:"header,omitempty"`
@@ -278,13 +278,13 @@ type PostmanRequest struct {
 	Body   *PostmanBody    `json:"body,omitempty"`
 }
 
-// PostmanHeader Postman请求头
+// PostmanHeader represents a Postman request header.
 type PostmanHeader struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// PostmanURL Postman URL定义
+// PostmanURL defines a Postman URL.
 type PostmanURL struct {
 	Raw      string         `json:"raw"`
 	Protocol string         `json:"protocol"`
@@ -293,19 +293,19 @@ type PostmanURL struct {
 	Query    []PostmanQuery `json:"query,omitempty"`
 }
 
-// PostmanQuery Postman查询参数
+// PostmanQuery represents a Postman query parameter.
 type PostmanQuery struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// PostmanBody Postman请求体
+// PostmanBody represents a Postman request body.
 type PostmanBody struct {
 	Mode string `json:"mode"`
 	Raw  string `json:"raw"`
 }
 
-// ToPostmanCollection 将HAR转换为Postman Collection v2.1格式JSON
+// ToPostmanCollection converts HAR data to Postman Collection v2.1 JSON.
 func (h *Har) ToPostmanCollection() ([]byte, error) {
 	if h == nil {
 		return nil, NewInvalidFormatError("HAR object is nil")
@@ -328,7 +328,7 @@ func (h *Har) ToPostmanCollection() ([]byte, error) {
 	return json.MarshalIndent(collection, "", "  ")
 }
 
-// SaveAsPostmanCollection 将HAR保存为Postman Collection文件
+// SaveAsPostmanCollection saves HAR data as a Postman Collection file.
 func (h *Har) SaveAsPostmanCollection(filePath string) error {
 	data, err := h.ToPostmanCollection()
 	if err != nil {
@@ -337,13 +337,13 @@ func (h *Har) SaveAsPostmanCollection(filePath string) error {
 	return writeToFile(filePath, data)
 }
 
-// entryToPostmanItem 将HAR条目转换为Postman请求项
+// entryToPostmanItem converts a HAR entry to a Postman request item.
 func entryToPostmanItem(entry *Entries) PostmanItem {
 	if entry == nil {
 		return PostmanItem{}
 	}
 
-	// 解析URL
+	// Parse the URL.
 	parsedURL, err := url.Parse(entry.Request.URL)
 	name := entry.Request.URL
 	if err == nil {
@@ -360,7 +360,7 @@ func entryToPostmanItem(entry *Entries) PostmanItem {
 		},
 	}
 
-	// 请求头
+	// Request headers.
 	for _, h := range entry.Request.Headers {
 		item.Request.Header = append(item.Request.Header, PostmanHeader{
 			Key:   h.Name,
@@ -368,7 +368,7 @@ func entryToPostmanItem(entry *Entries) PostmanItem {
 		})
 	}
 
-	// 请求体
+	// Request body.
 	if entry.Request.PostData != nil && entry.Request.PostData.Text != "" {
 		item.Request.Body = &PostmanBody{
 			Mode: "raw",
@@ -379,7 +379,7 @@ func entryToPostmanItem(entry *Entries) PostmanItem {
 	return item
 }
 
-// buildPostmanURL 构建Postman URL结构
+// buildPostmanURL builds a Postman URL structure.
 func buildPostmanURL(rawURL string, parsedURL *url.URL) PostmanURL {
 	pmURL := PostmanURL{
 		Raw: rawURL,
@@ -391,13 +391,13 @@ func buildPostmanURL(rawURL string, parsedURL *url.URL) PostmanURL {
 
 	pmURL.Protocol = parsedURL.Scheme
 
-	// Host拆分
+	// Split the host.
 	host := parsedURL.Host
 	if h := strings.Split(host, "."); len(h) > 0 {
 		pmURL.Host = h
 	}
 
-	// Path拆分
+	// Split the path.
 	path := parsedURL.Path
 	if path != "" {
 		segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
@@ -408,7 +408,7 @@ func buildPostmanURL(rawURL string, parsedURL *url.URL) PostmanURL {
 		}
 	}
 
-	// 查询参数
+	// Query parameters.
 	for key, values := range parsedURL.Query() {
 		for _, v := range values {
 			pmURL.Query = append(pmURL.Query, PostmanQuery{
@@ -422,10 +422,10 @@ func buildPostmanURL(rawURL string, parsedURL *url.URL) PostmanURL {
 }
 
 // ---------------------------------------------------------------------------
-// XML 导出
+// XML export.
 // ---------------------------------------------------------------------------
 
-// XMLElement 用于生成简单XML的辅助结构
+// XMLElement is a helper structure for generating simple XML.
 type XMLElement struct {
 	XMLName  xml.Name
 	Attrs    []xml.Attr   `xml:",any,attr,omitempty"`
@@ -433,26 +433,26 @@ type XMLElement struct {
 	Content  string       `xml:",chardata"`
 }
 
-// HARXML HAR的XML表示
+// HARXML represents HAR data in XML.
 type HARXML struct {
 	XMLName xml.Name `xml:"har"`
 	Log     LogXML   `xml:"log"`
 }
 
-// LogXML Log的XML表示
+// LogXML represents a Log in XML.
 type LogXML struct {
 	Version string     `xml:"version"`
 	Creator CreatorXML `xml:"creator"`
 	Entries []EntryXML `xml:"entries>entry"`
 }
 
-// CreatorXML Creator的XML表示
+// CreatorXML represents a Creator in XML.
 type CreatorXML struct {
 	Name    string `xml:"name"`
 	Version string `xml:"version"`
 }
 
-// EntryXML Entries的XML表示
+// EntryXML represents Entries in XML.
 type EntryXML struct {
 	StartedDateTime string      `xml:"startedDateTime"`
 	Time            float64     `xml:"time"`
@@ -460,7 +460,7 @@ type EntryXML struct {
 	Response        ResponseXML `xml:"response"`
 }
 
-// RequestXML Request的XML表示
+// RequestXML represents a Request in XML.
 type RequestXML struct {
 	Method      string       `xml:"method"`
 	URL         string       `xml:"url"`
@@ -469,7 +469,7 @@ type RequestXML struct {
 	PostData    *PostDataXML `xml:"postData,omitempty"`
 }
 
-// ResponseXML Response的XML表示
+// ResponseXML represents a Response in XML.
 type ResponseXML struct {
 	Status      int         `xml:"status"`
 	StatusText  string      `xml:"statusText"`
@@ -478,26 +478,26 @@ type ResponseXML struct {
 	Content     ContentXML  `xml:"content"`
 }
 
-// HeaderXML Headers的XML表示
+// HeaderXML represents Headers in XML.
 type HeaderXML struct {
 	Name  string `xml:"name"`
 	Value string `xml:"value"`
 }
 
-// PostDataXML PostData的XML表示
+// PostDataXML represents PostData in XML.
 type PostDataXML struct {
 	MimeType string `xml:"mimeType"`
 	Text     string `xml:"text"`
 }
 
-// ContentXML Content的XML表示
+// ContentXML represents Content in XML.
 type ContentXML struct {
 	Size     int    `xml:"size"`
 	MimeType string `xml:"mimeType"`
 	Text     string `xml:"text,omitempty"`
 }
 
-// ToXML 将HAR转换为XML格式
+// ToXML converts HAR data to XML.
 func (h *Har) ToXML() (string, error) {
 	if h == nil {
 		return "", NewInvalidFormatError("HAR object is nil")
@@ -538,7 +538,7 @@ func (h *Har) ToXML() (string, error) {
 			},
 		}
 
-		// 请求头
+		// Request headers.
 		for _, hdr := range entry.Request.Headers {
 			entryXML.Request.Headers = append(entryXML.Request.Headers, HeaderXML{
 				Name:  hdr.Name,
@@ -546,7 +546,7 @@ func (h *Har) ToXML() (string, error) {
 			})
 		}
 
-		// 响应头
+		// Response headers.
 		for _, hdr := range entry.Response.Headers {
 			entryXML.Response.Headers = append(entryXML.Response.Headers, HeaderXML{
 				Name:  hdr.Name,
@@ -554,7 +554,7 @@ func (h *Har) ToXML() (string, error) {
 			})
 		}
 
-		// POST数据
+		// POST data.
 		if entry.Request.PostData != nil {
 			entryXML.Request.PostData = &PostDataXML{
 				MimeType: entry.Request.PostData.MimeType,
@@ -565,14 +565,14 @@ func (h *Har) ToXML() (string, error) {
 		harXML.Log.Entries = append(harXML.Log.Entries, entryXML)
 	}
 
-	// HARXML 字段均为 string/数值/切片/指针等确定可 XML 序列化类型，
-	// xml.MarshalIndent 不会失败。
+	// HARXML fields are strings, numbers, slices, pointers, or other known XML-serializable types,
+	// so xml.MarshalIndent cannot fail.
 	data, _ := xml.MarshalIndent(harXML, "", "  ")
 
 	return xml.Header + string(data), nil
 }
 
-// SaveAsXML 将HAR保存为XML文件
+// SaveAsXML saves HAR data as an XML file.
 func (h *Har) SaveAsXML(filePath string) error {
 	xmlData, err := h.ToXML()
 	if err != nil {
@@ -582,16 +582,16 @@ func (h *Har) SaveAsXML(filePath string) error {
 }
 
 // ---------------------------------------------------------------------------
-// 辅助函数
+// Helper functions.
 // ---------------------------------------------------------------------------
 
-// escapeSingleQuotes 转义单引号（用于shell命令中的单引号字符串）
-// 在单引号内，不能转义单引号，需要结束单引号、添加转义的单引号、再重新开始单引号
+// escapeSingleQuotes escapes single quotes in single-quoted shell strings.
+// A single quote cannot be escaped inside single quotes; close the quote, add an escaped quote, then reopen it.
 func escapeSingleQuotes(s string) string {
 	return strings.ReplaceAll(s, "'", "'\\''")
 }
 
-// escapePythonString 转义Python字符串中的特殊字符
+// escapePythonString escapes special characters in Python strings.
 func escapePythonString(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `'`, `\'`)
@@ -601,7 +601,7 @@ func escapePythonString(s string) string {
 	return s
 }
 
-// hasAcceptEncoding 检查请求头中Accept-Encoding是否包含gzip或deflate
+// hasAcceptEncoding checks whether the Accept-Encoding request header contains gzip or deflate.
 func hasAcceptEncoding(entry *Entries) bool {
 	if entry == nil {
 		return false

@@ -2,9 +2,9 @@ package har
 
 import "time"
 
-// 实现标准HAR类型的接口
+// Implements the interfaces for standard HAR types.
 
-// GetVersion 实现HARProvider接口
+// GetVersion implements the HARProvider interface.
 func (h *Har) GetVersion() string {
 	if h == nil {
 		return ""
@@ -12,7 +12,7 @@ func (h *Har) GetVersion() string {
 	return h.Log.Version
 }
 
-// GetCreator 实现HARProvider接口
+// GetCreator implements the HARProvider interface.
 func (h *Har) GetCreator() Creator {
 	if h == nil {
 		return Creator{}
@@ -20,7 +20,7 @@ func (h *Har) GetCreator() Creator {
 	return h.Log.Creator
 }
 
-// GetBrowser 实现HARProvider接口
+// GetBrowser implements the HARProvider interface.
 func (h *Har) GetBrowser() Browser {
 	if h == nil {
 		return Browser{}
@@ -28,7 +28,7 @@ func (h *Har) GetBrowser() Browser {
 	return h.Log.Browser
 }
 
-// GetEntries 实现HARProvider接口
+// GetEntries implements the HARProvider interface.
 func (h *Har) GetEntries() []EntryProvider {
 	if h == nil {
 		return nil
@@ -40,7 +40,7 @@ func (h *Har) GetEntries() []EntryProvider {
 	return providers
 }
 
-// GetPages 实现HARProvider接口
+// GetPages implements the HARProvider interface.
 func (h *Har) GetPages() []PageProvider {
 	if h == nil {
 		return nil
@@ -52,7 +52,7 @@ func (h *Har) GetPages() []PageProvider {
 	return providers
 }
 
-// ToStandard 实现HARProvider接口
+// ToStandard implements the HARProvider interface.
 func (h *Har) ToStandard() *Har {
 	if h == nil {
 		return nil
@@ -60,9 +60,9 @@ func (h *Har) ToStandard() *Har {
 	return h
 }
 
-// Entries 接口实现
+// Entries interface implementation.
 
-// GetStartedDateTime 实现EntryProvider接口
+// GetStartedDateTime implements the EntryProvider interface.
 func (e *Entries) GetStartedDateTime() time.Time {
 	if e == nil {
 		return time.Time{}
@@ -70,7 +70,7 @@ func (e *Entries) GetStartedDateTime() time.Time {
 	return e.StartedDateTime
 }
 
-// GetTime 实现EntryProvider接口
+// GetTime implements the EntryProvider interface.
 func (e *Entries) GetTime() float64 {
 	if e == nil {
 		return 0
@@ -78,7 +78,7 @@ func (e *Entries) GetTime() float64 {
 	return e.Time
 }
 
-// GetRequest 实现EntryProvider接口
+// GetRequest implements the EntryProvider interface.
 func (e *Entries) GetRequest() RequestProvider {
 	if e == nil {
 		return nil
@@ -86,7 +86,7 @@ func (e *Entries) GetRequest() RequestProvider {
 	return &e.Request
 }
 
-// GetResponse 实现EntryProvider接口
+// GetResponse implements the EntryProvider interface.
 func (e *Entries) GetResponse() ResponseProvider {
 	if e == nil {
 		return nil
@@ -94,7 +94,7 @@ func (e *Entries) GetResponse() ResponseProvider {
 	return &e.Response
 }
 
-// GetTimings 实现EntryProvider接口
+// GetTimings implements the EntryProvider interface.
 func (e *Entries) GetTimings() TimingsProvider {
 	if e == nil {
 		return nil
@@ -102,7 +102,7 @@ func (e *Entries) GetTimings() TimingsProvider {
 	return &e.Timings
 }
 
-// GetPageref 实现EntryProvider接口
+// GetPageref implements the EntryProvider interface.
 func (e *Entries) GetPageref() string {
 	if e == nil {
 		return ""
@@ -110,7 +110,7 @@ func (e *Entries) GetPageref() string {
 	return e.Pageref
 }
 
-// ToStandard 实现EntryProvider接口
+// ToStandard implements the EntryProvider interface.
 func (e *Entries) ToStandard() Entries {
 	if e == nil {
 		return Entries{}
@@ -118,9 +118,9 @@ func (e *Entries) ToStandard() Entries {
 	return *e
 }
 
-// Request 接口实现
+// Request interface implementation.
 
-// GetMethod 实现RequestProvider接口
+// GetMethod implements the RequestProvider interface.
 func (r *Request) GetMethod() string {
 	if r == nil {
 		return ""
@@ -128,7 +128,7 @@ func (r *Request) GetMethod() string {
 	return r.Method
 }
 
-// GetURL 实现RequestProvider接口
+// GetURL implements the RequestProvider interface.
 func (r *Request) GetURL() string {
 	if r == nil {
 		return ""
@@ -136,7 +136,7 @@ func (r *Request) GetURL() string {
 	return r.URL
 }
 
-// GetHTTPVersion 实现RequestProvider接口
+// GetHTTPVersion implements the RequestProvider interface.
 func (r *Request) GetHTTPVersion() string {
 	if r == nil {
 		return ""
@@ -144,7 +144,7 @@ func (r *Request) GetHTTPVersion() string {
 	return r.HTTPVersion
 }
 
-// GetHeaders 实现RequestProvider接口
+// GetHeaders implements the RequestProvider interface.
 func (r *Request) GetHeaders() []HeaderProvider {
 	if r == nil {
 		return nil
@@ -156,7 +156,7 @@ func (r *Request) GetHeaders() []HeaderProvider {
 	return providers
 }
 
-// GetCookies 实现RequestProvider接口
+// GetCookies implements the RequestProvider interface.
 func (r *Request) GetCookies() []CookieProvider {
 	if r == nil {
 		return nil
@@ -168,7 +168,7 @@ func (r *Request) GetCookies() []CookieProvider {
 	return providers
 }
 
-// GetBodySize 实现RequestProvider接口
+// GetBodySize implements the RequestProvider interface.
 func (r *Request) GetBodySize() int {
 	if r == nil {
 		return 0
@@ -176,7 +176,7 @@ func (r *Request) GetBodySize() int {
 	return r.BodySize
 }
 
-// GetHeadersSize 实现RequestProvider接口
+// GetHeadersSize implements the RequestProvider interface.
 func (r *Request) GetHeadersSize() int {
 	if r == nil {
 		return 0
@@ -184,7 +184,7 @@ func (r *Request) GetHeadersSize() int {
 	return r.HeadersSize
 }
 
-// GetQueryString 实现RequestProvider接口
+// GetQueryString implements the RequestProvider interface.
 func (r *Request) GetQueryString() []QueryString {
 	if r == nil {
 		return nil
@@ -192,7 +192,7 @@ func (r *Request) GetQueryString() []QueryString {
 	return r.QueryString
 }
 
-// GetPostData 实现RequestProvider接口
+// GetPostData implements the RequestProvider interface.
 func (r *Request) GetPostData() *PostData {
 	if r == nil {
 		return nil
@@ -200,7 +200,7 @@ func (r *Request) GetPostData() *PostData {
 	return r.PostData
 }
 
-// ToStandard 实现RequestProvider接口
+// ToStandard implements the RequestProvider interface.
 func (r *Request) ToStandard() Request {
 	if r == nil {
 		return Request{}
@@ -210,7 +210,7 @@ func (r *Request) ToStandard() Request {
 
 // Response 接口实现
 
-// GetStatus 实现ResponseProvider接口
+// GetStatus implements the ResponseProvider interface.
 func (r *Response) GetStatus() int {
 	if r == nil {
 		return 0
@@ -218,7 +218,7 @@ func (r *Response) GetStatus() int {
 	return r.Status
 }
 
-// GetStatusText 实现ResponseProvider接口
+// GetStatusText implements the ResponseProvider interface.
 func (r *Response) GetStatusText() string {
 	if r == nil {
 		return ""
@@ -226,7 +226,7 @@ func (r *Response) GetStatusText() string {
 	return r.StatusText
 }
 
-// GetHTTPVersion 实现ResponseProvider接口
+// GetHTTPVersion implements the ResponseProvider interface.
 func (r *Response) GetHTTPVersion() string {
 	if r == nil {
 		return ""
@@ -234,7 +234,7 @@ func (r *Response) GetHTTPVersion() string {
 	return r.HTTPVersion
 }
 
-// GetHeaders 实现ResponseProvider接口
+// GetHeaders implements the ResponseProvider interface.
 func (r *Response) GetHeaders() []HeaderProvider {
 	if r == nil {
 		return nil
@@ -246,7 +246,7 @@ func (r *Response) GetHeaders() []HeaderProvider {
 	return providers
 }
 
-// GetCookies 实现ResponseProvider接口
+// GetCookies implements the ResponseProvider interface.
 func (r *Response) GetCookies() []CookieProvider {
 	if r == nil {
 		return nil
@@ -258,7 +258,7 @@ func (r *Response) GetCookies() []CookieProvider {
 	return providers
 }
 
-// GetContent 实现ResponseProvider接口
+// GetContent implements the ResponseProvider interface.
 func (r *Response) GetContent() ContentProvider {
 	if r == nil {
 		return nil
@@ -266,7 +266,7 @@ func (r *Response) GetContent() ContentProvider {
 	return &r.Content
 }
 
-// GetBodySize 实现ResponseProvider接口
+// GetBodySize implements the ResponseProvider interface.
 func (r *Response) GetBodySize() int {
 	if r == nil {
 		return 0
@@ -274,7 +274,7 @@ func (r *Response) GetBodySize() int {
 	return r.BodySize
 }
 
-// GetHeadersSize 实现ResponseProvider接口
+// GetHeadersSize implements the ResponseProvider interface.
 func (r *Response) GetHeadersSize() int {
 	if r == nil {
 		return 0
@@ -282,7 +282,7 @@ func (r *Response) GetHeadersSize() int {
 	return r.HeadersSize
 }
 
-// ToStandard 实现ResponseProvider接口
+// ToStandard implements the ResponseProvider interface.
 func (r *Response) ToStandard() Response {
 	if r == nil {
 		return Response{}
@@ -292,7 +292,7 @@ func (r *Response) ToStandard() Response {
 
 // Headers 接口实现
 
-// GetName 实现HeaderProvider接口
+// GetName implements the HeaderProvider interface.
 func (h *Headers) GetName() string {
 	if h == nil {
 		return ""
@@ -300,7 +300,7 @@ func (h *Headers) GetName() string {
 	return h.Name
 }
 
-// GetValue 实现HeaderProvider接口
+// GetValue implements the HeaderProvider interface.
 func (h *Headers) GetValue() string {
 	if h == nil {
 		return ""
@@ -308,7 +308,7 @@ func (h *Headers) GetValue() string {
 	return h.Value
 }
 
-// ToStandard 实现HeaderProvider接口
+// ToStandard implements the HeaderProvider interface.
 func (h *Headers) ToStandard() Headers {
 	if h == nil {
 		return Headers{}
@@ -318,7 +318,7 @@ func (h *Headers) ToStandard() Headers {
 
 // Cookie 接口实现
 
-// GetName 实现CookieProvider接口
+// GetName implements the CookieProvider interface.
 func (c *Cookie) GetName() string {
 	if c == nil {
 		return ""
@@ -326,7 +326,7 @@ func (c *Cookie) GetName() string {
 	return c.Name
 }
 
-// GetValue 实现CookieProvider接口
+// GetValue implements the CookieProvider interface.
 func (c *Cookie) GetValue() string {
 	if c == nil {
 		return ""
@@ -334,7 +334,7 @@ func (c *Cookie) GetValue() string {
 	return c.Value
 }
 
-// GetDomain 实现CookieProvider接口
+// GetDomain implements the CookieProvider interface.
 func (c *Cookie) GetDomain() string {
 	if c == nil {
 		return ""
@@ -342,7 +342,7 @@ func (c *Cookie) GetDomain() string {
 	return c.Domain
 }
 
-// GetPath 实现CookieProvider接口
+// GetPath implements the CookieProvider interface.
 func (c *Cookie) GetPath() string {
 	if c == nil {
 		return ""
@@ -350,7 +350,7 @@ func (c *Cookie) GetPath() string {
 	return c.Path
 }
 
-// GetExpires 实现CookieProvider接口
+// GetExpires implements the CookieProvider interface.
 func (c *Cookie) GetExpires() time.Time {
 	if c == nil {
 		return time.Time{}
@@ -358,7 +358,7 @@ func (c *Cookie) GetExpires() time.Time {
 	return c.Expires
 }
 
-// IsHTTPOnly 实现CookieProvider接口
+// IsHTTPOnly implements the CookieProvider interface.
 func (c *Cookie) IsHTTPOnly() bool {
 	if c == nil {
 		return false
@@ -366,7 +366,7 @@ func (c *Cookie) IsHTTPOnly() bool {
 	return c.HTTPOnly
 }
 
-// IsSecure 实现CookieProvider接口
+// IsSecure implements the CookieProvider interface.
 func (c *Cookie) IsSecure() bool {
 	if c == nil {
 		return false
@@ -374,7 +374,7 @@ func (c *Cookie) IsSecure() bool {
 	return c.Secure
 }
 
-// GetSameSite 实现CookieProvider接口
+// GetSameSite implements the CookieProvider interface.
 func (c *Cookie) GetSameSite() string {
 	if c == nil {
 		return ""
@@ -382,7 +382,7 @@ func (c *Cookie) GetSameSite() string {
 	return c.SameSite
 }
 
-// ToStandard 实现CookieProvider接口
+// ToStandard implements the CookieProvider interface.
 func (c *Cookie) ToStandard() Cookie {
 	if c == nil {
 		return Cookie{}
@@ -392,7 +392,7 @@ func (c *Cookie) ToStandard() Cookie {
 
 // Content 接口实现
 
-// GetSize 实现ContentProvider接口
+// GetSize implements the ContentProvider interface.
 func (c *Content) GetSize() int {
 	if c == nil {
 		return 0
@@ -400,7 +400,7 @@ func (c *Content) GetSize() int {
 	return c.Size
 }
 
-// GetMimeType 实现ContentProvider接口
+// GetMimeType implements the ContentProvider interface.
 func (c *Content) GetMimeType() string {
 	if c == nil {
 		return ""
@@ -408,7 +408,7 @@ func (c *Content) GetMimeType() string {
 	return c.MimeType
 }
 
-// GetText 实现ContentProvider接口
+// GetText implements the ContentProvider interface.
 func (c *Content) GetText() string {
 	if c == nil {
 		return ""
@@ -416,7 +416,7 @@ func (c *Content) GetText() string {
 	return c.Text
 }
 
-// GetEncoding 实现ContentProvider接口
+// GetEncoding implements the ContentProvider interface.
 func (c *Content) GetEncoding() string {
 	if c == nil {
 		return ""
@@ -424,7 +424,7 @@ func (c *Content) GetEncoding() string {
 	return c.Encoding
 }
 
-// GetCompression 实现ContentProvider接口
+// GetCompression implements the ContentProvider interface.
 func (c *Content) GetCompression() int {
 	if c == nil {
 		return 0
@@ -432,7 +432,7 @@ func (c *Content) GetCompression() int {
 	return c.Compression
 }
 
-// ToStandard 实现ContentProvider接口
+// ToStandard implements the ContentProvider interface.
 func (c *Content) ToStandard() Content {
 	if c == nil {
 		return Content{}
@@ -442,7 +442,7 @@ func (c *Content) ToStandard() Content {
 
 // Timings 接口实现
 
-// GetBlocked 实现TimingsProvider接口
+// GetBlocked implements the TimingsProvider interface.
 func (t *Timings) GetBlocked() float64 {
 	if t == nil {
 		return 0
@@ -450,7 +450,7 @@ func (t *Timings) GetBlocked() float64 {
 	return t.Blocked
 }
 
-// GetDNS 实现TimingsProvider接口
+// GetDNS implements the TimingsProvider interface.
 func (t *Timings) GetDNS() float64 {
 	if t == nil {
 		return 0
@@ -458,7 +458,7 @@ func (t *Timings) GetDNS() float64 {
 	return t.DNS
 }
 
-// GetConnect 实现TimingsProvider接口
+// GetConnect implements the TimingsProvider interface.
 func (t *Timings) GetConnect() float64 {
 	if t == nil {
 		return 0
@@ -466,7 +466,7 @@ func (t *Timings) GetConnect() float64 {
 	return t.Connect
 }
 
-// GetSend 实现TimingsProvider接口
+// GetSend implements the TimingsProvider interface.
 func (t *Timings) GetSend() float64 {
 	if t == nil {
 		return 0
@@ -474,7 +474,7 @@ func (t *Timings) GetSend() float64 {
 	return t.Send
 }
 
-// GetWait 实现TimingsProvider接口
+// GetWait implements the TimingsProvider interface.
 func (t *Timings) GetWait() float64 {
 	if t == nil {
 		return 0
@@ -482,7 +482,7 @@ func (t *Timings) GetWait() float64 {
 	return t.Wait
 }
 
-// GetReceive 实现TimingsProvider接口
+// GetReceive implements the TimingsProvider interface.
 func (t *Timings) GetReceive() float64 {
 	if t == nil {
 		return 0
@@ -490,7 +490,7 @@ func (t *Timings) GetReceive() float64 {
 	return t.Receive
 }
 
-// GetSSL 实现TimingsProvider接口
+// GetSSL implements the TimingsProvider interface.
 func (t *Timings) GetSSL() float64 {
 	if t == nil {
 		return 0
@@ -498,7 +498,7 @@ func (t *Timings) GetSSL() float64 {
 	return t.Ssl
 }
 
-// ToStandard 实现TimingsProvider接口
+// ToStandard implements the TimingsProvider interface.
 func (t *Timings) ToStandard() Timings {
 	if t == nil {
 		return Timings{}
@@ -506,9 +506,9 @@ func (t *Timings) ToStandard() Timings {
 	return *t
 }
 
-// Pages 接口实现
+// Pages interface implementation.
 
-// GetID 实现PageProvider接口
+// GetID implements the PageProvider interface.
 func (p *Pages) GetID() string {
 	if p == nil {
 		return ""
@@ -516,7 +516,7 @@ func (p *Pages) GetID() string {
 	return p.ID
 }
 
-// GetTitle 实现PageProvider接口
+// GetTitle implements the PageProvider interface.
 func (p *Pages) GetTitle() string {
 	if p == nil {
 		return ""
@@ -524,7 +524,7 @@ func (p *Pages) GetTitle() string {
 	return p.Title
 }
 
-// GetStartedDateTime 实现PageProvider接口
+// GetStartedDateTime implements the PageProvider interface.
 func (p *Pages) GetStartedDateTime() time.Time {
 	if p == nil {
 		return time.Time{}
@@ -532,7 +532,7 @@ func (p *Pages) GetStartedDateTime() time.Time {
 	return p.StartedDateTime
 }
 
-// GetPageTimings 实现PageProvider接口
+// GetPageTimings implements the PageProvider interface.
 func (p *Pages) GetPageTimings() PageTimingsProvider {
 	if p == nil {
 		return nil
@@ -540,7 +540,7 @@ func (p *Pages) GetPageTimings() PageTimingsProvider {
 	return &p.PageTimings
 }
 
-// ToStandard 实现PageProvider接口
+// ToStandard implements the PageProvider interface.
 func (p *Pages) ToStandard() Pages {
 	if p == nil {
 		return Pages{}
@@ -548,9 +548,9 @@ func (p *Pages) ToStandard() Pages {
 	return *p
 }
 
-// PageTimings 接口实现
+// PageTimings interface implementation.
 
-// GetOnContentLoad 实现PageTimingsProvider接口
+// GetOnContentLoad implements the PageTimingsProvider interface.
 func (pt *PageTimings) GetOnContentLoad() float64 {
 	if pt == nil {
 		return 0
@@ -558,7 +558,7 @@ func (pt *PageTimings) GetOnContentLoad() float64 {
 	return pt.OnContentLoad
 }
 
-// GetOnLoad 实现PageTimingsProvider接口
+// GetOnLoad implements the PageTimingsProvider interface.
 func (pt *PageTimings) GetOnLoad() float64 {
 	if pt == nil {
 		return 0
@@ -566,7 +566,7 @@ func (pt *PageTimings) GetOnLoad() float64 {
 	return pt.OnLoad
 }
 
-// ToStandard 实现PageTimingsProvider接口
+// ToStandard implements the PageTimingsProvider interface.
 func (pt *PageTimings) ToStandard() PageTimings {
 	if pt == nil {
 		return PageTimings{}

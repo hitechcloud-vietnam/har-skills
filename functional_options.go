@@ -6,31 +6,31 @@ import (
 	"time"
 )
 
-// FilterOption 定义过滤选项的函数式选项类型
+// FilterOption defines a functional option for filtering.
 type FilterOption func(*FilterOptions)
 
-// WithFilterURL 设置URL过滤条件
+// WithFilterURL sets the URL filter.
 func WithFilterURL(url string) FilterOption {
 	return func(o *FilterOptions) {
 		o.URL = url
 	}
 }
 
-// WithFilterMethod 设置请求方法过滤条件
+// WithFilterMethod sets the request method filter.
 func WithFilterMethod(method string) FilterOption {
 	return func(o *FilterOptions) {
 		o.Method = method
 	}
 }
 
-// WithFilterStatusCode 设置状态码过滤条件
+// WithFilterStatusCode sets the status-code filter.
 func WithFilterStatusCode(code int) FilterOption {
 	return func(o *FilterOptions) {
 		o.StatusCode = code
 	}
 }
 
-// WithFilterStatusCodeRange 设置状态码范围过滤条件
+// WithFilterStatusCodeRange sets the status-code range filter.
 func WithFilterStatusCodeRange(min, max int) FilterOption {
 	return func(o *FilterOptions) {
 		o.StatusCodeMin = min
@@ -38,14 +38,14 @@ func WithFilterStatusCodeRange(min, max int) FilterOption {
 	}
 }
 
-// WithFilterContentType 设置内容类型过滤条件
+// WithFilterContentType sets the content-type filter.
 func WithFilterContentType(contentType string) FilterOption {
 	return func(o *FilterOptions) {
 		o.ContentType = contentType
 	}
 }
 
-// WithFilterTimeRange 设置时间范围过滤条件
+// WithFilterTimeRange sets the time-range filter.
 func WithFilterTimeRange(start, end time.Time) FilterOption {
 	return func(o *FilterOptions) {
 		o.StartTime = start
@@ -53,7 +53,7 @@ func WithFilterTimeRange(start, end time.Time) FilterOption {
 	}
 }
 
-// WithFilterDuration 设置持续时间过滤条件
+// WithFilterDuration sets the duration filter.
 func WithFilterDuration(min, max float64) FilterOption {
 	return func(o *FilterOptions) {
 		o.MinDuration = min
@@ -61,21 +61,21 @@ func WithFilterDuration(min, max float64) FilterOption {
 	}
 }
 
-// WithFilterResourceType 设置资源类型过滤条件
+// WithFilterResourceType sets the resource-type filter.
 func WithFilterResourceType(resourceType string) FilterOption {
 	return func(o *FilterOptions) {
 		o.ResourceType = resourceType
 	}
 }
 
-// WithFilterHasError 设置只过滤有错误的请求
+// WithFilterHasError filters for requests with errors only.
 func WithFilterHasError() FilterOption {
 	return func(o *FilterOptions) {
 		o.HasError = true
 	}
 }
 
-// WithFilterHeader 设置请求头过滤条件
+// WithFilterHeader sets the request-header filter.
 func WithFilterHeader(name, value string) FilterOption {
 	return func(o *FilterOptions) {
 		o.HeaderName = name
@@ -83,7 +83,7 @@ func WithFilterHeader(name, value string) FilterOption {
 	}
 }
 
-// WithFilterResponseHeader 设置响应头过滤条件
+// WithFilterResponseHeader sets the response-header filter.
 func WithFilterResponseHeader(name, value string) FilterOption {
 	return func(o *FilterOptions) {
 		o.RespHeaderName = name
@@ -91,14 +91,14 @@ func WithFilterResponseHeader(name, value string) FilterOption {
 	}
 }
 
-// WithFilterRegex 启用正则表达式匹配
+// WithFilterRegex enables regular-expression matching.
 func WithFilterRegex() FilterOption {
 	return func(o *FilterOptions) {
 		o.UseRegex = true
 	}
 }
 
-// NewFilterOptions 从函数式选项创建过滤选项
+// NewFilterOptions creates filter options from functional options.
 func NewFilterOptions(opts ...FilterOption) FilterOptions {
 	options := FilterOptions{}
 	for _, opt := range opts {
@@ -109,43 +109,43 @@ func NewFilterOptions(opts ...FilterOption) FilterOptions {
 	return options
 }
 
-// FilterWith 使用函数式选项过滤HAR条目
+// FilterWith filters HAR entries using functional options.
 func (h *Har) FilterWith(opts ...FilterOption) *FilterResult {
 	return h.Filter(NewFilterOptions(opts...))
 }
 
-// ReplayOption 定义重放选项的函数式选项类型
+// ReplayOption defines a functional option for replay settings.
 type ReplayOption func(*ReplayOptions)
 
-// WithReplayTimeout 设置请求超时时间
+// WithReplayTimeout sets the request timeout.
 func WithReplayTimeout(timeout time.Duration) ReplayOption {
 	return func(o *ReplayOptions) {
 		o.Timeout = timeout
 	}
 }
 
-// WithReplayFollowRedirects 设置是否跟随重定向
+// WithReplayFollowRedirects sets whether to follow redirects.
 func WithReplayFollowRedirects(follow bool) ReplayOption {
 	return func(o *ReplayOptions) {
 		o.FollowRedirects = follow
 	}
 }
 
-// WithReplayMaxRedirects 设置最大重定向次数
+// WithReplayMaxRedirects sets the maximum number of redirects.
 func WithReplayMaxRedirects(max int) ReplayOption {
 	return func(o *ReplayOptions) {
 		o.MaxRedirects = max
 	}
 }
 
-// WithReplaySkipSSLVerify 设置是否跳过SSL证书验证
+// WithReplaySkipSSLVerify sets whether to skip SSL certificate verification.
 func WithReplaySkipSSLVerify(skip bool) ReplayOption {
 	return func(o *ReplayOptions) {
 		o.SkipSSLVerify = skip
 	}
 }
 
-// WithReplayOverrideHeader 设置覆盖的请求头
+// WithReplayOverrideHeader sets request headers to override.
 func WithReplayOverrideHeader(name, value string) ReplayOption {
 	return func(o *ReplayOptions) {
 		if o.OverrideHeaders == nil {
@@ -155,7 +155,7 @@ func WithReplayOverrideHeader(name, value string) ReplayOption {
 	}
 }
 
-// WithReplayTransport 设置自定义Transport
+// WithReplayTransport sets a custom Transport.
 func WithReplayTransport(transport interface{}) ReplayOption {
 	return func(o *ReplayOptions) {
 		if t, ok := transport.(http.RoundTripper); ok && !isNilReplayTransport(t) {
@@ -178,7 +178,7 @@ func isNilReplayTransport(transport http.RoundTripper) bool {
 	}
 }
 
-// NewReplayOptions 从函数式选项创建重放选项
+// NewReplayOptions creates replay options from functional options.
 func NewReplayOptions(opts ...ReplayOption) ReplayOptions {
 	options := DefaultReplayOptions()
 	for _, opt := range opts {
@@ -189,106 +189,106 @@ func NewReplayOptions(opts ...ReplayOption) ReplayOptions {
 	return options
 }
 
-// ReplayAllWith 使用函数式选项重放所有请求
+// ReplayAllWith replays all requests using functional options.
 func (h *Har) ReplayAllWith(opts ...ReplayOption) ([]*ReplayResult, error) {
 	return h.ReplayAll(NewReplayOptions(opts...))
 }
 
-// ConvertOption 定义转换选项的函数式选项类型
+// ConvertOption defines a functional option for conversion settings.
 type ConvertOption func(*ConvertOptions)
 
-// WithConvertIncludeHeaders 设置是否包含头部
+// WithConvertIncludeHeaders sets whether to include headers.
 func WithConvertIncludeHeaders(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeHeaders = include
 	}
 }
 
-// WithConvertIncludeTimings 设置是否包含时间
+// WithConvertIncludeTimings sets whether to include timings.
 func WithConvertIncludeTimings(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeTimings = include
 	}
 }
 
-// WithConvertIncludeBodies 设置是否包含请求体
+// WithConvertIncludeBodies sets whether to include request bodies.
 func WithConvertIncludeBodies(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludePostData = include
 	}
 }
 
-// WithConvertIncludeCookies 设置是否包含Cookie
+// WithConvertIncludeCookies sets whether to include cookies.
 func WithConvertIncludeCookies(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		// Cookies are included via headers; no separate field in ConvertOptions
 	}
 }
 
-// WithConvertIncludeQueryStrings 设置是否包含查询参数
+// WithConvertIncludeQueryStrings sets whether to include query strings.
 func WithConvertIncludeQueryStrings(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeQueryString = include
 	}
 }
 
-// WithConvertIncludeStatus 设置是否包含状态码
+// WithConvertIncludeStatus sets whether to include status codes.
 func WithConvertIncludeStatus(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeStatus = include
 	}
 }
 
-// WithConvertIncludeSize 设置是否包含大小
+// WithConvertIncludeSize sets whether to include sizes.
 func WithConvertIncludeSize(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeSize = include
 	}
 }
 
-// WithConvertIncludeURL 设置是否包含URL
+// WithConvertIncludeURL sets whether to include URLs.
 func WithConvertIncludeURL(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeURL = include
 	}
 }
 
-// WithConvertIncludeMethod 设置是否包含方法
+// WithConvertIncludeMethod sets whether to include the method.
 func WithConvertIncludeMethod(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeMethod = include
 	}
 }
 
-// WithConvertIncludeTime 设置是否包含时间
+// WithConvertIncludeTime sets whether to include timings.
 func WithConvertIncludeTime(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeTime = include
 	}
 }
 
-// WithConvertIncludeMimeType 设置是否包含MIME类型
+// WithConvertIncludeMimeType sets whether to include MIME types.
 func WithConvertIncludeMimeType(include bool) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.IncludeContentType = include
 	}
 }
 
-// WithConvertHeaders 设置自定义头部列表
+// WithConvertHeaders sets a custom header list.
 func WithConvertHeaders(headers []string) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.Headers = headers
 	}
 }
 
-// WithConvertFilter 设置过滤选项
+// WithConvertFilter sets filtering options.
 func WithConvertFilter(filter FilterOptions) ConvertOption {
 	return func(o *ConvertOptions) {
 		o.Filter = &filter
 	}
 }
 
-// NewConvertOptions 从函数式选项创建转换选项
+// NewConvertOptions creates conversion options from functional options.
 func NewConvertOptions(opts ...ConvertOption) ConvertOptions {
 	options := DefaultConvertOptions()
 	for _, opt := range opts {
@@ -299,71 +299,71 @@ func NewConvertOptions(opts ...ConvertOption) ConvertOptions {
 	return options
 }
 
-// ConvertWith 使用函数式选项转换HAR格式
+// ConvertWith converts HAR data using functional options.
 func (h *Har) ConvertWith(format ConvertFormat, opts ...ConvertOption) (string, error) {
 	return h.Convert(format, NewConvertOptions(opts...))
 }
 
-// DiffOption 定义差异比较选项的函数式选项类型
+// DiffOption defines a functional option for diff settings.
 type DiffOption func(*DiffOptions)
 
-// WithDiffIgnoreHeaders 设置忽略的头部字段
+// WithDiffIgnoreHeaders sets headers to ignore.
 func WithDiffIgnoreHeaders(headers ...string) DiffOption {
 	return func(o *DiffOptions) {
 		o.IgnoreHeaders = append(o.IgnoreHeaders, headers...)
 	}
 }
 
-// WithDiffIgnoreTimings 设置忽略时间差异
+// WithDiffIgnoreTimings sets whether to ignore timing differences.
 func WithDiffIgnoreTimings(ignore bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.IgnoreTimings = ignore
 	}
 }
 
-// WithDiffIgnoreDates 设置忽略日期差异
+// WithDiffIgnoreDates sets whether to ignore date differences.
 func WithDiffIgnoreDates(ignore bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.IgnoreDates = ignore
 	}
 }
 
-// WithDiffIgnoreCache 设置忽略缓存差异
+// WithDiffIgnoreCache sets whether to ignore cache differences.
 func WithDiffIgnoreCache(ignore bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.IgnoreCache = ignore
 	}
 }
 
-// WithDiffIgnoreComment 设置忽略注释差异
+// WithDiffIgnoreComment sets whether to ignore comment differences.
 func WithDiffIgnoreComment(ignore bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.IgnoreComment = ignore
 	}
 }
 
-// WithDiffNormalizeURL 设置URL归一化
+// WithDiffNormalizeURL sets whether to normalize URLs.
 func WithDiffNormalizeURL(normalize bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.NormalizeURL = normalize
 	}
 }
 
-// WithDiffCompareByURL 设置按URL匹配
+// WithDiffCompareByURL sets whether to match entries by URL.
 func WithDiffCompareByURL(compare bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.CompareByURL = compare
 	}
 }
 
-// WithDiffIncludeBody 设置比较响应体
+// WithDiffIncludeBody sets whether to compare response bodies.
 func WithDiffIncludeBody(include bool) DiffOption {
 	return func(o *DiffOptions) {
 		o.IncludeBody = include
 	}
 }
 
-// NewDiffOptions 从函数式选项创建差异比较选项
+// NewDiffOptions creates diff options from functional options.
 func NewDiffOptions(opts ...DiffOption) DiffOptions {
 	options := DefaultDiffOptions()
 	for _, opt := range opts {
@@ -374,29 +374,29 @@ func NewDiffOptions(opts ...DiffOption) DiffOptions {
 	return options
 }
 
-// DiffWith 使用函数式选项比较两个HAR文件的差异
+// DiffWith compares two HAR files using functional options.
 func DiffWith(har1, har2 *Har, opts ...DiffOption) *HarDiff {
 	return Diff(har1, har2, NewDiffOptions(opts...))
 }
 
-// MergeOption 定义合并选项的函数式选项类型
+// MergeOption defines a functional option for merge settings.
 type MergeOption func(*MergeOptions)
 
-// WithMergeSortByTime 设置按时间排序
+// WithMergeSortByTime sets whether to sort by time.
 func WithMergeSortByTime(sort bool) MergeOption {
 	return func(o *MergeOptions) {
 		o.SortByTime = sort
 	}
 }
 
-// WithMergeDeduplicate 设置去重
+// WithMergeDeduplicate sets whether to deduplicate.
 func WithMergeDeduplicate(dedup bool) MergeOption {
 	return func(o *MergeOptions) {
 		o.Deduplicate = dedup
 	}
 }
 
-// NewMergeOptions 从函数式选项创建合并选项
+// NewMergeOptions creates merge options from functional options.
 func NewMergeOptions(opts ...MergeOption) MergeOptions {
 	options := DefaultMergeOptions()
 	for _, opt := range opts {
@@ -407,7 +407,7 @@ func NewMergeOptions(opts ...MergeOption) MergeOptions {
 	return options
 }
 
-// MergeWith 使用函数式选项合并多个HAR文件
+// MergeWith merges multiple HAR files using functional options.
 func MergeWith(opts ...MergeOption) func(hars ...*Har) *Har {
 	options := NewMergeOptions(opts...)
 	return func(hars ...*Har) *Har {
@@ -415,38 +415,38 @@ func MergeWith(opts ...MergeOption) func(hars ...*Har) *Har {
 	}
 }
 
-// HarBuilderOption 定义HAR构建器的函数式选项类型
+// HarBuilderOption defines a functional option for HarBuilder.
 type HarBuilderOption func(*HarBuilder)
 
-// WithBuilderVersion 设置HAR版本
+// WithBuilderVersion sets the HAR version.
 func WithBuilderVersion(version string) HarBuilderOption {
 	return func(b *HarBuilder) {
 		b.SetVersion(version)
 	}
 }
 
-// WithBuilderCreator 设置创建者信息
+// WithBuilderCreator sets creator information.
 func WithBuilderCreator(name, version string) HarBuilderOption {
 	return func(b *HarBuilder) {
 		b.SetCreator(name, version)
 	}
 }
 
-// WithBuilderBrowser 设置浏览器信息
+// WithBuilderBrowser sets browser information.
 func WithBuilderBrowser(name, version string) HarBuilderOption {
 	return func(b *HarBuilder) {
 		b.SetBrowser(name, version)
 	}
 }
 
-// WithBuilderComment 设置注释
+// WithBuilderComment sets the comment.
 func WithBuilderComment(comment string) HarBuilderOption {
 	return func(b *HarBuilder) {
 		b.SetComment(comment)
 	}
 }
 
-// NewHarBuilderWithOptions 使用函数式选项创建HAR构建器
+// NewHarBuilderWithOptions creates a HAR builder using functional options.
 func NewHarBuilderWithOptions(opts ...HarBuilderOption) *HarBuilder {
 	builder := NewHarBuilder()
 	for _, opt := range opts {

@@ -99,13 +99,13 @@ func writeCSVToWriter(w io.Writer, entries []Entries, options ConvertOptions) er
 
 	writer := csv.NewWriter(w)
 
-	// 写入表头
+	// Write the header.
 	headers := getHeaders(options)
 	if err := writer.Write(headers); err != nil {
 		return NewFileSystemError("failed to write CSV", err)
 	}
 
-	// 写入数据行
+	// Write the data rows.
 	for _, entry := range entries {
 		row := createDataRow(entry, options)
 		if err := writer.Write(row); err != nil {

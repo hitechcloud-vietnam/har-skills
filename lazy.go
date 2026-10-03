@@ -7,25 +7,25 @@ import (
 	"time"
 )
 
-// LazyContent 延迟加载的内容
+// LazyContent represents lazily loaded content.
 type LazyContent struct {
-	// 基本信息总是加载
+	// Basic information is always loaded.
 	Size        int    `json:"size"`
 	MimeType    string `json:"mimeType"`
 	Compression int    `json:"compression,omitempty"`
 
-	// 实际内容延迟加载
+	// Actual content is loaded lazily.
 	Text     *string `json:"text,omitempty"`
 	Encoding *string `json:"encoding,omitempty"`
 	Comment  string  `json:"comment,omitempty"`
 
-	// 用于延迟加载的原始数据
+	// Raw data used for lazy loading.
 	rawData   json.RawMessage `json:"-"`
 	loaded    bool            `json:"-"`
 	loadMutex sync.RWMutex    `json:"-"`
 }
 
-// LazyResponse 带有延迟加载内容的响应
+// LazyResponse represents a response with lazily loaded content.
 type LazyResponse struct {
 	Status       int          `json:"status"`
 	StatusText   string       `json:"statusText"`
@@ -41,7 +41,7 @@ type LazyResponse struct {
 	Comment      string       `json:"comment,omitempty"`
 }
 
-// LazyEntries 带有延迟加载内容的条目
+// LazyEntries represents an entry with lazily loaded content.
 type LazyEntries struct {
 	StartedDateTime time.Time    `json:"startedDateTime"`
 	Time            float64      `json:"time"`
@@ -58,7 +58,7 @@ type LazyEntries struct {
 	Comment         string       `json:"comment,omitempty"`
 }
 
-// LazyHar 带有延迟加载功能的HAR对象
+// LazyHar is a HAR object with lazy-loading support.
 type LazyHar struct {
 	Log struct {
 		Version string        `json:"version"`
@@ -69,17 +69,17 @@ type LazyHar struct {
 	} `json:"log"`
 }
 
-// UnmarshalJSON 自定义JSON解析，初始时只解析基本信息
+// UnmarshalJSON customizes JSON parsing to load only basic information initially.
 func (lc *LazyContent) UnmarshalJSON(data []byte) error {
 	if lc == nil {
-		return NewInvalidFormatError("内容为空")
+		return NewInvalidFormatError("Content is empty")
 	}
 
-	// 保存原始数据用于延迟加载
+	// Stores raw data for lazy loading.
 	lc.rawData = make(json.RawMessage, len(data))
 	copy(lc.rawData, data)
 
-	// 解析基本信息
+	// Parse basic information.
 	type BasicContent struct {
 		Size        int    `json:"size"`
 		MimeType    string `json:"mimeType"`
@@ -101,10 +101,10 @@ func (lc *LazyContent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Load 加载完整的内容数据
+// Load loads the complete content data.
 func (lc *LazyContent) Load() error {
 	if lc == nil {
-		return NewInvalidFormatError("内容为空")
+		return NewInvalidFormatError("Content is empty")
 	}
 
 	lc.loadMutex.Lock()
@@ -114,7 +114,7 @@ func (lc *LazyContent) Load() error {
 		return nil
 	}
 
-	// 临时结构体，用于解析完整内容
+	// Temporary structure used to parse the complete content.
 	type FullContent struct {
 		Text     *string `json:"text,omitempty"`
 		Encoding *string `json:"encoding,omitempty"`
@@ -122,7 +122,7 @@ func (lc *LazyContent) Load() error {
 
 	var full FullContent
 	if err := json.Unmarshal(lc.rawData, &full); err != nil {
-		return NewJSONParseError("无法加载延迟加载的内容", err)
+		return NewJSONParseError("Unable to load lazily loaded content", err)
 	}
 
 	lc.Text = full.Text
@@ -132,10 +132,10 @@ func (lc *LazyContent) Load() error {
 	return nil
 }
 
-// GetText 获取内容文本，如果尚未加载则先加载
+// GetText returns the content text, loading it first if necessary.
 func (lc *LazyContent) GetText() (*string, error) {
 	if lc == nil {
-		return nil, NewInvalidFormatError("内容为空")
+		return nil, NewInvalidFormatError("Content is empty")
 	}
 
 	lc.loadMutex.RLock()
@@ -153,7 +153,7 @@ func (lc *LazyContent) GetText() (*string, error) {
 	return lc.Text, nil
 }
 
-// ParseHarWithLazyLoading 解析HAR内容，对大型字段使用延迟加载
+// ParseHarWithLazyLoading parses HAR data, lazily loading large fields.
 func ParseHarWithLazyLoading(harFileBytes []byte) (*LazyHar, error) {
 	if err := validateInput(harFileBytes); err != nil {
 		return nil, err
@@ -167,22 +167,22 @@ func ParseHarWithLazyLoading(harFileBytes []byte) (*LazyHar, error) {
 	return har, nil
 }
 
-// ParseHarFileWithLazyLoading 解析HAR文件，对大型字段使用延迟加载
+// ParseHarFileWithLazyLoading parses a HAR file, lazily loading large fields.
 func ParseHarFileWithLazyLoading(harFilePath string) (*LazyHar, error) {
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError("无法读取HAR文件", err)
+		return nil, NewFileSystemError("Unable to read HAR file", err)
 	}
 	return ParseHarWithLazyLoading(harFileBytes)
 }
 
-// ToStandardHar 将LazyHar转换为标准Har对象
+// ToStandardHar converts a LazyHar to a standard Har object.
 func (lh *LazyHar) ToStandardHar() (*Har, error) {
 	if lh == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 
-	// 创建标准HAR对象
+	// Create a standard HAR object.
 	result := &Har{
 		Log: Log{
 			Version: lh.Log.Version,
@@ -193,9 +193,9 @@ func (lh *LazyHar) ToStandardHar() (*Har, error) {
 		},
 	}
 
-	// 转换entries
+	// Convert entries.
 	for i, lazyEntry := range lh.Log.Entries {
-		// 复制基本字段
+		// Copy basic fields.
 		entry := Entries{
 			StartedDateTime: lazyEntry.StartedDateTime,
 			Time:            lazyEntry.Time,
@@ -211,7 +211,7 @@ func (lh *LazyHar) ToStandardHar() (*Har, error) {
 			Comment:         lazyEntry.Comment,
 		}
 
-		// 复制响应字段
+		// Copy response fields.
 		entry.Response = Response{
 			Status:       lazyEntry.Response.Status,
 			StatusText:   lazyEntry.Response.StatusText,
@@ -226,11 +226,11 @@ func (lh *LazyHar) ToStandardHar() (*Har, error) {
 			Comment:      lazyEntry.Response.Comment,
 		}
 
-		// 复制内容
+		// Copy content.
 		if lazyEntry.Response.Content != nil {
-			// 确保内容已加载
+			// Ensure the content is loaded.
 			if err := lazyEntry.Response.Content.Load(); err != nil {
-				return nil, NewJSONParseError("无法加载延迟加载的内容", err)
+				return nil, NewJSONParseError("Unable to load lazily loaded content", err)
 			}
 
 			entry.Response.Content = lazyEntry.Response.Content.ToStandard()
@@ -242,18 +242,18 @@ func (lh *LazyHar) ToStandardHar() (*Har, error) {
 	return result, nil
 }
 
-// GetEntry 获取指定索引的条目
+// GetEntry returns the entry at the specified index.
 func (lh *LazyHar) GetEntry(index int) (*LazyEntries, error) {
 	if lh == nil {
-		return nil, NewInvalidFormatError("HAR对象为空")
+		return nil, NewInvalidFormatError("HAR object is nil")
 	}
 	if index < 0 || index >= len(lh.Log.Entries) {
-		return nil, NewInvalidValueError("index", index, "索引超出范围")
+		return nil, NewInvalidValueError("index", index, "index out of range")
 	}
 	return &lh.Log.Entries[index], nil
 }
 
-// GetEntriesCount 获取条目数量
+// GetEntriesCount returns the number of entries.
 func (lh *LazyHar) GetEntriesCount() int {
 	if lh == nil {
 		return 0
@@ -261,7 +261,7 @@ func (lh *LazyHar) GetEntriesCount() int {
 	return len(lh.Log.Entries)
 }
 
-// GetResponseContent 获取指定索引条目的响应内容
+// GetResponseContent returns the response content for the entry at the specified index.
 func (lh *LazyHar) GetResponseContent(index int) (*LazyContent, error) {
 	entry, err := lh.GetEntry(index)
 	if err != nil {
@@ -270,7 +270,7 @@ func (lh *LazyHar) GetResponseContent(index int) (*LazyContent, error) {
 	return entry.Response.Content, nil
 }
 
-// GetResponseText 获取指定索引条目的响应文本
+// GetResponseText returns the response text for the entry at the specified index.
 func (lh *LazyHar) GetResponseText(index int) (*string, error) {
 	content, err := lh.GetResponseContent(index)
 	if err != nil {

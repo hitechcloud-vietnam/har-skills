@@ -7,33 +7,33 @@ import (
 	"time"
 )
 
-// FilterResult 过滤结果
+// FilterResult contains filtered entries.
 type FilterResult struct {
 	Entries []Entries
 }
 
-// FilterOptions 过滤选项
+// FilterOptions defines entry filtering criteria.
 type FilterOptions struct {
-	URL             string    // URL包含的字符串或正则表达式
-	Method          string    // 请求方法
-	StatusCode      int       // 响应状态码
-	StatusCodeMin   int       // 最小状态码
-	StatusCodeMax   int       // 最大状态码
-	ContentType     string    // 内容类型
-	StartTime       time.Time // 开始时间
-	EndTime         time.Time // 结束时间
-	MinDuration     float64   // 最小请求持续时间(ms)
-	MaxDuration     float64   // 最大请求持续时间(ms)
-	ResourceType    string    // 资源类型
-	HasError        bool      // 是否有错误
-	HeaderName      string    // 请求头名
-	HeaderValue     string    // 请求头值
-	RespHeaderName  string    // 响应头名
-	RespHeaderValue string    // 响应头值
-	UseRegex        bool      // 使用正则表达式匹配
+	URL             string    // Substring or regular expression to match in the URL.
+	Method          string    // Request method.
+	StatusCode      int       // Response status code.
+	StatusCodeMin   int       // Minimum status code.
+	StatusCodeMax   int       // Maximum status code.
+	ContentType     string    // Content type.
+	StartTime       time.Time // Start time.
+	EndTime         time.Time // End time.
+	MinDuration     float64   // Minimum request duration (ms).
+	MaxDuration     float64   // Maximum request duration (ms).
+	ResourceType    string    // Resource type.
+	HasError        bool      // Whether an error occurred.
+	HeaderName      string    // Request header name.
+	HeaderValue     string    // Request header value.
+	RespHeaderName  string    // Response header name.
+	RespHeaderValue string    // Response header value.
+	UseRegex        bool      // Use regular expression matching.
 }
 
-// Filter 按条件过滤条目
+// Filter filters entries by criteria.
 func (h *Har) Filter(options FilterOptions) *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -51,9 +51,9 @@ func (h *Har) Filter(options FilterOptions) *FilterResult {
 	}
 }
 
-// 检查条目是否符合过滤条件
+// Check whether an entry matches the filter criteria.
 func matchesFilter(entry Entries, options FilterOptions) bool {
-	// URL过滤
+	// URL filter.
 	if options.URL != "" {
 		if options.UseRegex {
 			re, err := regexp.Compile(options.URL)
@@ -65,17 +65,17 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		}
 	}
 
-	// 请求方法过滤
+	// Request method filter.
 	if options.Method != "" && entry.Request.Method != options.Method {
 		return false
 	}
 
-	// 状态码过滤
+	// Status code filter.
 	if options.StatusCode > 0 && entry.Response.Status != options.StatusCode {
 		return false
 	}
 
-	// 状态码范围过滤
+	// Status code range filter.
 	if options.StatusCodeMin > 0 && entry.Response.Status < options.StatusCodeMin {
 		return false
 	}
@@ -83,14 +83,14 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		return false
 	}
 
-	// 内容类型过滤（优先使用MimeType字段，回退到响应头）
+	// Content-type filter (prefer the MimeType field, falling back to the response header).
 	if options.ContentType != "" {
 		matched := false
-		// 首先检查Content.MimeType字段
+		// First check the Content.MimeType field.
 		if strings.Contains(strings.ToLower(entry.Response.Content.MimeType), strings.ToLower(options.ContentType)) {
 			matched = true
 		}
-		// 如果MimeType没有匹配，检查Content-Type响应头
+		// If MimeType does not match, check the Content-Type response header.
 		if !matched {
 			for _, header := range entry.Response.Headers {
 				if strings.EqualFold(header.Name, "Content-Type") && strings.Contains(strings.ToLower(header.Value), strings.ToLower(options.ContentType)) {
@@ -104,7 +104,7 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		}
 	}
 
-	// 时间范围过滤
+	// Time-range filter.
 	if !options.StartTime.IsZero() && entry.StartedDateTime.Before(options.StartTime) {
 		return false
 	}
@@ -112,7 +112,7 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		return false
 	}
 
-	// 持续时间过滤
+	// Duration filter.
 	if options.MinDuration > 0 && entry.Time < options.MinDuration {
 		return false
 	}
@@ -120,17 +120,17 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		return false
 	}
 
-	// 资源类型过滤
+	// Resource-type filter.
 	if options.ResourceType != "" && entry.ResourceType != options.ResourceType {
 		return false
 	}
 
-	// 错误过滤
+	// Error filter.
 	if options.HasError && (entry.Response.Status < 400 || entry.Response.Status >= 600) {
 		return false
 	}
 
-	// 请求头过滤
+	// Request-header filter.
 	if options.HeaderName != "" {
 		matched := false
 		for _, header := range entry.Request.Headers {
@@ -146,7 +146,7 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 		}
 	}
 
-	// 响应头过滤
+	// Response-header filter.
 	if options.RespHeaderName != "" {
 		matched := false
 		for _, header := range entry.Response.Headers {
@@ -165,9 +165,9 @@ func matchesFilter(entry Entries, options FilterOptions) bool {
 	return true
 }
 
-// 快捷过滤方法
+// Convenience filtering methods.
 
-// FindByURL 按URL查找
+// FindByURL finds entries by URL.
 func (h *Har) FindByURL(urlStr string, useRegex bool) *FilterResult {
 	return h.Filter(FilterOptions{
 		URL:      urlStr,
@@ -175,28 +175,28 @@ func (h *Har) FindByURL(urlStr string, useRegex bool) *FilterResult {
 	})
 }
 
-// FindByMethod 按HTTP方法查找
+// FindByMethod finds entries by HTTP method.
 func (h *Har) FindByMethod(method string) *FilterResult {
 	return h.Filter(FilterOptions{
 		Method: method,
 	})
 }
 
-// FindByStatusCode 按状态码查找
+// FindByStatusCode finds entries by status code.
 func (h *Har) FindByStatusCode(statusCode int) *FilterResult {
 	return h.Filter(FilterOptions{
 		StatusCode: statusCode,
 	})
 }
 
-// FindErrors 查找所有错误请求
+// FindErrors finds all failed requests.
 func (h *Har) FindErrors() *FilterResult {
 	return h.Filter(FilterOptions{
 		HasError: true,
 	})
 }
 
-// FindByTimeRange 按时间范围查找
+// FindByTimeRange finds entries by time range.
 func (h *Har) FindByTimeRange(start, end time.Time) *FilterResult {
 	return h.Filter(FilterOptions{
 		StartTime: start,
@@ -204,21 +204,21 @@ func (h *Har) FindByTimeRange(start, end time.Time) *FilterResult {
 	})
 }
 
-// FindByContentType 按内容类型查找
+// FindByContentType finds entries by content type.
 func (h *Har) FindByContentType(contentType string) *FilterResult {
 	return h.Filter(FilterOptions{
 		ContentType: contentType,
 	})
 }
 
-// FindSlowRequests 查找慢请求
+// FindSlowRequests finds slow requests.
 func (h *Har) FindSlowRequests(minDuration float64) *FilterResult {
 	return h.Filter(FilterOptions{
 		MinDuration: minDuration,
 	})
 }
 
-// FindByDomain 按域名查找
+// FindByDomain finds entries by domain.
 func (h *Har) FindByDomain(domain string) *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -232,7 +232,7 @@ func (h *Har) FindByDomain(domain string) *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// FindByHeader 按请求头查找
+// FindByHeader finds entries by request header.
 func (h *Har) FindByHeader(name, value string) *FilterResult {
 	return h.Filter(FilterOptions{
 		HeaderName:  name,
@@ -240,7 +240,7 @@ func (h *Har) FindByHeader(name, value string) *FilterResult {
 	})
 }
 
-// FindByResponseHeader 按响应头查找
+// FindByResponseHeader finds entries by response header.
 func (h *Har) FindByResponseHeader(name, value string) *FilterResult {
 	return h.Filter(FilterOptions{
 		RespHeaderName:  name,
@@ -248,7 +248,7 @@ func (h *Har) FindByResponseHeader(name, value string) *FilterResult {
 	})
 }
 
-// FindByCookie 按Cookie名称查找（同时搜索请求和响应Cookie）
+// FindByCookie finds entries by cookie name in both request and response cookies.
 func (h *Har) FindByCookie(name string) *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -256,14 +256,14 @@ func (h *Har) FindByCookie(name string) *FilterResult {
 	}
 	for _, entry := range h.Log.Entries {
 		found := false
-		// 搜索请求Cookie
+		// Search request cookies.
 		for _, cookie := range entry.Request.Cookies {
 			if cookie.Name == name {
 				found = true
 				break
 			}
 		}
-		// 搜索响应Cookie
+		// Search response cookies.
 		if !found {
 			for _, cookie := range entry.Response.Cookies {
 				if cookie.Name == name {
@@ -279,7 +279,7 @@ func (h *Har) FindByCookie(name string) *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// FindByStatusCodeRange 按状态码范围查找
+// FindByStatusCodeRange finds entries by status-code range.
 func (h *Har) FindByStatusCodeRange(min, max int) *FilterResult {
 	return h.Filter(FilterOptions{
 		StatusCodeMin: min,
@@ -287,7 +287,7 @@ func (h *Har) FindByStatusCodeRange(min, max int) *FilterResult {
 	})
 }
 
-// FindRedirects 查找所有重定向请求(3xx)
+// FindRedirects finds all redirect requests (3xx).
 func (h *Har) FindRedirects() *FilterResult {
 	return h.Filter(FilterOptions{
 		StatusCodeMin: 300,
@@ -295,8 +295,8 @@ func (h *Har) FindRedirects() *FilterResult {
 	})
 }
 
-// FindCacheHits 查找所有缓存命中的请求
-// 缓存命中判定：BeforeRequest或AfterRequest中HitCount > 0
+// FindCacheHits finds all requests with cache hits.
+// A cache hit is indicated by HitCount > 0 in BeforeRequest or AfterRequest.
 func (h *Har) FindCacheHits() *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -317,14 +317,14 @@ func (h *Har) FindCacheHits() *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// FindByResourceType 按资源类型查找
+// FindByResourceType finds entries by resource type.
 func (h *Har) FindByResourceType(resourceType string) *FilterResult {
 	return h.Filter(FilterOptions{
 		ResourceType: resourceType,
 	})
 }
 
-// FindByServerIP 按服务器IP地址查找
+// FindByServerIP finds entries by server IP address.
 func (h *Har) FindByServerIP(ip string) *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -338,7 +338,7 @@ func (h *Har) FindByServerIP(ip string) *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// FindByConnection 按连接ID查找
+// FindByConnection finds entries by connection ID.
 func (h *Har) FindByConnection(connectionID string) *FilterResult {
 	var result []Entries
 	if h == nil {
@@ -352,11 +352,11 @@ func (h *Har) FindByConnection(connectionID string) *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// ExtractDomain 从URL中提取域名（公共API）
-// 支持带端口号、用户信息等URL格式
+// ExtractDomain extracts the domain from a URL (public API).
+// Supports URLs with ports, user information, and other components.
 var ExtractDomain = extractDomain
 
-// Count 获取过滤结果数量
+// Count returns the number of filtered results.
 func (fr *FilterResult) Count() int {
 	if fr == nil {
 		return 0
@@ -364,7 +364,7 @@ func (fr *FilterResult) Count() int {
 	return len(fr.Entries)
 }
 
-// First 获取第一个结果
+// First returns the first result.
 func (fr *FilterResult) First() *Entries {
 	if fr == nil {
 		return nil
@@ -375,7 +375,7 @@ func (fr *FilterResult) First() *Entries {
 	return nil
 }
 
-// Last 获取最后一个结果
+// Last returns the last result.
 func (fr *FilterResult) Last() *Entries {
 	if fr == nil {
 		return nil
@@ -386,7 +386,7 @@ func (fr *FilterResult) Last() *Entries {
 	return nil
 }
 
-// At 按索引获取结果
+// At returns the result at the specified index.
 func (fr *FilterResult) At(index int) *Entries {
 	if fr == nil {
 		return nil
@@ -397,7 +397,7 @@ func (fr *FilterResult) At(index int) *Entries {
 	return nil
 }
 
-// SortByTime 按请求开始时间排序
+// SortByTime sorts by request start time.
 func (fr *FilterResult) SortByTime() *FilterResult {
 	if fr == nil {
 		return nil
@@ -408,7 +408,7 @@ func (fr *FilterResult) SortByTime() *FilterResult {
 	return fr
 }
 
-// SortByDuration 按请求耗时排序（从快到慢）
+// SortByDuration sorts by request duration, fastest first.
 func (fr *FilterResult) SortByDuration() *FilterResult {
 	if fr == nil {
 		return nil
@@ -419,7 +419,7 @@ func (fr *FilterResult) SortByDuration() *FilterResult {
 	return fr
 }
 
-// SortByDurationDesc 按请求耗时排序（从慢到快）
+// SortByDurationDesc sorts by request duration, slowest first.
 func (fr *FilterResult) SortByDurationDesc() *FilterResult {
 	if fr == nil {
 		return nil
@@ -430,7 +430,7 @@ func (fr *FilterResult) SortByDurationDesc() *FilterResult {
 	return fr
 }
 
-// SortBySize 按响应大小排序（从小到大）
+// SortBySize sorts by response size, smallest first.
 func (fr *FilterResult) SortBySize() *FilterResult {
 	if fr == nil {
 		return nil
@@ -441,7 +441,7 @@ func (fr *FilterResult) SortBySize() *FilterResult {
 	return fr
 }
 
-// SortBySizeDesc 按响应大小排序（从大到小）
+// SortBySizeDesc sorts by response size, largest first.
 func (fr *FilterResult) SortBySizeDesc() *FilterResult {
 	if fr == nil {
 		return nil
@@ -452,7 +452,7 @@ func (fr *FilterResult) SortBySizeDesc() *FilterResult {
 	return fr
 }
 
-// Limit 限制结果数量
+// Limit restricts the number of results.
 func (fr *FilterResult) Limit(n int) *FilterResult {
 	if fr == nil {
 		return nil
@@ -468,7 +468,7 @@ func (fr *FilterResult) Limit(n int) *FilterResult {
 	return fr
 }
 
-// Offset 跳过前N个结果
+// Offset skips the first N results.
 func (fr *FilterResult) Offset(n int) *FilterResult {
 	if fr == nil {
 		return nil
@@ -484,7 +484,7 @@ func (fr *FilterResult) Offset(n int) *FilterResult {
 	return fr
 }
 
-// Chain 在当前过滤结果基础上继续过滤
+// Chain applies additional filters to the current results.
 func (fr *FilterResult) Chain(options FilterOptions) *FilterResult {
 	var result []Entries
 	if fr == nil {
@@ -498,7 +498,7 @@ func (fr *FilterResult) Chain(options FilterOptions) *FilterResult {
 	return &FilterResult{Entries: result}
 }
 
-// ToHar 将过滤结果转换为新的Har对象
+// ToHar converts the filtered results into a new Har object.
 func (fr *FilterResult) ToHar() *Har {
 	har := NewHar()
 	if fr == nil {

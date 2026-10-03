@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-// MergeOptions 合并选项
+// MergeOptions defines merge options.
 type MergeOptions struct {
-	SortByTime  bool // 按时间排序合并后的条目
-	Deduplicate bool // 去重（按Method+URL去重，保留最新的）
+	SortByTime  bool // Sort merged entries by time.
+	Deduplicate bool // Deduplicate by Method+URL, keeping the newest entry.
 }
 
-// DefaultMergeOptions 返回默认的合并选项
+// DefaultMergeOptions returns the default merge options.
 func DefaultMergeOptions() MergeOptions {
 	return MergeOptions{
 		SortByTime:  true,
@@ -20,15 +20,15 @@ func DefaultMergeOptions() MergeOptions {
 	}
 }
 
-// Merge 合并多个HAR文件
+// Merge combines multiple HAR files.
 //
-// 将多个HAR文件的条目合并到一个HAR文件中。
-// 合并后的HAR文件使用第一个HAR的版本和创建者信息。
+// Combine entries from multiple HAR files into one HAR file.
+// The merged HAR file uses the version and creator information from the first HAR file.
 func Merge(hars ...*Har) *Har {
 	return MergeWithOptions(DefaultMergeOptions(), hars...)
 }
 
-// MergeWithOptions 使用选项合并多个HAR文件
+// MergeWithOptions merges multiple HAR files using the specified options.
 func MergeWithOptions(options MergeOptions, hars ...*Har) *Har {
 	if len(hars) == 0 {
 		return NewHar()
@@ -36,7 +36,7 @@ func MergeWithOptions(options MergeOptions, hars ...*Har) *Har {
 
 	result := NewHar()
 
-	// 使用第一个非 nil HAR 的元信息
+	// Use metadata from the first non-nil Har.
 	for _, h := range hars {
 		if h == nil {
 			continue
@@ -47,7 +47,7 @@ func MergeWithOptions(options MergeOptions, hars ...*Har) *Har {
 		break
 	}
 
-	// 合并所有条目和页面
+	// Combine all entries and pages.
 	for _, h := range hars {
 		if h == nil {
 			continue
@@ -56,12 +56,12 @@ func MergeWithOptions(options MergeOptions, hars ...*Har) *Har {
 		result.Log.Pages = append(result.Log.Pages, h.Log.Pages...)
 	}
 
-	// 去重
+	// Deduplicate.
 	if options.Deduplicate {
 		result.Log.Entries = deduplicateEntries(result.Log.Entries)
 	}
 
-	// 排序
+	// Sort entries.
 	if options.SortByTime {
 		sortEntriesByTime(result.Log.Entries)
 	}
@@ -69,7 +69,7 @@ func MergeWithOptions(options MergeOptions, hars ...*Har) *Har {
 	return result
 }
 
-// deduplicateEntries 按Method+URL去重，保留最新的
+// deduplicateEntries deduplicates by Method+URL, keeping the newest entry.
 func deduplicateEntries(entries []Entries) []Entries {
 	seen := make(map[string]int) // key -> index in result
 	var result []Entries
@@ -77,7 +77,7 @@ func deduplicateEntries(entries []Entries) []Entries {
 	for _, entry := range entries {
 		key := entry.Request.Method + " " + entry.Request.URL
 		if idx, ok := seen[key]; ok {
-			// 保留较新的条目
+			// Keep the newer entry.
 			if entry.StartedDateTime.After(result[idx].StartedDateTime) {
 				result[idx] = entry
 			}
@@ -90,17 +90,17 @@ func deduplicateEntries(entries []Entries) []Entries {
 	return result
 }
 
-// sortEntriesByTime 按时间排序条目
+// sortEntriesByTime sorts entries by time.
 func sortEntriesByTime(entries []Entries) {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].StartedDateTime.Before(entries[j].StartedDateTime)
 	})
 }
 
-// SplitByPage 按页面引用拆分HAR文件
+// SplitByPage splits a HAR file by page reference.
 //
-// 将HAR条目按pageref分组，返回以pageref为键的HAR映射。
-// 没有pageref的条目归入空字符串键。
+// Group HAR entries by pageref and return a map of HAR files keyed by pageref.
+// Entries without a pageref are grouped under an empty-string key.
 func (h *Har) SplitByPage() map[string]*Har {
 	result := make(map[string]*Har)
 
@@ -108,20 +108,20 @@ func (h *Har) SplitByPage() map[string]*Har {
 		return result
 	}
 
-	// 收集所有页面
+	// Collect all pages.
 	pagesMap := make(map[string]Pages)
 	for _, page := range h.Log.Pages {
 		pagesMap[page.ID] = page
 	}
 
-	// 按pageref分组
+	// Group by pageref.
 	groups := make(map[string][]Entries)
 	for _, entry := range h.Log.Entries {
 		ref := entry.Pageref
 		groups[ref] = append(groups[ref], entry)
 	}
 
-	// 为每个分组创建HAR
+	// Create a Har object for each group.
 	for ref, entries := range groups {
 		har := NewHar()
 		har.Log.Version = h.Log.Version
@@ -138,9 +138,9 @@ func (h *Har) SplitByPage() map[string]*Har {
 	return result
 }
 
-// SplitByDomain 按域名拆分HAR文件
+// SplitByDomain splits a HAR file by domain.
 //
-// 将HAR条目按请求域名分组，返回以域名为键的HAR映射。
+// Group HAR entries by request domain and return a map of HAR files keyed by domain.
 func (h *Har) SplitByDomain() map[string]*Har {
 	result := make(map[string]*Har)
 
@@ -148,14 +148,14 @@ func (h *Har) SplitByDomain() map[string]*Har {
 		return result
 	}
 
-	// 按域名分组
+	// Group by domain.
 	groups := make(map[string][]Entries)
 	for _, entry := range h.Log.Entries {
 		domain := extractDomain(entry.Request.URL)
 		groups[domain] = append(groups[domain], entry)
 	}
 
-	// 为每个分组创建HAR
+	// Create a Har object for each group.
 	for domain, entries := range groups {
 		har := NewHar()
 		har.Log.Version = h.Log.Version
@@ -167,23 +167,23 @@ func (h *Har) SplitByDomain() map[string]*Har {
 	return result
 }
 
-// SplitByTimeRange 按时间范围拆分HAR文件
+// SplitByTimeRange splits a HAR file by time range.
 //
-// 将HAR条目按指定的时间间隔分组。
-// 例如，如果interval为1小时，则每个HAR文件包含该小时内的所有条目。
+// Group HAR entries by the specified time interval.
+// For example, an interval of one hour places all entries from that hour in each HAR file.
 func (h *Har) SplitByTimeRange(interval time.Duration) []*Har {
 	if h == nil || len(h.Log.Entries) == 0 || interval <= 0 {
 		return nil
 	}
 
-	// 按时间排序
+	// Sort by time.
 	sorted := make([]Entries, len(h.Log.Entries))
 	copy(sorted, h.Log.Entries)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].StartedDateTime.Before(sorted[j].StartedDateTime)
 	})
 
-	// 按时间间隔分组
+	// Group by time interval.
 	var result []*Har
 	var currentGroup []Entries
 	var groupStart time.Time
@@ -196,14 +196,14 @@ func (h *Har) SplitByTimeRange(interval time.Duration) []*Har {
 		}
 
 		if entry.StartedDateTime.Sub(groupStart) >= interval {
-			// 创建当前分组的HAR
+			// Create a Har object for the current group.
 			har := NewHar()
 			har.Log.Version = h.Log.Version
 			har.Log.Creator = h.Log.Creator
 			har.Log.Entries = currentGroup
 			result = append(result, har)
 
-			// 开始新分组
+			// Start a new group.
 			currentGroup = []Entries{entry}
 			groupStart = entry.StartedDateTime
 		} else {
@@ -211,7 +211,7 @@ func (h *Har) SplitByTimeRange(interval time.Duration) []*Har {
 		}
 	}
 
-	// 处理最后一组
+	// Process the last group.
 	if len(currentGroup) > 0 {
 		har := NewHar()
 		har.Log.Version = h.Log.Version
@@ -223,9 +223,9 @@ func (h *Har) SplitByTimeRange(interval time.Duration) []*Har {
 	return result
 }
 
-// SplitBySize 按条目数量拆分HAR文件
+// SplitBySize splits a HAR file by entry count.
 //
-// 将HAR条目按指定数量分组，每个HAR文件最多包含maxEntries个条目。
+// Group HAR entries by the specified count; each HAR file contains at most maxEntries entries.
 func (h *Har) SplitBySize(maxEntries int) []*Har {
 	if h == nil || maxEntries <= 0 {
 		return nil
@@ -259,9 +259,9 @@ func (h *Har) SplitBySize(maxEntries int) []*Har {
 	return result
 }
 
-// SplitByStatusCode 按状态码范围拆分HAR文件
+// SplitByStatusCode splits a HAR file by status-code range.
 //
-// 将HAR条目按状态码范围分组：2xx, 3xx, 4xx, 5xx
+// Group HAR entries by status-code range: 2xx, 3xx, 4xx, and 5xx.
 func (h *Har) SplitByStatusCode() map[string]*Har {
 	result := make(map[string]*Har)
 
@@ -299,7 +299,7 @@ func (h *Har) SplitByStatusCode() map[string]*Har {
 	return result
 }
 
-// SplitByMethod 按HTTP方法拆分HAR文件
+// SplitByMethod splits HAR entries by HTTP method.
 func (h *Har) SplitByMethod() map[string]*Har {
 	result := make(map[string]*Har)
 

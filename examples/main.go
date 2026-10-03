@@ -11,7 +11,7 @@ func main() {
 
 	harFilePath := "./data/www.google.com.har"
 
-	// 用法一：解析HAR文件的字节
+	// Usage 1: Parse HAR file bytes.
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
 		fmt.Println(err)
@@ -24,7 +24,7 @@ func main() {
 	}
 	fmt.Println(harFile)
 
-	// 用法二：给定HAR文件的路径解析它
+	// Usage 2: Parse a HAR file from the specified path.
 	harFile002, err := har.ParseHarFile(harFilePath)
 	if err != nil {
 		fmt.Println(err)

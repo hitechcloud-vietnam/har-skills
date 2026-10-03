@@ -1,31 +1,31 @@
 package har
 
-// Option 定义解析器的选项
+// Option defines a parser option.
 type Option func(*options)
 
-// options 内部选项结构体，用于处理所有配置选项
+// options is the internal structure for parser configuration.
 type options struct {
-	// 是否开启宽松解析模式，会尽量解析有效部分
+	// Whether to enable lenient parsing and attempt to parse valid portions.
 	lenient bool
-	// 是否跳过验证
+	// Whether to skip validation.
 	skipValidation bool
-	// 是否记录所有解析警告（不会导致解析失败）
+	// Whether to collect all parsing warnings without failing.
 	collectWarnings bool
-	// 最大允许的警告数量，超过则停止解析
+	// Maximum number of warnings allowed before parsing stops.
 	maxWarnings int
-	// 是否使用内存优化结构
+	// Whether to use memory-optimized structures.
 	useMemoryOptimized bool
-	// 是否使用懒加载
+	// Whether to use lazy loading.
 	useLazyLoading bool
-	// 是否使用流式处理
+	// Whether to use streaming.
 	useStreaming bool
-	// 指定HAR版本
+	// HAR version to use.
 	harVersion string
-	// 是否自动检测版本
+	// Whether to detect the version automatically.
 	autoDetectVersion bool
 }
 
-// 默认选项
+// Default options.
 var defaultOptions = options{
 	lenient:            false,
 	skipValidation:     false,
@@ -34,11 +34,11 @@ var defaultOptions = options{
 	useMemoryOptimized: false,
 	useLazyLoading:     false,
 	useStreaming:       false,
-	harVersion:         HarSpecVersion12, // 默认版本1.2
-	autoDetectVersion:  true,             // 默认开启自动检测
+	harVersion:         HarSpecVersion12, // Default version: 1.2.
+	autoDetectVersion:  true,             // Enabled by default.
 }
 
-// 将options转换为旧版ParseOptions结构
+// Convert options to the legacy ParseOptions structure.
 func (o *options) toParseOptions() ParseOptions {
 	return ParseOptions{
 		Lenient:         o.lenient,
@@ -48,56 +48,56 @@ func (o *options) toParseOptions() ParseOptions {
 	}
 }
 
-// WithLenient 启用宽松解析模式
+// WithLenient enables lenient parsing.
 func WithLenient() Option {
 	return func(o *options) {
 		o.lenient = true
 	}
 }
 
-// WithSkipValidation 跳过验证
+// WithSkipValidation skips validation.
 func WithSkipValidation() Option {
 	return func(o *options) {
 		o.skipValidation = true
 	}
 }
 
-// WithCollectWarnings 收集警告而不是失败
+// WithCollectWarnings collects warnings instead of failing.
 func WithCollectWarnings() Option {
 	return func(o *options) {
 		o.collectWarnings = true
 	}
 }
 
-// WithMaxWarnings 设置最大警告数量
+// WithMaxWarnings sets the maximum number of warnings.
 func WithMaxWarnings(max int) Option {
 	return func(o *options) {
 		o.maxWarnings = max
 	}
 }
 
-// WithMemoryOptimized 使用内存优化结构
+// WithMemoryOptimized uses memory-optimized structures.
 func WithMemoryOptimized() Option {
 	return func(o *options) {
 		o.useMemoryOptimized = true
 	}
 }
 
-// WithLazyLoading 使用懒加载
+// WithLazyLoading enables lazy loading.
 func WithLazyLoading() Option {
 	return func(o *options) {
 		o.useLazyLoading = true
 	}
 }
 
-// WithStreaming 使用流式处理
+// WithStreaming enables streaming.
 func WithStreaming() Option {
 	return func(o *options) {
 		o.useStreaming = true
 	}
 }
 
-// WithHarVersion 指定HAR版本
+// WithHarVersion specifies the HAR version.
 func WithHarVersion(version string) Option {
 	return func(o *options) {
 		if IsValidHarVersion(version) {
@@ -107,14 +107,14 @@ func WithHarVersion(version string) Option {
 	}
 }
 
-// WithAutoDetectVersion 自动检测HAR版本
+// WithAutoDetectVersion enables automatic HAR version detection.
 func WithAutoDetectVersion(enabled bool) Option {
 	return func(o *options) {
 		o.autoDetectVersion = enabled
 	}
 }
 
-// applyOptions 应用选项到默认选项并返回结果
+// applyOptions applies options to the defaults and returns the result.
 func applyOptions(opts ...Option) options {
 	options := defaultOptions
 	for _, opt := range opts {
@@ -123,26 +123,26 @@ func applyOptions(opts ...Option) options {
 	return options
 }
 
-// 定义常用的选项组合
+// Define common option combinations.
 var (
-	// OptMemoryEfficient 内存高效配置
+	// OptMemoryEfficient is a memory-efficient configuration.
 	OptMemoryEfficient = []Option{
 		WithMemoryOptimized(),
 		WithSkipValidation(),
 	}
 
-	// OptFast 快速解析配置
+	// OptFast configures fast parsing.
 	OptFast = []Option{
 		WithSkipValidation(),
 	}
 
-	// OptLenient 宽松解析配置
+	// OptLenient configures lenient parsing.
 	OptLenient = []Option{
 		WithLenient(),
 		WithCollectWarnings(),
 	}
 
-	// OptPerformance 高性能配置
+	// OptPerformance is a high-performance configuration.
 	OptPerformance = []Option{
 		WithMemoryOptimized(),
 		WithSkipValidation(),

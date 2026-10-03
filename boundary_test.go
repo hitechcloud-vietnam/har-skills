@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- testdata 集成测试 ---
+// --- testdata integration tests ---
 
-// TestCompressedHARIntegration 验证 testdata/compressed.har 里的各压缩格式能被正确解析和解压。
-// 覆盖 gzip/deflate/br/zstd 四种单层压缩 + base64 编码的往返。
+// TestCompressedHARIntegration verifies that all compressed formats in testdata/compressed.har are parsed and decompressed correctly.
+// Covers round trips for gzip, deflate, Brotli, and Zstandard single-layer compression, plus base64 encoding.
 func TestCompressedHARIntegration(t *testing.T) {
 	h, err := ParseHarFile("testdata/compressed.har")
 	require.NoError(t, err)
@@ -23,7 +23,7 @@ func TestCompressedHARIntegration(t *testing.T) {
 
 	expectedBody := `{"message":"compressed response body","data":[1,2,3,4,5],"nested":{"key":"value"}}`
 
-	// 前 4 条是单层压缩：gzip/deflate/br/zstd
+	// The first four entries use single-layer compression: gzip/deflate/br/zstd.
 	for i := 0; i < 4; i++ {
 		entry := h.Log.Entries[i]
 		encoding := entry.Response.Headers[0].Value
@@ -32,84 +32,84 @@ func TestCompressedHARIntegration(t *testing.T) {
 		assert.Equal(t, expectedBody, string(data), "entry %d (%s) 解压结果不匹配", i, encoding)
 	}
 
-	// 第 5 条是多重编码 gzip, deflate —— 当前 SDK 的 DecodeContent 靠魔数探测，
-	// 只能解外层 gzip，内层 deflate 需手动二次解压
+	// The fifth entry uses multiple encodings, gzip and deflate; the SDK's DecodeContent currently detects compression by magic number,
+	// so it can only decode the outer gzip layer; the inner deflate layer must be decoded manually.
 	multiEntry := h.Log.Entries[4]
 	assert.Equal(t, "gzip, deflate", multiEntry.Response.Headers[0].Value)
-	// 外层 gzip 应能解出（解出后是内层 deflate 的 zlib 字节）
+	// The outer gzip layer should decode to the inner deflate zlib bytes.
 	outerData, err := multiEntry.DecodeContent()
 	require.NoError(t, err)
-	// 进一步用 DecompressByEncoding 解内层 deflate
+	// Decode the inner deflate layer with DecompressByEncoding.
 	innerData, err := DecompressByEncoding(outerData, "deflate")
 	require.NoError(t, err)
 	assert.Equal(t, expectedBody, string(innerData))
 }
 
-// TestSensitiveHARRedactionIntegration 验证 testdata/sensitive.har 经 redact 后
-// 所有敏感数据（密钥、token、JWT、AWS key、GitHub PAT）都被脱敏。
+// TestSensitiveHARRedactionIntegration verifies redaction of testdata/sensitive.har.
+// All sensitive data (secrets, tokens, JWTs, AWS keys, and GitHub PATs) should be redacted.
 func TestSensitiveHARRedactionIntegration(t *testing.T) {
 	h, err := ParseHarFile("testdata/sensitive.har")
 	require.NoError(t, err)
 
 	redacted := h.Redact(DefaultRedactOptions())
 
-	// 序列化后整体扫描：不应残留任何明文敏感串
+	// Scan the serialized output to ensure no sensitive values remain in plaintext.
 	jsonBytes, err := redacted.ToJSON(false)
 	require.NoError(t, err)
 	jsonStr := string(jsonBytes)
 
-	// 这些明文敏感值不应再出现
+	// These plaintext sensitive values must no longer appear.
 	forbidden := []string{
 		"AKIAIOSFODNN7EXAMPLE", // AWS access key
-		"eyJhbGciOiJIUzI1NiJ9", // JWT 头
+		"eyJhbGciOiJIUzI1NiJ9", // JWT header
 		"ghp_",                 // GitHub PAT 前缀
 		"xoxb-",                // Slack token 前缀
-		"hunter2",              // 密码明文
-		"secret123",            // token 明文
+		"hunter2",              // Plaintext password
+		"secret123",            // Plaintext token
 	}
 	for _, s := range forbidden {
-		assert.NotContains(t, jsonStr, s, "脱敏后仍含明文敏感串: %q", s)
+		assert.NotContains(t, jsonStr, s, "Plaintext sensitive value remains after redaction: %q", s)
 	}
 
-	// 但 URL 主机、path 等非敏感信息应保留
+	// Non-sensitive information such as the URL host and path should be preserved.
 	assert.Contains(t, jsonStr, "api.example.com")
 	assert.Contains(t, jsonStr, "/users")
 	assert.Contains(t, jsonStr, "/login")
 }
 
-// TestSensitiveHARNonStringJSONRedaction 验证 redact 对 JSON body 里非字符串值
-// （数字、布尔、null、嵌套对象）的脱敏——这是 Task 19 新增能力。
+// TestSensitiveHARNonStringJSONRedaction verifies redaction of non-string JSON body values
+// (numbers, booleans, null, and nested objects); this capability was added in Task 19.
 func TestSensitiveHARNonStringJSONRedaction(t *testing.T) {
 	h, err := ParseHarFile("testdata/sensitive.har")
 	require.NoError(t, err)
 
-	// 第二条 entry 的 postData 是 JSON，含 password(string) 与 secret_code(int)
+	// The second entry's postData is JSON containing password (string) and secret_code (int).
 	entry := h.Log.Entries[1]
 	require.NotNil(t, entry.Request.PostData)
 	assert.Contains(t, entry.Request.PostData.Text, `"secret_code": 12345`)
 
-	// 只脱敏 secret_code（数字），不脱敏 password
+	// Redact only secret_code (the number), not password.
 	opts := DefaultRedactOptions()
 	opts.PostDataFields = []string{"secret_code"}
-	opts.ValuePatterns = nil // 禁用值模式，专注测试名字匹配非字符串值
+	opts.ValuePatterns = nil // Disable value patterns to focus on name matching for non-string values.
 
 	redacted := h.Redact(opts)
 	redactedText := redacted.Log.Entries[1].Request.PostData.Text
 
-	// 数字值被替换为字符串 "[REDACTED]"
+	// The numeric value is replaced with the string "[REDACTED]".
 	assert.Contains(t, redactedText, `"secret_code": "[REDACTED]"`)
-	// password 不在脱敏列表，保持原样
+	// password is not in the redaction list and remains unchanged.
 	assert.Contains(t, redactedText, `"password": "hunter2"`)
 }
 
-// TestParseMinimalHAR 验证最简合法 HAR 仍可解析。
+// TestParseMinimalHAR verifies that the smallest valid HAR can still be parsed.
 func TestParseMinimalHAR(t *testing.T) {
 	h, err := ParseHarFile("testdata/minimal.har")
 	require.NoError(t, err)
 	assert.NotNil(t, h)
 }
 
-// TestParseInvalidHARFiles 验证各类非法 HAR 文件被正确拒绝。
+// TestParseInvalidHARFiles verifies that invalid HAR files are rejected correctly.
 func TestParseInvalidHARFiles(t *testing.T) {
 	cases := []struct {
 		name string
@@ -119,17 +119,17 @@ func TestParseInvalidHARFiles(t *testing.T) {
 		{"invalid json", "testdata/invalid.har"},
 		{"invalid version", "testdata/invalid_version.har"},
 		{"missing required", "testdata/missing_required.har"},
-		// invalid_url.har 当前解析器不严格验证 URL，故不测
+		// invalid_url.har is excluded because the current parser does not strictly validate URLs.
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := ParseHarFile(tc.file)
-			assert.Error(t, err, "%s 应解析失败", tc.file)
+			assert.Error(t, err, "%s should fail to parse", tc.file)
 		})
 	}
 }
 
-// TestRoundtripCompressedHAR 验证压缩 HAR 解析后能再写出可解析的文件。
+// TestRoundtripCompressedHAR verifies that a compressed HAR can be parsed and written back as a parseable file.
 func TestRoundtripCompressedHAR(t *testing.T) {
 	h, err := ParseHarFile("testdata/compressed.har")
 	require.NoError(t, err)
@@ -137,17 +137,17 @@ func TestRoundtripCompressedHAR(t *testing.T) {
 	tmpDir := t.TempDir()
 	outPath := filepath.Join(tmpDir, "roundtrip.har")
 
-	// 用 SDK 写出
+	// Write the file using the SDK.
 	data, err := h.ToJSON(true)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(outPath, data, 0644))
 
-	// 重新解析
+	// Parse it again.
 	h2, err := ParseHarFile(outPath)
 	require.NoError(t, err)
 	assert.Len(t, h2.Log.Entries, len(h.Log.Entries))
 
-	// 第一条解压结果应一致
+	// The decompressed result of the first entry should match.
 	d1, err := h.Log.Entries[0].DecodeContent()
 	require.NoError(t, err)
 	d2, err := h2.Log.Entries[0].DecodeContent()
@@ -155,8 +155,8 @@ func TestRoundtripCompressedHAR(t *testing.T) {
 	assert.Equal(t, d1, d2)
 }
 
-// TestLargeHARSmokeTest 大文件冒烟测试：解析不 panic、条目数正确。
-// large.har 含控制字符 URL，严格验证会报错，用宽松模式解析。
+// TestLargeHARSmokeTest is a large-file smoke test: parsing must not panic and the entry count must be correct.
+// large.har contains URLs with control characters, which fail strict validation, so parse it in lenient mode.
 func TestLargeHARSmokeTest(t *testing.T) {
 	f, err := os.Open("testdata/large.har")
 	require.NoError(t, err)
@@ -167,43 +167,43 @@ func TestLargeHARSmokeTest(t *testing.T) {
 	assert.NotEmpty(t, h.Log.Entries)
 }
 
-// TestFullHARValidate full.har 应通过严格验证。
+// TestFullHARValidate verifies that full.har passes strict validation.
 func TestFullHARValidate(t *testing.T) {
 	h, err := ParseHarFile("testdata/full.har")
 	require.NoError(t, err)
 
-	// 不严格验证应通过
+	// Non-strict validation should pass.
 	require.NoError(t, ValidateHarFile(h))
 }
 
-// TestV11HARParse 1.1 版本 HAR 应能被解析（向后兼容）。
+// TestV11HARParse verifies that HAR 1.1 files can be parsed for backward compatibility.
 func TestV11HARParse(t *testing.T) {
 	h, err := ParseHarFile("testdata/v1.1.har")
 	require.NoError(t, err)
 	assert.Equal(t, "1.1", h.Log.Version)
 }
 
-// TestCompressedHARExtractByEncoding 验证对压缩 entry 用 GetContentEncoding 取值后解压。
+// TestCompressedHARExtractByEncoding verifies decompression using the value returned by GetContentEncoding.
 func TestCompressedHARExtractByEncoding(t *testing.T) {
 	h, err := ParseHarFile("testdata/compressed.har")
 	require.NoError(t, err)
 
 	expectedBody := `{"message":"compressed response body","data":[1,2,3,4,5],"nested":{"key":"value"}}`
 
-	// 对每条 entry：先 base64 解码 Content.Text，再按 Content-Encoding 头解压
+	// For each entry, base64-decode Content.Text, then decompress according to the Content-Encoding header.
 	for i := 0; i < 4; i++ {
 		entry := h.Log.Entries[i]
 		encoding := entry.GetContentEncoding()
-		assert.NotEmpty(t, encoding, "entry %d 应有 Content-Encoding 头", i)
+		assert.NotEmpty(t, encoding, "entry %d should have a Content-Encoding header", i)
 
-		// DecodeContent 应等价于 base64 解码 + 按魔数探测解压
+		// DecodeContent should be equivalent to base64 decoding followed by magic-number-based decompression.
 		data, err := entry.DecodeContent()
 		require.NoError(t, err)
 		assert.Equal(t, expectedBody, string(data))
 	}
 }
 
-// TestRedactValuePatternsAcrossAllFields 集成测试：值模式脱敏覆盖所有字段类型。
+// TestRedactValuePatternsAcrossAllFields is an integration test for value-pattern redaction across all field types.
 func TestRedactValuePatternsAcrossAllFields(t *testing.T) {
 	// 构造一个 entry，每个字段都藏一个 Bearer token
 	h := &Har{
@@ -238,7 +238,7 @@ func TestRedactValuePatternsAcrossAllFields(t *testing.T) {
 		},
 	}
 
-	// 只用值模式，不按名字匹配
+	// Use value patterns only; do not match by name.
 	opts := RedactOptions{
 		Replacement:   "[X]",
 		ValuePatterns: DefaultRedactValuePatterns(),
@@ -249,11 +249,11 @@ func TestRedactValuePatternsAcrossAllFields(t *testing.T) {
 	jsonBytes, _ := result.ToJSON(false)
 	jsonStr := string(jsonBytes)
 	assert.NotContains(t, jsonStr, "Bearer secret-token")
-	// 但 URL 主机/path 保留
+	// Preserve the URL host and path.
 	assert.Contains(t, jsonStr, "api.example.com")
 }
 
-// TestRedactURLWithSensitivePath 验证 URL path 段脱敏规则。
+// TestRedactURLWithSensitivePath verifies redaction rules for URL path segments.
 func TestRedactURLWithSensitivePath(t *testing.T) {
 	h := &Har{
 		Log: Log{
@@ -270,23 +270,23 @@ func TestRedactURLWithSensitivePath(t *testing.T) {
 	opts := RedactOptions{
 		Replacement: "[ID]",
 		RedactURLs: []RedactURLRule{
-			{Pattern: `^\d+$`, Replacement: "[ID]"},            // 纯数字段
-			{Pattern: `^[a-f0-9]{6,}$`, Replacement: "[HASH]"}, // 长 hex 段
+			{Pattern: `^\d+$`, Replacement: "[ID]"},            // Numeric-only segment.
+			{Pattern: `^[a-f0-9]{6,}$`, Replacement: "[HASH]"}, // Long hexadecimal segment.
 		},
 	}
 	result := h.Redact(opts)
 
 	url := result.Log.Entries[0].Request.URL
-	// URL 编码后 [ID] 变 %5BID%5D，解码验证
+	// URL encoding turns [ID] into %5BID%5D; decode to verify.
 	assert.Contains(t, url, "users")
 	assert.Contains(t, url, "tokens")
-	// path 段已被替换，但 URL 编码保留
+	// The path segment is replaced while URL encoding is preserved.
 	decoded := strings.ReplaceAll(url, "%5B", "[")
 	decoded = strings.ReplaceAll(decoded, "%5D", "]")
 	assert.Contains(t, decoded, "/users/[ID]/tokens/[HASH]")
 }
 
-// TestEmptyEntriesParse 空条目列表的 HAR 应能解析。
+// TestEmptyEntriesParse verifies that a HAR with an empty entry list can be parsed.
 func TestEmptyEntriesParse(t *testing.T) {
 	jsonStr := `{"log":{"version":"1.2","creator":{"name":"t","version":"1"},"entries":[]}}`
 	provider, err := Parse([]byte(jsonStr))
@@ -298,7 +298,7 @@ func TestEmptyEntriesParse(t *testing.T) {
 	assert.Equal(t, 0, stats.TotalRequests)
 }
 
-// TestUnicodeHandling Unicode/非 ASCII 内容应正确往返。
+// TestUnicodeHandling verifies that Unicode and non-ASCII content round-trips correctly.
 func TestUnicodeHandling(t *testing.T) {
 	unicodeBody := `{"name":"张三","city":"北京","emoji":"🎉"}`
 	h := &Har{
@@ -330,20 +330,20 @@ func TestUnicodeHandling(t *testing.T) {
 		},
 	}
 
-	// 序列化-反序列化往返
+	// Round-trip through serialization and deserialization.
 	data, err := h.ToJSON(true)
 	require.NoError(t, err)
-	// JSON 输出应保留 Unicode（不转义为 \uXXXX）
+	// JSON output should preserve Unicode instead of escaping it as \uXXXX.
 	assert.Contains(t, string(data), "张三")
 
-	// 用宽松选项解析（避免 URL 严格验证）
+	// Parse with lenient options to avoid strict URL validation.
 	h2, err := ParseHarFromReaderWithOptions(bytes.NewReader(data), ParseOptions{SkipValidation: true})
 	require.NoError(t, err)
 	assert.Equal(t, unicodeBody, h2.Log.Entries[0].Request.PostData.Text)
 	assert.Contains(t, h2.Log.Entries[0].Request.URL, "张三")
 }
 
-// --- 辅助：跳过缺失文件 ---
+// --- Helper: skip missing files ---
 
 func TestTestDataFilesExist(t *testing.T) {
 	files := []string{
@@ -355,9 +355,9 @@ func TestTestDataFilesExist(t *testing.T) {
 	}
 	for _, f := range files {
 		_, err := os.Stat(f)
-		assert.NoError(t, err, "测试数据文件应存在: %s", f)
+		assert.NoError(t, err, "Test data file should exist: %s", f)
 	}
 }
 
-// 避免未使用 import
+// Avoid unused imports.
 var _ = strings.Contains

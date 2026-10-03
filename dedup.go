@@ -8,32 +8,32 @@ import (
 	"strings"
 )
 
-// DedupStrategy 去重策略
+// DedupStrategy defines a deduplication strategy.
 type DedupStrategy int
 
 const (
-	DedupExactURL    DedupStrategy = iota // 精确URL匹配
-	DedupURLPattern                       // 忽略指定参数的URL模式匹配
-	DedupContentHash                      // 基于内容哈希
+	DedupExactURL    DedupStrategy = iota // Exact URL match.
+	DedupURLPattern                       // URL-pattern match, ignoring specified parameters.
+	DedupContentHash                      // Content-hash-based.
 )
 
-// DeduplicateOptions 去重选项
+// DeduplicateOptions configures deduplication.
 type DeduplicateOptions struct {
-	Strategy       DedupStrategy // 去重策略
-	IgnoreParams   []string      // 忽略的查询参数（缓存破坏器等）
-	CompareHeaders bool          // 比较时是否包含头部
-	CompareBody    bool          // 比较时是否包含请求体
+	Strategy       DedupStrategy // Deduplication strategy.
+	IgnoreParams   []string      // Query parameters to ignore (such as cache busters).
+	CompareHeaders bool          // Whether to include headers when comparing.
+	CompareBody    bool          // Whether to include request bodies when comparing.
 }
 
-// DuplicateGroup 表示一组重复请求
+// DuplicateGroup represents a group of duplicate requests.
 type DuplicateGroup struct {
-	Key          string // 去重键（URL模式、哈希等）
-	EntryIndices []int  // 重复条目的索引
-	Count        int    // 重复数量
+	Key          string // Deduplication key (URL pattern, hash, etc.).
+	EntryIndices []int  // Indices of duplicate entries.
+	Count        int    // Number of duplicates.
 }
 
-// DefaultDeduplicateOptions 返回默认的去重选项
-// 使用DedupURLPattern策略，并忽略常见缓存破坏器参数
+// DefaultDeduplicateOptions returns the default deduplication options.
+// Uses the DedupURLPattern strategy and ignores common cache-busting parameters.
 func DefaultDeduplicateOptions() DeduplicateOptions {
 	return DeduplicateOptions{
 		Strategy:     DedupURLPattern,
@@ -41,13 +41,13 @@ func DefaultDeduplicateOptions() DeduplicateOptions {
 	}
 }
 
-// defaultCacheBusterParams 返回常见缓存破坏器参数名列表
+// defaultCacheBusterParams returns common cache-busting parameter names.
 func defaultCacheBusterParams() []string {
 	return []string{"_", "cb", "cachebuster", "timestamp", "t", "rand", "random", "v"}
 }
 
-// IsCacheBusterParam 检查参数名是否看起来像缓存破坏器
-// 判断规则：参数名为常见缓存破坏器名称，或参数名为"v"且值为纯数字
+// IsCacheBusterParam checks whether a parameter name looks like a cache buster.
+// A parameter is a cache buster if its name is common or if its name is "v" and its value is numeric.
 func IsCacheBusterParam(name string) bool {
 	lower := strings.ToLower(name)
 	commonBusters := map[string]bool{
@@ -62,8 +62,8 @@ func IsCacheBusterParam(name string) bool {
 	return commonBusters[lower]
 }
 
-// IsCacheBusterParamWithValue 检查参数名和值是否看起来像缓存破坏器
-// 对于"v"参数，仅在值为纯数字时判定为缓存破坏器
+// IsCacheBusterParamWithValue checks whether a parameter name and value look like a cache buster.
+// For the "v" parameter, only numeric values are considered cache busters.
 func IsCacheBusterParamWithValue(name, value string) bool {
 	lower := strings.ToLower(name)
 	if lower == "v" {
@@ -73,7 +73,7 @@ func IsCacheBusterParamWithValue(name, value string) bool {
 	return IsCacheBusterParam(name)
 }
 
-// FindDuplicates 查找重复/近似重复的请求
+// FindDuplicates finds duplicate or near-duplicate requests.
 func (h *Har) FindDuplicates(opts DeduplicateOptions) []DuplicateGroup {
 	if h == nil || len(h.Log.Entries) == 0 {
 		return nil
@@ -100,7 +100,7 @@ func (h *Har) FindDuplicates(opts DeduplicateOptions) []DuplicateGroup {
 	return result
 }
 
-// Deduplicate 去除重复请求，保留第一次出现的条目
+// Deduplicate removes duplicate requests, keeping the first occurrence.
 func (h *Har) Deduplicate(opts DeduplicateOptions) *Har {
 	if h == nil {
 		return nil
@@ -129,7 +129,7 @@ func (h *Har) Deduplicate(opts DeduplicateOptions) *Har {
 	return cloned
 }
 
-// computeDedupKey 根据策略计算去重键
+// computeDedupKey calculates the deduplication key for the selected strategy.
 func computeDedupKey(entry Entries, opts DeduplicateOptions) string {
 	switch opts.Strategy {
 	case DedupExactURL:
@@ -143,7 +143,7 @@ func computeDedupKey(entry Entries, opts DeduplicateOptions) string {
 	}
 }
 
-// computeExactURLKey 精确URL匹配的键
+// computeExactURLKey returns the exact-URL-match key.
 func computeExactURLKey(entry Entries, opts DeduplicateOptions) string {
 	key := entry.Request.Method + " " + entry.Request.URL
 	if opts.CompareHeaders {
@@ -155,7 +155,7 @@ func computeExactURLKey(entry Entries, opts DeduplicateOptions) string {
 	return key
 }
 
-// computeURLPatternKey 忽略指定参数的URL模式匹配键
+// computeURLPatternKey returns the URL-pattern key, ignoring specified parameters.
 func computeURLPatternKey(entry Entries, opts DeduplicateOptions) string {
 	normalizedURL := normalizeURL(entry.Request.URL, opts.IgnoreParams)
 	key := entry.Request.Method + " " + normalizedURL
@@ -168,31 +168,31 @@ func computeURLPatternKey(entry Entries, opts DeduplicateOptions) string {
 	return key
 }
 
-// computeContentHashKey 基于内容哈希的键
-// 内容哈希策略关注响应内容的相似性，不包含URL（因为不同URL可能返回相同内容）
+// computeContentHashKey returns a content-hash-based key.
+// The content-hash strategy compares response content and excludes URLs because different URLs may return the same content.
 func computeContentHashKey(entry Entries, opts DeduplicateOptions) string {
 	h := sha256.New()
 
-	// 方法
+	// Method.
 	h.Write([]byte(entry.Request.Method))
 
-	// 响应状态码
+	// Response status code.
 	h.Write([]byte(fmt.Sprintf("%d", entry.Response.Status)))
 
-	// 响应MIME类型
+	// Response MIME type.
 	h.Write([]byte(entry.Response.Content.MimeType))
 
-	// 请求体
+	// Request body.
 	if opts.CompareBody && entry.Request.PostData != nil {
 		h.Write([]byte(entry.Request.PostData.Text))
 	}
 
-	// 请求头
+	// Request headers.
 	if opts.CompareHeaders {
 		h.Write([]byte(headersKey(entry.Request.Headers)))
 	}
 
-	// 响应体（内容哈希通常关注响应内容）
+	// Response body (content hashes generally compare response content).
 	if entry.Response.Content.Text != "" {
 		h.Write([]byte(entry.Response.Content.Text))
 	}
@@ -200,9 +200,9 @@ func computeContentHashKey(entry Entries, opts DeduplicateOptions) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// normalizeURL 忽略指定参数，规范化URL
-// 当ignoreParams为nil时，对查询参数进行排序
-// 当ignoreParams不为nil时，移除指定参数并对剩余参数排序
+// normalizeURL normalizes a URL while ignoring specified parameters.
+// When ignoreParams is nil, query parameters are sorted.
+// When ignoreParams is not nil, specified parameters are removed and the remaining parameters are sorted.
 func normalizeURL(rawURL string, ignoreParams []string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -232,7 +232,7 @@ func normalizeURL(rawURL string, ignoreParams []string) string {
 	return u.String()
 }
 
-// headersKey 将头部列表序列化为可比较的字符串
+// headersKey serializes a header list into a comparable string.
 func headersKey(headers []Headers) string {
 	var sb strings.Builder
 	for _, h := range headers {

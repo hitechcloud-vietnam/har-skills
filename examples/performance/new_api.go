@@ -8,98 +8,98 @@ import (
 	"github.com/hitechcloud-vietnam/har-skills"
 )
 
-// 演示使用新的函数选项模式API
+// Demonstrate the new functional-options API
 func demonstrateNewApi() {
 	exampleHarPath := "../../data/example.har"
 	if _, err := os.Stat(exampleHarPath); os.IsNotExist(err) {
-		log.Println("示例HAR文件不存在，跳过新API演示")
+		log.Println("Example HAR file not found; skipping the new API demonstration")
 		return
 	}
 
-	fmt.Println("\n=== 新函数选项模式API示例 ===")
+	fmt.Println("\n=== New Functional-Options API Example ===")
 
-	// 使用标准解析
+	// Use standard parsing
 	harData, err := har.ParseFile(exampleHarPath)
 	if err != nil {
-		log.Printf("标准解析失败: %v", err)
+		log.Printf("Standard parsing failed: %v", err)
 	} else {
-		fmt.Printf("标准解析: 加载了 %d 个entries\n", len(harData.GetEntries()))
+		fmt.Printf("Standard parsing: loaded %d entries\n", len(harData.GetEntries()))
 	}
 
-	// 使用内存优化解析
+	// Use memory-optimized parsing
 	harData, err = har.ParseFile(exampleHarPath, har.WithMemoryOptimized())
 	if err != nil {
-		log.Printf("内存优化解析失败: %v", err)
+		log.Printf("Memory-optimized parsing failed: %v", err)
 	} else {
-		fmt.Printf("内存优化解析: 加载了 %d 个entries\n", len(harData.GetEntries()))
+		fmt.Printf("Memory-optimized parsing: loaded %d entries\n", len(harData.GetEntries()))
 	}
 
-	// 使用懒加载解析
+	// Use lazy parsing
 	harData, err = har.ParseFile(exampleHarPath, har.WithLazyLoading())
 	if err != nil {
-		log.Printf("懒加载解析失败: %v", err)
+		log.Printf("Lazy parsing failed: %v", err)
 	} else {
-		fmt.Printf("懒加载解析: 加载了 %d 个entries\n", len(harData.GetEntries()))
+		fmt.Printf("Lazy parsing: loaded %d entries\n", len(harData.GetEntries()))
 	}
 
-	// 使用组合选项
+	// Use combined options
 	harData, err = har.ParseFile(exampleHarPath, har.WithMemoryOptimized(), har.WithSkipValidation(), har.WithLenient())
 	if err != nil {
-		log.Printf("组合选项解析失败: %v", err)
+		log.Printf("Combined-options parsing failed: %v", err)
 	} else {
-		fmt.Printf("组合选项解析: 加载了 %d 个entries\n", len(harData.GetEntries()))
+		fmt.Printf("Combined-options parsing: loaded %d entries\n", len(harData.GetEntries()))
 	}
 
-	// 使用预定义选项组
+	// Use predefined option groups
 	harData, err = har.ParseFile(exampleHarPath, har.OptMemoryEfficient...)
 	if err != nil {
-		log.Printf("预定义选项组解析失败: %v", err)
+		log.Printf("Predefined-option parsing failed: %v", err)
 	} else {
-		fmt.Printf("预定义选项组解析: 加载了 %d 个entries\n", len(harData.GetEntries()))
+		fmt.Printf("Predefined-option parsing: loaded %d entries\n", len(harData.GetEntries()))
 	}
 
-	// 使用流式解析
+	// Use streaming parsing
 	iterator, err := har.NewStreamingParserFromFile(exampleHarPath)
 	if err != nil {
-		log.Printf("流式解析器创建失败: %v", err)
+		log.Printf("Failed to create the streaming parser: %v", err)
 	} else {
 		count := 0
 		for iterator.Next() {
 			count++
 		}
 		if err := iterator.Err(); err != nil {
-			log.Printf("流式解析过程中发生错误: %v", err)
+			log.Printf("Error while streaming: %v", err)
 		} else {
-			fmt.Printf("流式解析: 处理了 %d 个entries\n", count)
+			fmt.Printf("Streaming parse: processed %d entries\n", count)
 		}
 	}
 
-	// 使用接口进行通用处理
+	// Use interfaces for generic processing
 	harData, err = har.ParseFile(exampleHarPath)
 	if err != nil {
-		log.Printf("接口解析失败: %v", err)
+		log.Printf("Interface parsing failed: %v", err)
 	} else {
-		fmt.Println("\n使用接口处理HAR数据:")
+		fmt.Println("\nProcess HAR data through the interface:")
 		processAnyHar(harData)
 	}
 }
 
-// 通用处理函数，可以处理任何实现了HARProvider接口的类型
+// Generic processing function that accepts any type implementing HARProvider
 func processAnyHar(har har.HARProvider) {
-	fmt.Printf("HAR 版本: %s\n", har.GetVersion())
-	fmt.Printf("创建者: %s %s\n", har.GetCreator().Name, har.GetCreator().Version)
-	fmt.Printf("条目数量: %d\n", len(har.GetEntries()))
+	fmt.Printf("HAR version: %s\n", har.GetVersion())
+	fmt.Printf("Creator: %s %s\n", har.GetCreator().Name, har.GetCreator().Version)
+	fmt.Printf("Entry count: %d\n", len(har.GetEntries()))
 
-	// 处理所有条目
+	// Process all entries
 	if len(har.GetEntries()) > 0 {
-		fmt.Println("\n第一个条目信息:")
+		fmt.Println("\nFirst entry details:")
 		entry := har.GetEntries()[0]
 		request := entry.GetRequest()
 		response := entry.GetResponse()
 
-		fmt.Printf("  请求: %s %s\n", request.GetMethod(), request.GetURL())
-		fmt.Printf("  响应: %d %s\n", response.GetStatus(), response.GetStatusText())
-		fmt.Printf("  内容类型: %s\n", response.GetContent().GetMimeType())
-		fmt.Printf("  内容大小: %d 字节\n", response.GetContent().GetSize())
+		fmt.Printf("  Request: %s %s\n", request.GetMethod(), request.GetURL())
+		fmt.Printf("  Response: %d %s\n", response.GetStatus(), response.GetStatusText())
+		fmt.Printf("  Content type: %s\n", response.GetContent().GetMimeType())
+		fmt.Printf("  Content size: %d bytes\n", response.GetContent().GetSize())
 	}
 }

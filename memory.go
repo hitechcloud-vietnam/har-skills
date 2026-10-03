@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// HTTPMethod 枚举HTTP方法，减少字符串内存占用
+// HTTPMethod is an enum of HTTP methods that reduces string memory usage.
 type HTTPMethod uint8
 
 const (
@@ -23,7 +23,7 @@ const (
 	MethodTRACE
 )
 
-// methodToString 将HTTPMethod转换为字符串
+// methodToString converts an HTTPMethod to a string.
 var methodToString = map[HTTPMethod]string{
 	MethodUnknown: "UNKNOWN",
 	MethodGET:     "GET",
@@ -37,7 +37,7 @@ var methodToString = map[HTTPMethod]string{
 	MethodTRACE:   "TRACE",
 }
 
-// stringToMethod 将字符串转换为HTTPMethod
+// stringToMethod converts a string to an HTTPMethod.
 var stringToMethod = map[string]HTTPMethod{
 	"GET":     MethodGET,
 	"POST":    MethodPOST,
@@ -50,7 +50,7 @@ var stringToMethod = map[string]HTTPMethod{
 	"TRACE":   MethodTRACE,
 }
 
-// String 返回HTTPMethod的字符串表示
+// String returns the string representation of an HTTPMethod.
 func (m HTTPMethod) String() string {
 	if s, ok := methodToString[m]; ok {
 		return s
@@ -58,7 +58,7 @@ func (m HTTPMethod) String() string {
 	return "UNKNOWN"
 }
 
-// ParseMethod 将字符串解析为HTTPMethod
+// ParseMethod parses a string as an HTTPMethod.
 func ParseMethod(method string) HTTPMethod {
 	if m, ok := stringToMethod[strings.ToUpper(method)]; ok {
 		return m
@@ -66,26 +66,26 @@ func ParseMethod(method string) HTTPMethod {
 	return MethodUnknown
 }
 
-// OptimizedTimings 表示内存优化的计时结构
+// OptimizedTimings represents a memory-optimized timing structure.
 type OptimizedTimings struct {
-	Blocked         *float64 // 使用指针允许nil值
-	DNS             *float64 // 使用指针允许nil值
-	Connect         *float64 // 使用指针允许nil值
-	Send            *float64 // 使用指针允许nil值
-	Wait            *float64 // 使用指针允许nil值
-	Receive         *float64 // 使用指针允许nil值
-	Ssl             *float64 // 使用指针允许nil值
-	BlockedQueueing *float64 // 使用指针允许nil值
-	BlockedProxy    *float64 // 使用指针允许nil值
+	Blocked         *float64 // Uses pointers to allow nil values.
+	DNS             *float64 // Uses pointers to allow nil values.
+	Connect         *float64 // Uses pointers to allow nil values.
+	Send            *float64 // Uses pointers to allow nil values.
+	Wait            *float64 // Uses pointers to allow nil values.
+	Receive         *float64 // Uses pointers to allow nil values.
+	Ssl             *float64 // Uses pointers to allow nil values.
+	BlockedQueueing *float64 // Uses pointers to allow nil values.
+	BlockedProxy    *float64 // Uses pointers to allow nil values.
 }
 
 // OptimizedContent 表示内存优化的内容结构
 type OptimizedContent struct {
 	Size     int     // 整数不需要优化
 	MimeType string  // MIME类型通常不太长
-	Text     *string // 使用指针允许nil值
-	Encoding *string // 使用指针允许nil值
-	Comment  *string // 使用指针允许nil值
+	Text     *string // Uses pointers to allow nil values.
+	Encoding *string // Uses pointers to allow nil values.
+	Comment  *string // Uses pointers to allow nil values.
 }
 
 // OptimizedRequest 表示内存优化的请求结构
@@ -96,9 +96,9 @@ type OptimizedRequest struct {
 	Cookies     []Cookie          // 保持不变
 	Headers     map[string]string // 使用map而不是数组，优化查找
 	QueryString map[string]string // 使用map而不是数组
-	PostData    *PostData         // POST数据
-	HeadersSize *int              // 使用指针允许nil值
-	BodySize    *int              // 使用指针允许nil值
+	PostData    *PostData         // POST data.
+	HeadersSize *int              // Uses pointers to allow nil values.
+	BodySize    *int              // Uses pointers to allow nil values.
 }
 
 // OptimizedResponse 表示内存优化的响应结构
@@ -109,10 +109,10 @@ type OptimizedResponse struct {
 	Cookies      []Cookie          // 保持不变
 	Headers      map[string]string // 使用map而不是数组
 	RedirectURL  string            // URL不能优化
-	HeadersSize  *int              // 使用指针允许nil值
-	BodySize     *int              // 使用指针允许nil值
-	Content      *OptimizedContent // 使用指针允许nil值
-	TransferSize *int              // 使用指针允许nil值
+	HeadersSize  *int              // Uses pointers to allow nil values.
+	BodySize     *int              // Uses pointers to allow nil values.
+	Content      *OptimizedContent // Uses pointers to allow nil values.
+	TransferSize *int              // Uses pointers to allow nil values.
 }
 
 // OptimizedEntries 表示内存优化的条目结构
@@ -121,11 +121,11 @@ type OptimizedEntries struct {
 	Time            float64           // 浮点数不需要优化
 	Request         OptimizedRequest  // 优化的请求
 	Response        OptimizedResponse // 优化的响应
-	Cache           *Cache            // 使用指针允许nil值
+	Cache           *Cache            // Uses pointers to allow nil values.
 	Timings         OptimizedTimings  // 优化的计时
-	PageRef         *string           // 使用指针允许nil值
-	ServerIP        *string           // 使用指针允许nil值
-	Connection      *string           // 使用指针允许nil值
+	PageRef         *string           // Uses pointers to allow nil values.
+	ServerIP        *string           // Uses pointers to allow nil values.
+	Connection      *string           // Uses pointers to allow nil values.
 }
 
 // OptimizedHar 表示内存优化的HAR结构
@@ -222,7 +222,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		optimizedEntry.Request.BodySize = &bodySize
 	}
 
-	// 转换响应
+	// Convert the response.
 	optimizedEntry.Response = OptimizedResponse{
 		Status:      entry.Response.Status,
 		StatusText:  entry.Response.StatusText,
@@ -232,12 +232,12 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		RedirectURL: entry.Response.RedirectURL,
 	}
 
-	// 转换响应头
+	// Convert response headers.
 	for _, header := range entry.Response.Headers {
 		optimizedEntry.Response.Headers[header.Name] = header.Value
 	}
 
-	// 设置响应大小
+	// Set the response size.
 	if entry.Response.HeadersSize != 0 {
 		headerSize := entry.Response.HeadersSize
 		optimizedEntry.Response.HeadersSize = &headerSize
@@ -251,7 +251,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		optimizedEntry.Response.TransferSize = &transferSize
 	}
 
-	// 转换内容
+	// Convert content.
 	if entry.Response.Content.Size != 0 || entry.Response.Content.MimeType != "" ||
 		entry.Response.Content.Text != "" || entry.Response.Content.Encoding != "" ||
 		entry.Response.Content.Comment != "" {
@@ -273,7 +273,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		}
 	}
 
-	// 转换计时
+	// Convert timings.
 	if entry.Timings.Blocked != 0 {
 		blocked := entry.Timings.Blocked
 		optimizedEntry.Timings.Blocked = &blocked
@@ -311,7 +311,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		optimizedEntry.Timings.BlockedProxy = &blockedProxy
 	}
 
-	// 转换缓存
+	// Convert cache data.
 	if entry.Cache.Comment != "" ||
 		entry.Cache.BeforeRequest != nil ||
 		entry.Cache.AfterRequest != nil {
@@ -319,7 +319,7 @@ func convertToOptimizedEntry(entry Entries) OptimizedEntries {
 		optimizedEntry.Cache = &cache
 	}
 
-	// 设置可选字段
+	// Set optional fields.
 	if entry.Pageref != "" {
 		pageRef := entry.Pageref
 		optimizedEntry.PageRef = &pageRef
@@ -399,7 +399,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		standardEntry.Request.BodySize = *entry.Request.BodySize
 	}
 
-	// 转换响应
+	// Convert the response.
 	standardEntry.Response = Response{
 		Status:      entry.Response.Status,
 		StatusText:  entry.Response.StatusText,
@@ -409,7 +409,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		RedirectURL: entry.Response.RedirectURL,
 	}
 
-	// 转换响应头
+	// Convert response headers.
 	for name, value := range entry.Response.Headers {
 		standardEntry.Response.Headers = append(standardEntry.Response.Headers, Headers{
 			Name:  name,
@@ -417,7 +417,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		})
 	}
 
-	// 设置响应大小
+	// Set the response size.
 	if entry.Response.HeadersSize != nil {
 		standardEntry.Response.HeadersSize = *entry.Response.HeadersSize
 	}
@@ -428,7 +428,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		standardEntry.Response.TransferSize = *entry.Response.TransferSize
 	}
 
-	// 转换内容
+	// Convert content.
 	if entry.Response.Content != nil {
 		standardEntry.Response.Content = Content{
 			Size:     entry.Response.Content.Size,
@@ -445,7 +445,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		}
 	}
 
-	// 转换计时
+	// Convert timings.
 	if entry.Timings.Blocked != nil {
 		standardEntry.Timings.Blocked = *entry.Timings.Blocked
 	}
@@ -474,12 +474,12 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 		standardEntry.Timings.BlockedProxy = *entry.Timings.BlockedProxy
 	}
 
-	// 转换缓存
+	// Convert cache data.
 	if entry.Cache != nil {
 		standardEntry.Cache = *entry.Cache
 	}
 
-	// 设置可选字段
+	// Set optional fields.
 	if entry.PageRef != nil {
 		standardEntry.Pageref = *entry.PageRef
 	}
@@ -493,7 +493,7 @@ func convertToStandardEntry(entry OptimizedEntries) Entries {
 	return standardEntry
 }
 
-// SearchByURL 按URL搜索条目
+// SearchByURL searches entries by URL.
 func (oh *OptimizedHar) SearchByURL(urlPattern string) []OptimizedEntries {
 	if oh == nil {
 		return nil
@@ -510,7 +510,7 @@ func (oh *OptimizedHar) SearchByURL(urlPattern string) []OptimizedEntries {
 	return results
 }
 
-// SearchByMethod 按HTTP方法搜索条目
+// SearchByMethod searches entries by HTTP method.
 func (oh *OptimizedHar) SearchByMethod(method HTTPMethod) []OptimizedEntries {
 	if oh == nil {
 		return nil
@@ -527,7 +527,7 @@ func (oh *OptimizedHar) SearchByMethod(method HTTPMethod) []OptimizedEntries {
 	return results
 }
 
-// SearchByStatusCode 按状态码搜索条目
+// SearchByStatusCode searches entries by status code.
 func (oh *OptimizedHar) SearchByStatusCode(statusCode int) []OptimizedEntries {
 	if oh == nil {
 		return nil
@@ -544,7 +544,7 @@ func (oh *OptimizedHar) SearchByStatusCode(statusCode int) []OptimizedEntries {
 	return results
 }
 
-// GetRequestHeaderValue 获取指定请求头的值
+// GetRequestHeaderValue returns the value of the specified request header.
 func (req *OptimizedRequest) GetRequestHeaderValue(name string) (string, bool) {
 	if req == nil {
 		return "", false
@@ -554,7 +554,7 @@ func (req *OptimizedRequest) GetRequestHeaderValue(name string) (string, bool) {
 	return value, ok
 }
 
-// GetResponseHeaderValue 获取指定响应头的值
+// GetResponseHeaderValue returns the value of the specified response header.
 func (resp *OptimizedResponse) GetResponseHeaderValue(name string) (string, bool) {
 	if resp == nil {
 		return "", false

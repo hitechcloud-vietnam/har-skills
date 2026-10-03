@@ -8,29 +8,29 @@ import (
 	"strings"
 )
 
-// YAMLFormat 常量
+// YAMLFormat constant.
 const FormatYAML ConvertFormat = "yaml"
 
-// ToYAML 将HAR对象转换为YAML格式字符串
+// ToYAML converts a Har object to a YAML string.
 //
-// 该方法将HAR数据转为YAML格式，便于阅读和编辑。
-// 注意：该实现不依赖外部YAML库，使用内置的JSON转YAML转换。
+// This method converts HAR data to YAML for easier reading and editing.
+// Note: this implementation does not depend on an external YAML library; it uses the built-in JSON-to-YAML conversion.
 func (h *Har) ToYAML() (string, error) {
 	if h == nil {
-		return "", NewInvalidFormatError("HAR对象为空")
+		return "", NewInvalidFormatError("HAR object is nil")
 	}
 
-	// 先转为JSON
+	// Convert to JSON first.
 	jsonData, err := h.ToJSON(true)
 	if err != nil {
 		return "", err
 	}
 
-	// 将JSON转为YAML格式
+	// Convert JSON to YAML.
 	return jsonToYAML(jsonData), nil
 }
 
-// SaveAsYAML 将HAR对象保存为YAML文件
+// SaveAsYAML saves a Har object as a YAML file.
 func (h *Har) SaveAsYAML(filePath string) error {
 	yamlData, err := h.ToYAML()
 	if err != nil {
@@ -39,8 +39,8 @@ func (h *Har) SaveAsYAML(filePath string) error {
 	return writeToFile(filePath, []byte(yamlData))
 }
 
-// jsonToYAML 简单的JSON到YAML转换器
-// 不依赖外部库，提供基本的YAML输出
+// jsonToYAML is a simple JSON-to-YAML converter.
+// Provides basic YAML output without external libraries.
 func jsonToYAML(jsonData []byte) string {
 	var data interface{}
 	if err := json.Unmarshal(jsonData, &data); err != nil {
@@ -49,7 +49,7 @@ func jsonToYAML(jsonData []byte) string {
 	return valueToYAML(data, 0)
 }
 
-// valueToYAML 递归地将值转为YAML格式
+// valueToYAML recursively converts a value to YAML.
 func valueToYAML(v interface{}, indent int) string {
 	var sb strings.Builder
 	prefix := strings.Repeat("  ", indent)
@@ -111,7 +111,7 @@ func valueToYAML(v interface{}, indent int) string {
 	return sb.String()
 }
 
-// arrayToYAML 将数组转为YAML格式
+// arrayToYAML converts an array to YAML.
 func arrayToYAML(arr []interface{}, indent int) string {
 	var sb strings.Builder
 	prefix := strings.Repeat("  ", indent)
@@ -145,16 +145,16 @@ func arrayToYAML(arr []interface{}, indent int) string {
 	return sb.String()
 }
 
-// writeToFile 写入数据到文件
+// writeToFile writes data to a file.
 func writeToFile(filePath string, data []byte) error {
 	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return NewFileSystemError(fmt.Sprintf("无法写入文件 '%s'", filePath), err)
+		return NewFileSystemError(fmt.Sprintf("Unable to write file '%s'", filePath), err)
 	}
 
 	return nil
 }
 
-// escapeYAMLString 转义YAML字符串中的特殊字符
+// escapeYAMLString escapes special characters in a YAML string.
 func escapeYAMLString(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
@@ -163,13 +163,13 @@ func escapeYAMLString(s string) string {
 	return s
 }
 
-// WriteToWriter 将HAR写入指定的Writer
-// （已定义在builder.go中，这里提供ConvertFormat参数版本）
+// WriteToWriter writes HAR data to the specified Writer.
+// (Defined in builder.go; this variant accepts a ConvertFormat parameter.)
 
-// ConvertTo 将HAR转换为指定格式并写入Writer
+// ConvertTo converts HAR data to the specified format and writes it to a Writer.
 func (h *Har) ConvertTo(format ConvertFormat, w io.Writer, options ConvertOptions) error {
 	if h == nil {
-		return NewInvalidFormatError("HAR对象为空")
+		return NewInvalidFormatError("HAR object is nil")
 	}
 	if isNilWriter(w) {
 		return NewInvalidFormatError("writer is nil")
@@ -184,7 +184,7 @@ func (h *Har) ConvertTo(format ConvertFormat, w io.Writer, options ConvertOption
 	case FormatCSV, FormatMarkdown, FormatHTML, FormatText:
 		content, err = h.Convert(format, options)
 	default:
-		// 默认输出JSON
+		// Output JSON by default.
 		var data []byte
 		data, err = h.ToJSON(true)
 		if err == nil {

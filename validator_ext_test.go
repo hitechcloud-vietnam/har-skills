@@ -246,7 +246,7 @@ func TestValidateStrictCacheFields(t *testing.T) {
 func TestValidationError_Error(t *testing.T) {
 	ve := &ValidationError{
 		Field:   "log.entries[0].request.url",
-		Message: "URL解析失败",
+		Message: "URL parsing failed",
 		Rule:    "url-format",
 	}
 
@@ -254,7 +254,7 @@ func TestValidationError_Error(t *testing.T) {
 	if !validatorContains(errStr, "[url-format]") {
 		t.Errorf("Expected rule name in error string, got: %s", errStr)
 	}
-	if !validatorContains(errStr, "URL解析失败") {
+	if !validatorContains(errStr, "URL parsing failed") {
 		t.Errorf("Expected message in error string, got: %s", errStr)
 	}
 }

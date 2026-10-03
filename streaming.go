@@ -10,19 +10,19 @@ import (
 	"sync"
 )
 
-// EntryIterator 提供流式迭代HAR文件中的条目的接口
+// EntryIterator provides an interface for streaming through entries in a HAR file.
 type EntryIterator interface {
-	// Next 移动到下一个条目，如果没有更多条目则返回false
+	// Next moves to the next entry and returns false if there are no more entries.
 	Next() bool
-	// Entry 返回当前条目
+	// Entry returns the current entry.
 	Entry() *Entries
-	// Err 返回迭代过程中出现的错误
+	// Err returns any error encountered during iteration.
 	Err() error
-	// Close 关闭迭代器和相关资源
+	// Close closes the iterator and associated resources.
 	Close() error
 }
 
-// StreamingHar 表示一个流式处理的HAR文件
+// StreamingHar represents a HAR file processed as a stream.
 type StreamingHar struct {
 	file       *os.File
 	fileOffset int64
@@ -34,7 +34,7 @@ type StreamingHar struct {
 	data       []byte
 }
 
-// StreamingEntryIterator 是HAR条目的迭代器
+// StreamingEntryIterator iterates over HAR entries.
 type StreamingEntryIterator struct {
 	har            *StreamingHar
 	decoder        *json.Decoder
@@ -46,7 +46,7 @@ type StreamingEntryIterator struct {
 	entriesStarted bool
 }
 
-// NewStreamingHarFromFile 从文件路径创建一个流式HAR对象
+// NewStreamingHarFromFile creates a streaming HAR object from a file path.
 func NewStreamingHarFromFile(filePath string) (*StreamingHar, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -68,7 +68,7 @@ func NewStreamingHarFromFile(filePath string) (*StreamingHar, error) {
 	return har, nil
 }
 
-// NewStreamingHarFromBytes 从字节数据创建一个流式HAR对象
+// NewStreamingHarFromBytes creates a streaming HAR object from bytes.
 func NewStreamingHarFromBytes(data []byte) (*StreamingHar, error) {
 	tempHar := &Har{}
 	err := json.Unmarshal(data, tempHar)
@@ -176,7 +176,7 @@ func parseHarBasicInfo(decoder *json.Decoder, har *StreamingHar) error {
 	return nil
 }
 
-// Close 关闭StreamingHar并释放资源
+// Close closes the StreamingHar and releases its resources.
 func (h *StreamingHar) Close() error {
 	if h == nil {
 		return nil
@@ -194,7 +194,7 @@ func (h *StreamingHar) Close() error {
 	return nil
 }
 
-// GetVersion 返回HAR版本
+// GetVersion returns the HAR version.
 func (h *StreamingHar) GetVersion() string {
 	if h == nil {
 		return ""
@@ -202,7 +202,7 @@ func (h *StreamingHar) GetVersion() string {
 	return h.version
 }
 
-// GetCreator 返回HAR创建者信息
+// GetCreator returns HAR creator information.
 func (h *StreamingHar) GetCreator() Creator {
 	if h == nil {
 		return Creator{}
@@ -210,7 +210,7 @@ func (h *StreamingHar) GetCreator() Creator {
 	return h.creator
 }
 
-// GetBrowser 返回浏览器信息
+// GetBrowser returns browser information.
 func (h *StreamingHar) GetBrowser() Browser {
 	if h == nil {
 		return Browser{}
@@ -218,7 +218,7 @@ func (h *StreamingHar) GetBrowser() Browser {
 	return h.browser
 }
 
-// GetPages 返回页面信息
+// GetPages returns page information.
 func (h *StreamingHar) GetPages() []Pages {
 	if h == nil {
 		return nil
@@ -226,7 +226,7 @@ func (h *StreamingHar) GetPages() []Pages {
 	return h.pages
 }
 
-// Entries 返回一个条目迭代器
+// Entries returns an entry iterator.
 func (h *StreamingHar) Entries() *StreamingEntryIterator {
 	if h == nil {
 		return &StreamingEntryIterator{
@@ -302,7 +302,7 @@ func (h *StreamingHar) Entries() *StreamingEntryIterator {
 	}
 }
 
-// Next 获取下一个条目
+// Next returns the next entry.
 func (it *StreamingEntryIterator) Next() bool {
 	if it == nil || it.decoder == nil {
 		return false
@@ -352,7 +352,7 @@ func (it *StreamingEntryIterator) Next() bool {
 	return true
 }
 
-// Entry 返回当前条目
+// Entry returns the current entry.
 func (it *StreamingEntryIterator) Entry() *Entries {
 	if it == nil {
 		return nil
@@ -360,7 +360,7 @@ func (it *StreamingEntryIterator) Entry() *Entries {
 	return &it.entry
 }
 
-// Position 返回当前位置
+// Position returns the current position.
 func (it *StreamingEntryIterator) Position() int {
 	if it == nil {
 		return 0
@@ -368,7 +368,7 @@ func (it *StreamingEntryIterator) Position() int {
 	return it.currentPos
 }
 
-// Err 返回迭代过程中的错误
+// Err returns any error encountered while iterating.
 func (it *StreamingEntryIterator) Err() error {
 	if it == nil {
 		return NewInvalidFormatError("StreamingEntryIterator对象为空")
@@ -386,7 +386,7 @@ func wrapStreamingIteratorError(message string, err error) error {
 	return NewJSONParseError(message, err)
 }
 
-// Close 关闭迭代器和相关资源
+// Close closes the iterator and associated resources.
 func (it *StreamingEntryIterator) Close() error {
 	if it == nil {
 		return nil
@@ -403,7 +403,7 @@ func (it *StreamingEntryIterator) Close() error {
 	return nil
 }
 
-// GetAllEntries 获取所有条目（便捷方法，但会加载所有内容到内存）
+// GetAllEntries returns all entries (a convenience method that loads everything into memory).
 func (sh *StreamingHar) GetAllEntries() ([]Entries, error) {
 	if sh == nil {
 		return nil, NewInvalidFormatError("StreamingHar对象为空")

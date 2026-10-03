@@ -5,95 +5,95 @@ import (
 	"os"
 )
 
-// Parse 使用函数选项模式解析HAR字节数据
+// Parse parses HAR bytes using functional options.
 //
-// Parse函数是解析HAR数据的主要入口点，支持多种解析策略和选项。
-// 该函数使用函数选项模式，允许灵活配置解析行为。
+// Parse is the main entry point for parsing HAR data and supports multiple parsing strategies and options.
+// This function uses functional options to configure parsing flexibly.
 //
-// 示例:
+// Example:
 //
-//	// 标准解析
+// // Standard parsing.
 //	har, err := Parse(harBytes)
 //
-//	// 使用内存优化
+// // Use memory optimization.
 //	har, err := Parse(harBytes, WithMemoryOptimized())
 //
-//	// 组合多个选项
+// // Combine multiple options.
 //	har, err := Parse(harBytes, WithMemoryOptimized(), WithSkipValidation())
 //
-// 返回实现了HARProvider接口的对象，可以统一访问不同实现的HAR结构。
+// Returns an object implementing HARProvider, providing a unified way to access different HAR implementations.
 func Parse(harFileBytes []byte, opts ...Option) (HARProvider, error) {
-	// 应用选项
+	// Apply options.
 	options := applyOptions(opts...)
 
-	// 验证输入
+	// Validate input.
 	if err := validateInput(harFileBytes); err != nil {
 		return nil, err
 	}
 
-	// 根据选项选择相应的解析方法
+	// Choose the appropriate parsing method based on the options.
 	return parseWithStrategy(harFileBytes, options)
 }
 
-// validateInput 验证输入数据是否有效
+// validateInput checks whether the input data is valid.
 func validateInput(harFileBytes []byte) error {
-	// 检查输入是否为空
+	// Check whether the input is empty.
 	if len(harFileBytes) == 0 {
-		return NewInvalidFormatError("输入为空")
+		return NewInvalidFormatError("Input is empty")
 	}
 
-	// 检查文件是否是JSON格式
+	// Check whether the file is JSON.
 	if !isJSONContent(harFileBytes) {
-		return NewInvalidFormatError("输入不是有效的JSON格式")
+		return NewInvalidFormatError("Input is not valid JSON")
 	}
 
 	return nil
 }
 
-// parseWithStrategy 根据选项选择合适的解析策略
+// parseWithStrategy selects an appropriate parsing strategy based on the options.
 func parseWithStrategy(harFileBytes []byte, options options) (HARProvider, error) {
-	// 流式解析需要特殊处理
+	// Streaming parsing requires special handling.
 	if options.useStreaming {
-		return nil, NewUnsupportedError("流式解析不支持直接返回完整HAR对象，请使用NewStreamingParser")
+		return nil, NewUnsupportedError("Streaming parsing cannot return a complete HAR object directly; use NewStreamingParser instead")
 	}
 
-	// 根据选项选择解析策略
+	// Choose a parsing strategy based on the options.
 	if options.useMemoryOptimized {
-		// 内存优化解析
+		// Memory-optimized parsing.
 		return ParseHarOptimized(harFileBytes)
 	} else if options.useLazyLoading {
-		// 懒加载解析
+		// Lazy parsing.
 		return ParseHarWithLazyLoading(harFileBytes)
 	} else {
-		// 标准解析
+		// Standard parsing.
 		parseOptions := options.toParseOptions()
 		return ParseHarWithOptions(harFileBytes, parseOptions)
 	}
 }
 
-// ParseFile 使用函数选项模式解析HAR文件
+// ParseFile parses a HAR file using functional options.
 //
-// ParseFile是解析HAR文件的便捷方法，支持与Parse函数相同的选项。
-// 该函数负责文件读取，然后将内容传递给Parse函数进行解析。
+// ParseFile is a convenience method for parsing HAR files and supports the same options as Parse.
+// This function reads the file and passes its contents to Parse for processing.
 //
-// 示例:
+// Example:
 //
-//	// 标准解析
+// // Standard parsing.
 //	har, err := ParseFile("example.har")
 //
-//	// 使用预定义选项组合
+// // Use a predefined option combination.
 //	har, err := ParseFile("large.har", OptMemoryEfficient...)
 func ParseFile(harFilePath string, opts ...Option) (HARProvider, error) {
-	// 读取文件
+	// Read the file.
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError(fmt.Sprintf("无法读取文件 '%s'", harFilePath), err)
+		return nil, NewFileSystemError(fmt.Sprintf("Unable to read file '%s'", harFilePath), err)
 	}
 
-	// 解析文件内容
+	// Parse the file contents.
 	har, err := Parse(harFileBytes, opts...)
 	if err != nil {
-		// 添加文件路径到错误上下文
+		// Add the file path to the error context.
 		if harErr, ok := err.(*HarError); ok {
 			_ = harErr.WithMetadata("filePath", harFilePath)
 		}
@@ -103,11 +103,11 @@ func ParseFile(harFilePath string, opts ...Option) (HARProvider, error) {
 	return har, nil
 }
 
-// NewStreamingParser 创建一个新的流式解析器
+// NewStreamingParser creates a new streaming parser.
 //
-// 流式解析器允许逐个处理HAR条目，适用于大型HAR文件，避免一次性加载全部内容。
+// The streaming parser processes HAR entries one at a time, making it suitable for large HAR files and avoiding loading the entire file at once.
 //
-// 示例:
+// Example:
 //
 //	iterator, err := NewStreamingParser(harBytes)
 //	if err != nil {
@@ -115,15 +115,15 @@ func ParseFile(harFilePath string, opts ...Option) (HARProvider, error) {
 //	}
 //	for iterator.Next() {
 //	    entry := iterator.Entry()
-//	    // 处理单个条目
+// // Process a single entry.
 //	}
 func NewStreamingParser(harFileBytes []byte, opts ...Option) (EntryIterator, error) {
-	// 验证输入
+	// Validate input.
 	if err := validateInput(harFileBytes); err != nil {
 		return nil, err
 	}
 
-	// 创建流式解析器
+	// Create a streaming parser.
 	streamingHar, err := NewStreamingHarFromBytes(harFileBytes)
 	if err != nil {
 		return nil, err
@@ -131,13 +131,13 @@ func NewStreamingParser(harFileBytes []byte, opts ...Option) (EntryIterator, err
 	return streamingHar.Entries(), nil
 }
 
-// NewStreamingParserFromFile 从文件创建一个新的流式解析器
+// NewStreamingParserFromFile creates a streaming parser from a file.
 //
-// 这是一个便捷方法，用于从文件路径创建流式解析器，避免手动读取文件。
+// This is a convenience method that creates a streaming parser from a file path, avoiding manual file reads.
 func NewStreamingParserFromFile(harFilePath string, opts ...Option) (EntryIterator, error) {
 	harFileBytes, err := os.ReadFile(harFilePath)
 	if err != nil {
-		return nil, NewFileSystemError(fmt.Sprintf("无法读取文件 '%s'", harFilePath), err)
+		return nil, NewFileSystemError(fmt.Sprintf("Unable to read file '%s'", harFilePath), err)
 	}
 
 	return NewStreamingParser(harFileBytes, opts...)

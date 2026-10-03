@@ -6,32 +6,32 @@ import (
 	"strings"
 )
 
-// TransformType 定义转换规则的类型
+// TransformType defines the type of transformation rule.
 type TransformType int
 
 const (
-	TransformURLRewrite          TransformType = iota // URL重写
-	TransformHostReplace                              // 主机替换
-	TransformSchemeChange                             // 协议变更
-	TransformHeaderAdd                                // 添加请求头
-	TransformHeaderRemove                             // 删除请求头
-	TransformHeaderReplace                            // 替换请求头
-	TransformQueryParamRemove                         // 删除查询参数
-	TransformQueryParamAdd                            // 添加查询参数
-	TransformCookieDomainRewrite                      // Cookie域重写
-	TransformBodyReplace                              // 请求体替换
+	TransformURLRewrite          TransformType = iota // URL rewrite.
+	TransformHostReplace                              // Host replacement.
+	TransformSchemeChange                             // Scheme change.
+	TransformHeaderAdd                                // Add a request header.
+	TransformHeaderRemove                             // Remove request headers.
+	TransformHeaderReplace                            // Replace request headers.
+	TransformQueryParamRemove                         // Remove query parameters.
+	TransformQueryParamAdd                            // Add a query parameter.
+	TransformCookieDomainRewrite                      // Rewrite cookie domain.
+	TransformBodyReplace                              // Replace the request body.
 )
 
-// TransformRule 定义一条转换规则
+// TransformRule defines a transformation rule.
 type TransformRule struct {
-	Type        TransformType // 转换类型
-	Pattern     string        // 正则或字符串匹配模式
-	Replacement string        // 替换字符串
-	HeaderName  string        // 用于请求头转换的头部名称
-	HeaderValue string        // 用于添加/替换请求头的头部值
+	Type        TransformType // Transformation type.
+	Pattern     string        // Regular-expression or string-matching pattern.
+	Replacement string        // Replacement string.
+	HeaderName  string        // Header name used for request-header transformations.
+	HeaderValue string        // Header value used to add or replace a request header.
 }
 
-// Transform 对HAR应用转换规则，返回新的Har对象（克隆+转换）
+// Transform applies transformation rules to a Har object and returns a new transformed clone.
 func (h *Har) Transform(rules []TransformRule) *Har {
 	if h == nil {
 		return nil
@@ -45,7 +45,7 @@ func (h *Har) Transform(rules []TransformRule) *Har {
 	return cloned
 }
 
-// TransformInPlace 对HAR原地应用转换规则
+// TransformInPlace applies transformation rules in place.
 func (h *Har) TransformInPlace(rules []TransformRule) {
 	if h == nil || len(rules) == 0 {
 		return
@@ -56,8 +56,8 @@ func (h *Har) TransformInPlace(rules []TransformRule) {
 	}
 }
 
-// RewriteURL 便捷方法：替换URL前缀，返回新的Har对象
-// 例如：RewriteURL("http://localhost:8080", "https://prod.example.com")
+// RewriteURL is a convenience method that replaces a URL prefix and returns a new Har object.
+// Example: RewriteURL("http://localhost:8080", "https://prod.example.com").
 func (h *Har) RewriteURL(from, to string) *Har {
 	return h.Transform([]TransformRule{
 		{
@@ -68,7 +68,7 @@ func (h *Har) RewriteURL(from, to string) *Har {
 	})
 }
 
-// RemoveHeaders 从所有请求和响应中移除指定的头部，返回新的Har对象
+// RemoveHeaders removes the specified headers from all requests and responses and returns a new Har object.
 func (h *Har) RemoveHeaders(names []string) *Har {
 	rules := make([]TransformRule, len(names))
 	for i, name := range names {
@@ -80,7 +80,7 @@ func (h *Har) RemoveHeaders(names []string) *Har {
 	return h.Transform(rules)
 }
 
-// AddHeaders 向所有请求和/或响应中添加头部，返回新的Har对象
+// AddHeaders adds headers to all requests and/or responses and returns a new Har object.
 // target is "request", "response", or "both".
 func (h *Har) AddHeaders(headers map[string]string, target string) *Har {
 	if h == nil {
@@ -122,7 +122,7 @@ func (h *Har) AddHeaders(headers map[string]string, target string) *Har {
 	return cloned
 }
 
-// applyRules 对单个条目应用所有转换规则
+// applyRules applies all transformation rules to a single entry.
 func applyRules(entry *Entries, rules []TransformRule) {
 	if entry == nil || len(rules) == 0 {
 		return
@@ -154,7 +154,7 @@ func applyRules(entry *Entries, rules []TransformRule) {
 	}
 }
 
-// applyURLRewrite 替换URL前缀
+// applyURLRewrite replaces a URL prefix.
 func applyURLRewrite(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -163,17 +163,17 @@ func applyURLRewrite(entry *Entries, rule TransformRule) {
 		newURL := rule.Replacement + entry.Request.URL[len(rule.Pattern):]
 		entry.Request.URL = newURL
 
-		// 更新QueryString（如果URL解析发生变化）
+		// Update QueryString if URL parsing changes it.
 		entry.Request.QueryString = BuildQueryStringFromURL(newURL)
 
-		// 更新Host请求头
+		// Update the Host request header.
 		if u, err := url.Parse(newURL); err == nil {
 			updateHostHeader(entry, u.Host)
 		}
 	}
 }
 
-// applyHostReplace 替换主机名
+// applyHostReplace replaces the hostname.
 func applyHostReplace(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -189,7 +189,7 @@ func applyHostReplace(entry *Entries, rule TransformRule) {
 	}
 }
 
-// applySchemeChange 变更协议（http <-> https）
+// applySchemeChange changes the scheme (http <-> https).
 func applySchemeChange(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -204,7 +204,7 @@ func applySchemeChange(entry *Entries, rule TransformRule) {
 	}
 }
 
-// applyHeaderAdd 添加请求头到请求和响应
+// applyHeaderAdd adds a request header to requests and responses.
 func applyHeaderAdd(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -219,7 +219,7 @@ func applyHeaderAdd(entry *Entries, rule TransformRule) {
 	})
 }
 
-// applyHeaderRemove 移除请求头（从请求和响应中）
+// applyHeaderRemove removes a header from requests and responses.
 func applyHeaderRemove(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -228,7 +228,7 @@ func applyHeaderRemove(entry *Entries, rule TransformRule) {
 	entry.Response.Headers = removeHeaderByName(entry.Response.Headers, rule.HeaderName)
 }
 
-// applyHeaderReplace 替换请求头的值
+// applyHeaderReplace replaces a request header value.
 func applyHeaderReplace(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -237,7 +237,7 @@ func applyHeaderReplace(entry *Entries, rule TransformRule) {
 	replaceHeaderValue(entry.Response.Headers, rule.HeaderName, rule.HeaderValue)
 }
 
-// applyQueryParamRemove 移除指定的查询参数
+// applyQueryParamRemove removes the specified query parameter.
 func applyQueryParamRemove(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -255,11 +255,11 @@ func applyQueryParamRemove(entry *Entries, rule TransformRule) {
 	}
 	entry.Request.QueryString = newQS
 
-	// 重建URL
+	// Rebuild the URL.
 	rebuildURLFromQueryString(entry)
 }
 
-// applyQueryParamAdd 添加查询参数
+// applyQueryParamAdd adds a query parameter.
 func applyQueryParamAdd(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -274,11 +274,11 @@ func applyQueryParamAdd(entry *Entries, rule TransformRule) {
 		Value: rule.HeaderValue,
 	})
 
-	// 重建URL
+	// Rebuild the URL.
 	rebuildURLFromQueryString(entry)
 }
 
-// applyCookieDomainRewrite 重写Cookie域
+// applyCookieDomainRewrite rewrites the cookie domain.
 func applyCookieDomainRewrite(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -295,7 +295,7 @@ func applyCookieDomainRewrite(entry *Entries, rule TransformRule) {
 	}
 }
 
-// applyBodyReplace 替换请求体文本
+// applyBodyReplace replaces request body text.
 func applyBodyReplace(entry *Entries, rule TransformRule) {
 	if entry == nil {
 		return
@@ -309,7 +309,7 @@ func applyBodyReplace(entry *Entries, rule TransformRule) {
 
 	re, err := regexp.Compile(rule.Pattern)
 	if err != nil {
-		// 不是合法正则，按普通字符串替换
+		// Not a valid regular expression; replace it as a plain string.
 		entry.Request.PostData.Text = strings.ReplaceAll(
 			entry.Request.PostData.Text, rule.Pattern, rule.Replacement,
 		)
@@ -320,7 +320,7 @@ func applyBodyReplace(entry *Entries, rule TransformRule) {
 	)
 }
 
-// updateHostHeader 更新Host请求头
+// updateHostHeader updates the Host request header.
 func updateHostHeader(entry *Entries, host string) {
 	if entry == nil {
 		return
@@ -331,14 +331,14 @@ func updateHostHeader(entry *Entries, host string) {
 			return
 		}
 	}
-	// 如果没有Host头部，添加一个
+	// Add a Host header if one is missing.
 	entry.Request.Headers = append(entry.Request.Headers, Headers{
 		Name:  "Host",
 		Value: host,
 	})
 }
 
-// removeHeaderByName 按名称移除头部（不区分大小写）
+// removeHeaderByName removes a header by name (case-insensitive).
 func removeHeaderByName(headers []Headers, name string) []Headers {
 	result := make([]Headers, 0, len(headers))
 	for _, h := range headers {
@@ -349,7 +349,7 @@ func removeHeaderByName(headers []Headers, name string) []Headers {
 	return result
 }
 
-// replaceHeaderValue 替换指定名称的头部值（不区分大小写）
+// replaceHeaderValue replaces the value of a named header (case-insensitive).
 func replaceHeaderValue(headers []Headers, name, value string) {
 	for i := range headers {
 		if strings.EqualFold(headers[i].Name, name) {
@@ -358,7 +358,7 @@ func replaceHeaderValue(headers []Headers, name, value string) {
 	}
 }
 
-// rebuildURLFromQueryString 根据当前URL和QueryString重建URL
+// rebuildURLFromQueryString rebuilds the URL from the current URL and QueryString.
 func rebuildURLFromQueryString(entry *Entries) {
 	if entry == nil {
 		return
@@ -368,7 +368,7 @@ func rebuildURLFromQueryString(entry *Entries) {
 		return
 	}
 
-	// 清除现有参数，使用QueryString中的值
+	// Clear existing parameters and use the values from QueryString.
 	q := url.Values{}
 	for _, qs := range entry.Request.QueryString {
 		q.Set(qs.Name, qs.Value)

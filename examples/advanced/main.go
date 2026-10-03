@@ -8,71 +8,71 @@ import (
 )
 
 func main() {
-	// 示例1: 解析现有HAR文件并使用过滤功能
-	fmt.Println("====== 示例1: 解析和过滤 ======")
+	// Example 1: Parse an existing HAR file and use filtering features
+	fmt.Println("====== Example 1: Parsing and Filtering ======")
 	harFilePath := "../../data/www.google.com.har"
 	harFile, err := har.ParseHarFile(harFilePath)
 	if err != nil {
-		fmt.Println("解析HAR文件失败:", err)
+		fmt.Println("Failed to parse HAR file:", err)
 		return
 	}
 
-	// 过滤所有POST请求
+	// Filter all POST requests
 	postRequests := harFile.FindByMethod("POST")
-	fmt.Printf("找到 %d 个POST请求\n", postRequests.Count())
+	fmt.Printf("Found %d POST requests\n", postRequests.Count())
 
-	// 过滤所有图片请求
+	// Filter all image requests
 	imageRequests := harFile.Filter(har.FilterOptions{
 		ContentType: "image/",
 	})
-	fmt.Printf("找到 %d 个图片请求\n", imageRequests.Count())
+	fmt.Printf("Found %d image requests\n", imageRequests.Count())
 
-	// 过滤所有慢请求（超过500ms）
+	// Filter all slow requests (over 500 ms)
 	slowRequests := harFile.FindSlowRequests(500)
-	fmt.Printf("找到 %d 个慢请求（>500ms）\n", slowRequests.Count())
+	fmt.Printf("Found %d slow requests (>500 ms)\n", slowRequests.Count())
 
-	// 查找错误请求
+	// Find failed requests
 	errorRequests := harFile.FindErrors()
-	fmt.Printf("找到 %d 个错误请求\n", errorRequests.Count())
+	fmt.Printf("Found %d failed requests\n", errorRequests.Count())
 
-	// 示例2: 将过滤结果转换为CSV格式
-	fmt.Println("\n====== 示例2: 转换功能 ======")
+	// Example 2: Convert filtered results to CSV
+	fmt.Println("\n====== Example 2: Conversion ======")
 	if slowRequests.Count() > 0 {
 		options := har.DefaultConvertOptions()
 		options.IncludeTimings = true
 
 		csvData, err := slowRequests.ToHar().Convert(har.FormatCSV, options)
 		if err != nil {
-			fmt.Println("转换为CSV失败:", err)
+			fmt.Println("Failed to convert to CSV:", err)
 		} else {
-			fmt.Println("慢请求的CSV格式:")
+			fmt.Println("Slow requests in CSV format:")
 			fmt.Println(csvData)
 		}
 
-		// 转换为Markdown
+		// Convert to Markdown
 		mdData, _ := slowRequests.ToHar().Convert(har.FormatMarkdown, options)
-		fmt.Println("慢请求的Markdown格式(部分显示):")
+		fmt.Println("Slow requests in Markdown format (partial output):")
 		lines := splitLines(mdData)
 		if len(lines) > 5 {
 			fmt.Println(lines[0])
 			fmt.Println(lines[1])
 			fmt.Println(lines[2])
-			fmt.Println("... [更多行被省略] ...")
+			fmt.Println("... [more lines omitted] ...")
 		} else {
 			fmt.Println(mdData)
 		}
 	}
 
-	// 示例3: 创建新的HAR文件
-	fmt.Println("\n====== 示例3: 创建HAR文件 ======")
+	// Example 3: Create a new HAR file
+	fmt.Println("\n====== Example 3: Create a HAR file ======")
 	newHar := har.NewHar()
 	newHar.SetCreator("go-har-example", "1.0")
 
-	// 添加页面
-	page := newHar.AddPage("page1", "示例页面")
+	// Add a page
+	page := newHar.AddPage("page1", "Example Page")
 	page.SetPageTimings(100, 300)
 
-	// 添加请求/响应条目
+	// Add request/response entries
 	entry := newHar.AddEntry("GET", "https://example.com/api/data", "HTTP/1.1", "page1")
 	entry.AddRequestHeader("Accept", "application/json")
 	entry.AddRequestHeader("User-Agent", "go-har/1.0")
@@ -82,30 +82,30 @@ func main() {
 	entry.SetResponseContent(1024, "application/json")
 	entry.SetTimings(10, 20, 30, 5, 50, 30, 25)
 
-	// 保存为文件
+	// Save to a file
 	newHarPath := "./generated.har"
 	err = newHar.SaveToFile(newHarPath, true)
 	if err != nil {
-		fmt.Println("保存HAR文件失败:", err)
+		fmt.Println("Failed to save HAR file:", err)
 	} else {
-		fmt.Printf("成功创建并保存HAR文件到 %s\n", newHarPath)
+		fmt.Printf("Successfully created and saved HAR file to %s\n", newHarPath)
 	}
 
-	// 读取保存的文件并验证
+	// Read the saved file and verify it
 	generatedHar, err := har.ParseHarFile(newHarPath)
 	if err != nil {
-		fmt.Println("无法解析生成的HAR文件:", err)
+		fmt.Println("Failed to parse the generated HAR file:", err)
 	} else {
-		fmt.Println("成功读取生成的HAR文件")
-		fmt.Printf("页面数量: %d, 请求条目数量: %d\n",
+		fmt.Println("Successfully read the generated HAR file")
+		fmt.Printf("Pages: %d, request entries: %d\n",
 			len(generatedHar.Log.Pages), len(generatedHar.Log.Entries))
 	}
 
-	// 清理测试文件
+	// Clean up the test file
 	os.Remove(newHarPath)
 }
 
-// 辅助函数：按行分割字符串
+// Helper function: split a string into lines
 func splitLines(s string) []string {
 	var lines []string
 	var line string

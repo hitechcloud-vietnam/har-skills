@@ -2,9 +2,9 @@ package har
 
 import "time"
 
-// LazyHar 接口实现
+// LazyHar interface implementation.
 
-// GetVersion 实现HARProvider接口
+// GetVersion implements the HARProvider interface.
 func (h *LazyHar) GetVersion() string {
 	if h == nil {
 		return ""
@@ -12,7 +12,7 @@ func (h *LazyHar) GetVersion() string {
 	return h.Log.Version
 }
 
-// GetCreator 实现HARProvider接口
+// GetCreator implements the HARProvider interface.
 func (h *LazyHar) GetCreator() Creator {
 	if h == nil {
 		return Creator{}
@@ -20,7 +20,7 @@ func (h *LazyHar) GetCreator() Creator {
 	return h.Log.Creator
 }
 
-// GetBrowser 实现HARProvider接口
+// GetBrowser implements the HARProvider interface.
 func (h *LazyHar) GetBrowser() Browser {
 	if h == nil {
 		return Browser{}
@@ -28,7 +28,7 @@ func (h *LazyHar) GetBrowser() Browser {
 	return h.Log.Browser
 }
 
-// GetEntries 实现HARProvider接口
+// GetEntries implements the HARProvider interface.
 func (h *LazyHar) GetEntries() []EntryProvider {
 	if h == nil {
 		return nil
@@ -40,7 +40,7 @@ func (h *LazyHar) GetEntries() []EntryProvider {
 	return providers
 }
 
-// GetPages 实现HARProvider接口
+// GetPages implements the HARProvider interface.
 func (h *LazyHar) GetPages() []PageProvider {
 	if h == nil {
 		return nil
@@ -52,7 +52,7 @@ func (h *LazyHar) GetPages() []PageProvider {
 	return providers
 }
 
-// ToStandard 实现HARProvider接口
+// ToStandard implements the HARProvider interface.
 func (h *LazyHar) ToStandard() *Har {
 	if h == nil {
 		return nil
@@ -72,9 +72,9 @@ func (h *LazyHar) ToStandard() *Har {
 	return result
 }
 
-// LazyEntries 接口实现
+// LazyEntries interface implementation.
 
-// GetStartedDateTime 实现EntryProvider接口
+// GetStartedDateTime implements the EntryProvider interface.
 func (e *LazyEntries) GetStartedDateTime() time.Time {
 	if e == nil {
 		return time.Time{}
@@ -82,7 +82,7 @@ func (e *LazyEntries) GetStartedDateTime() time.Time {
 	return e.StartedDateTime
 }
 
-// GetTime 实现EntryProvider接口
+// GetTime implements the EntryProvider interface.
 func (e *LazyEntries) GetTime() float64 {
 	if e == nil {
 		return 0
@@ -90,7 +90,7 @@ func (e *LazyEntries) GetTime() float64 {
 	return e.Time
 }
 
-// GetRequest 实现EntryProvider接口
+// GetRequest implements the EntryProvider interface.
 func (e *LazyEntries) GetRequest() RequestProvider {
 	if e == nil {
 		return nil
@@ -98,7 +98,7 @@ func (e *LazyEntries) GetRequest() RequestProvider {
 	return &e.Request
 }
 
-// GetResponse 实现EntryProvider接口
+// GetResponse implements the EntryProvider interface.
 func (e *LazyEntries) GetResponse() ResponseProvider {
 	if e == nil {
 		return nil
@@ -106,7 +106,7 @@ func (e *LazyEntries) GetResponse() ResponseProvider {
 	return &e.Response
 }
 
-// GetTimings 实现EntryProvider接口
+// GetTimings implements the EntryProvider interface.
 func (e *LazyEntries) GetTimings() TimingsProvider {
 	if e == nil {
 		return nil
@@ -114,7 +114,7 @@ func (e *LazyEntries) GetTimings() TimingsProvider {
 	return &e.Timings
 }
 
-// GetPageref 实现EntryProvider接口
+// GetPageref implements the EntryProvider interface.
 func (e *LazyEntries) GetPageref() string {
 	if e == nil {
 		return ""
@@ -122,7 +122,7 @@ func (e *LazyEntries) GetPageref() string {
 	return e.Pageref
 }
 
-// ToStandard 实现EntryProvider接口
+// ToStandard implements the EntryProvider interface.
 func (e *LazyEntries) ToStandard() Entries {
 	if e == nil {
 		return Entries{}
@@ -141,9 +141,9 @@ func (e *LazyEntries) ToStandard() Entries {
 	}
 }
 
-// LazyResponse 接口实现
+// LazyResponse interface implementation.
 
-// GetStatus 实现ResponseProvider接口
+// GetStatus implements the ResponseProvider interface.
 func (r *LazyResponse) GetStatus() int {
 	if r == nil {
 		return 0
@@ -151,7 +151,7 @@ func (r *LazyResponse) GetStatus() int {
 	return r.Status
 }
 
-// GetStatusText 实现ResponseProvider接口
+// GetStatusText implements the ResponseProvider interface.
 func (r *LazyResponse) GetStatusText() string {
 	if r == nil {
 		return ""
@@ -159,7 +159,7 @@ func (r *LazyResponse) GetStatusText() string {
 	return r.StatusText
 }
 
-// GetHTTPVersion 实现ResponseProvider接口
+// GetHTTPVersion implements the ResponseProvider interface.
 func (r *LazyResponse) GetHTTPVersion() string {
 	if r == nil {
 		return ""
@@ -167,7 +167,7 @@ func (r *LazyResponse) GetHTTPVersion() string {
 	return r.HTTPVersion
 }
 
-// GetHeaders 实现ResponseProvider接口
+// GetHeaders implements the ResponseProvider interface.
 func (r *LazyResponse) GetHeaders() []HeaderProvider {
 	if r == nil {
 		return nil
@@ -179,7 +179,7 @@ func (r *LazyResponse) GetHeaders() []HeaderProvider {
 	return providers
 }
 
-// GetCookies 实现ResponseProvider接口
+// GetCookies implements the ResponseProvider interface.
 func (r *LazyResponse) GetCookies() []CookieProvider {
 	if r == nil {
 		return nil
@@ -191,17 +191,17 @@ func (r *LazyResponse) GetCookies() []CookieProvider {
 	return providers
 }
 
-// GetContent 实现ResponseProvider接口
+// GetContent implements the ResponseProvider interface.
 func (r *LazyResponse) GetContent() ContentProvider {
 	if r == nil {
 		return nil
 	}
-	// LazyContent 指针不直接实现 ContentProvider 接口
-	// 因此需要创建一个包装器
+	// A LazyContent pointer does not directly implement the ContentProvider interface.
+	// Therefore, a wrapper must be created.
 	return &lazyContentWrapper{content: r.Content}
 }
 
-// GetBodySize 实现ResponseProvider接口
+// GetBodySize implements the ResponseProvider interface.
 func (r *LazyResponse) GetBodySize() int {
 	if r == nil {
 		return 0
@@ -209,7 +209,7 @@ func (r *LazyResponse) GetBodySize() int {
 	return r.BodySize
 }
 
-// GetHeadersSize 实现ResponseProvider接口
+// GetHeadersSize implements the ResponseProvider interface.
 func (r *LazyResponse) GetHeadersSize() int {
 	if r == nil {
 		return 0
@@ -217,14 +217,14 @@ func (r *LazyResponse) GetHeadersSize() int {
 	return r.HeadersSize
 }
 
-// ToStandard 实现ResponseProvider接口
+// ToStandard implements the ResponseProvider interface.
 func (r *LazyResponse) ToStandard() Response {
 	if r == nil {
 		return Response{}
 	}
 	var content Content
 
-	// 创建标准Content对象，保留所有字段
+	// Create a standard Content object, preserving all fields.
 	if r.Content != nil {
 		content = r.Content.ToStandard()
 	}
@@ -244,13 +244,13 @@ func (r *LazyResponse) ToStandard() Response {
 	}
 }
 
-// lazyContentWrapper 是 LazyContent 的包装器
-// 实现 ContentProvider 接口
+// lazyContentWrapper wraps LazyContent.
+// Implements the ContentProvider interface.
 type lazyContentWrapper struct {
 	content *LazyContent
 }
 
-// GetSize 实现 ContentProvider 接口
+// GetSize implements the ContentProvider  interface.
 func (w *lazyContentWrapper) GetSize() int {
 	if w == nil || w.content == nil {
 		return 0
@@ -258,7 +258,7 @@ func (w *lazyContentWrapper) GetSize() int {
 	return w.content.Size
 }
 
-// GetMimeType 实现 ContentProvider 接口
+// GetMimeType implements the ContentProvider interface.
 func (w *lazyContentWrapper) GetMimeType() string {
 	if w == nil || w.content == nil {
 		return ""
@@ -266,7 +266,7 @@ func (w *lazyContentWrapper) GetMimeType() string {
 	return w.content.MimeType
 }
 
-// GetText 实现 ContentProvider 接口
+// GetText implements the ContentProvider  interface.
 func (w *lazyContentWrapper) GetText() string {
 	if w == nil || w.content == nil {
 		return ""
@@ -279,13 +279,13 @@ func (w *lazyContentWrapper) GetText() string {
 	return *text
 }
 
-// GetEncoding 实现 ContentProvider 接口
+// GetEncoding implements the ContentProvider  interface.
 func (w *lazyContentWrapper) GetEncoding() string {
 	if w == nil || w.content == nil {
 		return ""
 	}
 
-	// 确保内容已加载
+	// Ensure the content is loaded.
 	_ = w.content.Load()
 	if w.content.Encoding == nil {
 		return ""
@@ -293,7 +293,7 @@ func (w *lazyContentWrapper) GetEncoding() string {
 	return *w.content.Encoding
 }
 
-// GetCompression 实现 ContentProvider 接口
+// GetCompression implements the ContentProvider  interface.
 func (w *lazyContentWrapper) GetCompression() int {
 	if w == nil || w.content == nil {
 		return 0
@@ -301,7 +301,7 @@ func (w *lazyContentWrapper) GetCompression() int {
 	return w.content.Compression
 }
 
-// ToStandard 实现 ContentProvider 接口
+// ToStandard implements the ContentProvider  interface.
 func (w *lazyContentWrapper) ToStandard() Content {
 	if w == nil || w.content == nil {
 		return Content{}
@@ -310,9 +310,9 @@ func (w *lazyContentWrapper) ToStandard() Content {
 	return w.content.ToStandard()
 }
 
-// LazyContent 接口实现
+// LazyContent interface implementation.
 
-// GetSize 实现ContentProvider接口
+// GetSize implements the ContentProvider interface.
 func (c *LazyContent) GetSize() int {
 	if c == nil {
 		return 0
@@ -320,7 +320,7 @@ func (c *LazyContent) GetSize() int {
 	return c.Size
 }
 
-// GetMimeType 实现ContentProvider接口
+// GetMimeType implements the ContentProvider interface.
 func (c *LazyContent) GetMimeType() string {
 	if c == nil {
 		return ""
@@ -328,7 +328,7 @@ func (c *LazyContent) GetMimeType() string {
 	return c.MimeType
 }
 
-// GetEncoding 实现ContentProvider接口
+// GetEncoding implements the ContentProvider interface.
 func (c *LazyContent) GetEncoding() string {
 	if c == nil {
 		return ""
@@ -340,7 +340,7 @@ func (c *LazyContent) GetEncoding() string {
 	return *c.Encoding
 }
 
-// GetCompression 实现ContentProvider接口
+// GetCompression implements the ContentProvider interface.
 func (c *LazyContent) GetCompression() int {
 	if c == nil {
 		return 0
@@ -348,7 +348,7 @@ func (c *LazyContent) GetCompression() int {
 	return c.Compression
 }
 
-// ToStandard 实现ContentProvider接口
+// ToStandard implements the ContentProvider interface.
 func (c *LazyContent) ToStandard() Content {
 	if c == nil {
 		return Content{}

@@ -515,7 +515,7 @@ func TestExportPostmanCollectionMethod(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	item := collection.Item[0]
@@ -554,7 +554,7 @@ func TestExportPostmanCollectionURLParsing(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	item := collection.Item[0]
@@ -905,7 +905,7 @@ func TestExportBuildPostmanURL_EmptyPath(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	pmURL := collection.Item[0].Request.URL
@@ -1007,7 +1007,7 @@ func TestExportBuildPostmanURL_WithQueryParams(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	pmURL := collection.Item[0].Request.URL
@@ -1029,7 +1029,7 @@ func TestExportBuildPostmanURL_HostSplit(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	pmURL := collection.Item[0].Request.URL
@@ -1053,7 +1053,7 @@ func TestExportEntryToPostmanItem_UnparseableURL(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	// With an unparseable URL, name should fall back to the raw URL
@@ -1075,7 +1075,7 @@ func TestExportEntryToPostmanItem_NoHeaders(t *testing.T) {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		t.Fatalf("JSON解析失败: %v", err)
+		t.Fatalf("JSON parsing failed: %v", err)
 	}
 
 	if len(collection.Item[0].Request.Header) != 0 {

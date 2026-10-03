@@ -148,7 +148,7 @@ func TestDecodeContentWithZstdBase64(t *testing.T) {
 	assert.Equal(t, original, decoded)
 }
 
-// 辅助函数
+// Helper functions.
 func repeatString(s string, n int) string {
 	var b bytes.Buffer
 	for i := 0; i < n; i++ {

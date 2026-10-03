@@ -6,25 +6,25 @@ import (
 	"time"
 )
 
-// HarIndex HAR条目的索引，支持快速查找
+// HarIndex indexes HAR entries for fast lookups.
 type HarIndex struct {
-	byURL      map[string][]int // URL -> 条目索引
-	byMethod   map[string][]int // HTTP方法 -> 条目索引
-	byStatus   map[int][]int    // 状态码 -> 条目索引
-	byDomain   map[string][]int // 域名 -> 条目索引
-	byMimeType map[string][]int // MIME类型 -> 条目索引
-	har        *Har             // 关联的Har对象
+	byURL      map[string][]int // URL -> entry indices.
+	byMethod   map[string][]int // HTTP method -> entry indices.
+	byStatus   map[int][]int    // Status code -> entry indices.
+	byDomain   map[string][]int // Domain -> entry indices.
+	byMimeType map[string][]int // MIME type -> entry indices.
+	har        *Har             // Associated Har object.
 }
 
-// IndexStats 索引统计信息
+// IndexStats contains index statistics.
 type IndexStats struct {
-	UniqueURLs    int      // 唯一URL数
-	UniqueDomains int      // 唯一域名数
-	StatusCodes   []int    // 出现过的状态码
-	Methods       []string // 出现过的HTTP方法
+	UniqueURLs    int      // Number of unique URLs.
+	UniqueDomains int      // Number of unique domains.
+	StatusCodes   []int    // Status codes encountered.
+	Methods       []string // HTTP methods encountered.
 }
 
-// BuildIndex 为HAR构建所有索引
+// BuildIndex builds all indexes for a Har object.
 func (h *Har) BuildIndex() *HarIndex {
 	if h == nil {
 		return &HarIndex{
@@ -47,22 +47,22 @@ func (h *Har) BuildIndex() *HarIndex {
 	}
 
 	for i, entry := range h.Log.Entries {
-		// URL索引
+		// URL index.
 		idx.byURL[entry.Request.URL] = append(idx.byURL[entry.Request.URL], i)
 
-		// 方法索引
+		// Method index.
 		idx.byMethod[entry.Request.Method] = append(idx.byMethod[entry.Request.Method], i)
 
-		// 状态码索引
+		// Status-code index.
 		idx.byStatus[entry.Response.Status] = append(idx.byStatus[entry.Response.Status], i)
 
-		// 域名索引
+		// Domain index.
 		domain := extractDomain(entry.Request.URL)
 		if domain != "" {
 			idx.byDomain[domain] = append(idx.byDomain[domain], i)
 		}
 
-		// MIME类型索引
+		// MIME-type index.
 		mime := entry.Response.Content.MimeType
 		if mime != "" {
 			idx.byMimeType[mime] = append(idx.byMimeType[mime], i)
@@ -72,7 +72,7 @@ func (h *Har) BuildIndex() *HarIndex {
 	return idx
 }
 
-// ByURL 按精确URL查找条目
+// ByURL finds entries by exact URL.
 func (idx *HarIndex) ByURL(urlStr string) []*Entries {
 	if idx == nil {
 		return nil
@@ -80,7 +80,7 @@ func (idx *HarIndex) ByURL(urlStr string) []*Entries {
 	return idx.entriesByIndices(idx.byURL[urlStr])
 }
 
-// ByMethod 按HTTP方法查找条目
+// ByMethod finds entries by HTTP method.
 func (idx *HarIndex) ByMethod(method string) []*Entries {
 	if idx == nil {
 		return nil
@@ -88,7 +88,7 @@ func (idx *HarIndex) ByMethod(method string) []*Entries {
 	return idx.entriesByIndices(idx.byMethod[method])
 }
 
-// ByStatus 按状态码查找条目
+// ByStatus finds entries by status code.
 func (idx *HarIndex) ByStatus(code int) []*Entries {
 	if idx == nil {
 		return nil
@@ -96,7 +96,7 @@ func (idx *HarIndex) ByStatus(code int) []*Entries {
 	return idx.entriesByIndices(idx.byStatus[code])
 }
 
-// ByDomain 按域名查找条目
+// ByDomain finds entries by domain.
 func (idx *HarIndex) ByDomain(domain string) []*Entries {
 	if idx == nil {
 		return nil
@@ -104,7 +104,7 @@ func (idx *HarIndex) ByDomain(domain string) []*Entries {
 	return idx.entriesByIndices(idx.byDomain[domain])
 }
 
-// ByMimeType 按MIME类型查找条目
+// ByMimeType finds entries by MIME type.
 func (idx *HarIndex) ByMimeType(mime string) []*Entries {
 	if idx == nil {
 		return nil
@@ -112,7 +112,7 @@ func (idx *HarIndex) ByMimeType(mime string) []*Entries {
 	return idx.entriesByIndices(idx.byMimeType[mime])
 }
 
-// ByURLPattern 按正则URL模式查找条目
+// ByURLPattern finds entries using a URL regular expression.
 func (idx *HarIndex) ByURLPattern(pattern string) []*Entries {
 	if idx == nil {
 		return nil
@@ -132,7 +132,7 @@ func (idx *HarIndex) ByURLPattern(pattern string) []*Entries {
 	return result
 }
 
-// ByTimeRange 按时间范围查找条目
+// ByTimeRange finds entries by time range.
 func (idx *HarIndex) ByTimeRange(start, end time.Time) []*Entries {
 	if idx == nil || idx.har == nil {
 		return nil
@@ -148,7 +148,7 @@ func (idx *HarIndex) ByTimeRange(start, end time.Time) []*Entries {
 	return result
 }
 
-// Size 返回索引中的总条目数
+// Size returns the total number of entries in the index.
 func (idx *HarIndex) Size() int {
 	if idx == nil || idx.har == nil || idx.har.Log.Entries == nil {
 		return 0
@@ -156,7 +156,7 @@ func (idx *HarIndex) Size() int {
 	return len(idx.har.Log.Entries)
 }
 
-// Stats 返回索引统计信息
+// Stats returns index statistics.
 func (idx *HarIndex) Stats() IndexStats {
 	if idx == nil {
 		return IndexStats{}
@@ -167,13 +167,13 @@ func (idx *HarIndex) Stats() IndexStats {
 		UniqueDomains: len(idx.byDomain),
 	}
 
-	// 收集状态码
+	// Collect status codes.
 	for code := range idx.byStatus {
 		stats.StatusCodes = append(stats.StatusCodes, code)
 	}
 	sort.Ints(stats.StatusCodes)
 
-	// 收集方法
+	// Collect methods.
 	for method := range idx.byMethod {
 		stats.Methods = append(stats.Methods, method)
 	}
@@ -182,7 +182,7 @@ func (idx *HarIndex) Stats() IndexStats {
 	return stats
 }
 
-// entriesByIndices 根据索引列表获取条目指针
+// entriesByIndices returns entry pointers for a list of indices.
 func (idx *HarIndex) entriesByIndices(indices []int) []*Entries {
 	if idx == nil || idx.har == nil || len(indices) == 0 {
 		return nil
