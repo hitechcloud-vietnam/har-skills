@@ -213,7 +213,7 @@ func TestToHTTPRequestPostDataNoMimeType(t *testing.T) {
 }
 
 func TestReplayWithTestServer(t *testing.T) {
-	// 创建测试服务器
+	// Create a test server.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)

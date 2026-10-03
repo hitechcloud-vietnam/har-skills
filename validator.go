@@ -216,7 +216,7 @@ func validateRequest(req Request, fieldPath string, rootError *HarError) {
 		_, err := url.Parse(req.URL)
 		if err != nil {
 			_ = rootError.AddPartialError(NewValidationError(
-				fmt.Sprintf("无效的URL格式: %s", err.Error()),
+				fmt.Sprintf("Invalid URL format: %s", err.Error()),
 				fmt.Sprintf("%s.url", fieldPath),
 			))
 		}
@@ -471,5 +471,5 @@ func DetectHarVersion(har *Har) string {
 		return HarSpecVersion13
 	}
 
-	return HarSpecVersion12 // 默认
+	return HarSpecVersion12 // Default version.
 }

@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- 非字符串 JSON 值脱敏（Task 19）---
+// --- Redaction of non-string JSON values (Task 19)---
 
 func TestRedactJSONNonStringValues(t *testing.T) {
-	// JSON 里敏感键的值是数字、布尔、null、嵌套对象——都应被整体替换
+	// Sensitive JSON keys have numeric, boolean, null, or nested-object values; all should be replaced entirely.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -30,21 +30,21 @@ func TestRedactJSONNonStringValues(t *testing.T) {
 	opts := RedactOptions{
 		PostDataFields: []string{"secret_code", "is_admin", "hidden", "token"},
 		Replacement:    "[REDACTED]",
-		ValuePatterns:  nil, // 禁用默认值模式，只测名字匹配
+		ValuePatterns:  nil, // Disable default value patterns; test name matching only.
 	}
 	result := h.Redact(opts)
 	text := result.Log.Entries[0].Request.PostData.Text
 
-	// 数字、布尔、null 值被整体替换为字符串 "[REDACTED]"
+	// Numeric, boolean, and null values are replaced entirely with the string "[REDACTED]".
 	assert.Contains(t, text, `"secret_code": "[REDACTED]"`)
 	assert.Contains(t, text, `"is_admin": "[REDACTED]"`)
 	assert.Contains(t, text, `"hidden": "[REDACTED]"`)
-	// 嵌套对象里的 token 也脱敏
+	// Also redact token values in nested objects.
 	assert.Contains(t, text, `"token": "[REDACTED]"`)
 }
 
 func TestRedactJSONArrayValues(t *testing.T) {
-	// 敏感键的值是数组
+	// Sensitive keys have array values.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -71,7 +71,7 @@ func TestRedactJSONArrayValues(t *testing.T) {
 	assert.Contains(t, text, `"ids": "***"`)
 }
 
-// --- 值模式脱敏（按内容而非名字）---
+// --- Value-pattern redaction (match by content, not name).---
 
 func TestRedactValuePatternsBearerToken(t *testing.T) {
 	// Bearer token 藏在自定义 header 值里
@@ -90,7 +90,7 @@ func TestRedactValuePatternsBearerToken(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		Headers:       []string{}, // 不按名字匹配
+		Headers:       []string{}, // Do not match by name.
 		Replacement:   "[REDACTED]",
 		ValuePatterns: DefaultRedactValuePatterns(),
 	}
@@ -101,7 +101,7 @@ func TestRedactValuePatternsBearerToken(t *testing.T) {
 }
 
 func TestRedactValuePatternsInCookie(t *testing.T) {
-	// cookie 值里藏 JWT
+	// A JWT is hidden in a cookie value.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -117,7 +117,7 @@ func TestRedactValuePatternsInCookie(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		Cookies:       []string{}, // 不按名字匹配
+		Cookies:       []string{}, // Do not match by name.
 		Replacement:   "***",
 		ValuePatterns: DefaultRedactValuePatterns(),
 	}
@@ -128,7 +128,7 @@ func TestRedactValuePatternsInCookie(t *testing.T) {
 }
 
 func TestRedactValuePatternsInQueryParam(t *testing.T) {
-	// query param 值是 AWS access key
+	// The query parameter value is an AWS access key.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -142,7 +142,7 @@ func TestRedactValuePatternsInQueryParam(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		QueryParams:   []string{}, // 不按名字匹配
+		QueryParams:   []string{}, // Do not match by name.
 		Replacement:   "[SCRUBBED]",
 		ValuePatterns: DefaultRedactValuePatterns(),
 	}
@@ -152,7 +152,7 @@ func TestRedactValuePatternsInQueryParam(t *testing.T) {
 }
 
 func TestRedactValuePatternsInJSONBody(t *testing.T) {
-	// JSON body 里有个字段值是 GitHub PAT，字段名不在 PostDataFields 列表里
+	// The JSON body contains a GitHub PAT in a field whose name is not in PostDataFields.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -168,7 +168,7 @@ func TestRedactValuePatternsInJSONBody(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		PostDataFields: []string{}, // 不按名字匹配
+		PostDataFields: []string{}, // Do not match by name.
 		Replacement:    "[REDACTED]",
 		ValuePatterns:  DefaultRedactValuePatterns(),
 	}
@@ -180,7 +180,7 @@ func TestRedactValuePatternsInJSONBody(t *testing.T) {
 }
 
 func TestRedactValuePatternsNoMatch(t *testing.T) {
-	// 正常值不触发值模式
+	// A normal value does not trigger a value pattern.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -202,12 +202,12 @@ func TestRedactValuePatternsNoMatch(t *testing.T) {
 	}
 	result := h.Redact(opts)
 
-	// 正常 request-id 不被脱敏
+	// A normal request ID is not redacted.
 	assert.Equal(t, "abc-123-def", result.Log.Entries[0].Request.Headers[0].Value)
 }
 
 func TestRedactValuePatternsCustomReplacement(t *testing.T) {
-	// 单独 pattern 有自定义 replacement
+	// A single pattern has a custom replacement.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -234,7 +234,7 @@ func TestRedactValuePatternsCustomReplacement(t *testing.T) {
 }
 
 func TestRedactValuePatternsDisabled(t *testing.T) {
-	// 显式禁用值模式（ValuePatterns=nil 或空）
+	// Explicitly disable value patterns (ValuePatterns=nil or empty).
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -250,20 +250,20 @@ func TestRedactValuePatternsDisabled(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		Headers:       []string{}, // 不按名字匹配
+		Headers:       []string{}, // Do not match by name.
 		Replacement:   "[REDACTED]",
-		ValuePatterns: nil, // 禁用
+		ValuePatterns: nil, // Disable.
 	}
 	result := h.Redact(opts)
 
-	// 禁用值模式时不脱敏（名字也不匹配）
+	// When value patterns are disabled, do not redact (the name does not match either).
 	assert.Equal(t, "Bearer secret", result.Log.Entries[0].Request.Headers[0].Value)
 }
 
-// --- 边界：JSON body 无空格紧凑格式保留 ---
+// --- Edge case: preserve compact JSON body formatting without spaces. ---
 
 func TestRedactJSONBodyCompactFormat(t *testing.T) {
-	// 输入无空格，输出也应无空格
+	// If the input has no spaces, the output should have none either.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -287,11 +287,11 @@ func TestRedactJSONBodyCompactFormat(t *testing.T) {
 	text := result.Log.Entries[0].Request.PostData.Text
 
 	assert.Contains(t, text, `"password":"[REDACTED]"`)
-	assert.NotContains(t, text, `"password": "[REDACTED]"`) // 不应有空格
+	assert.NotContains(t, text, `"password": "[REDACTED]"`) // Should not contain spaces.
 }
 
 func TestRedactJSONBodyPrettifiedFormat(t *testing.T) {
-	// 输入多行带缩进，输出应保持多行
+	// Multiline indented input should remain multiline in the output.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -318,10 +318,10 @@ func TestRedactJSONBodyPrettifiedFormat(t *testing.T) {
 	text := result.Log.Entries[0].Request.PostData.Text
 
 	require.Contains(t, text, `"password": "***"`)
-	require.Contains(t, text, "\n") // 保持多行
+	require.Contains(t, text, "\n") // Preserve multiple lines.
 }
 
-// --- 边界：非法值模式正则跳过不中断脱敏 ---
+// --- Edge case: skip an invalid value-pattern regex without interrupting redaction. ---
 
 func TestRedactInvalidValuePatternSkipped(t *testing.T) {
 	h := &Har{
@@ -341,20 +341,20 @@ func TestRedactInvalidValuePatternSkipped(t *testing.T) {
 	opts := RedactOptions{
 		Replacement: "[REDACTED]",
 		ValuePatterns: []RedactValuePattern{
-			{Name: "bad", Pattern: `[`}, // 非法正则
+			{Name: "bad", Pattern: `[`}, // Invalid regex.
 			{Name: "bearer", Pattern: `(?i)Bearer\s+\S+`},
 		},
 	}
 	result := h.Redact(opts)
 
-	// 非法 pattern 跳过，合法 pattern 生效
+	// Skip the invalid pattern and apply the valid pattern.
 	assert.Equal(t, "[REDACTED]", result.Log.Entries[0].Request.Headers[0].Value)
 }
 
-// --- 边界：名字匹配优先于值模式 ---
+// --- Edge case: name matching takes precedence over value patterns. ---
 
 func TestRedactNameMatchOverridesValuePattern(t *testing.T) {
-	// 名字匹配触发整值替换，值模式不再跑（已替换为 replacement）
+	// A name match replaces the entire value; value patterns are not run afterward (the value is already replaced).
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -376,14 +376,14 @@ func TestRedactNameMatchOverridesValuePattern(t *testing.T) {
 	}
 	result := h.Redact(opts)
 
-	// 名字匹配触发，CustomRedactor 未设，整体替换为 ***
+	// Name match triggered; CustomRedactor is unset, so replace the entire value with ***.
 	assert.Equal(t, "***", result.Log.Entries[0].Request.Headers[0].Value)
 }
 
-// --- 覆盖率：CustomRedactor 处理非字符串 JSON 值 ---
+// --- Coverage: CustomRedactor handles non-string JSON values. ---
 
 func TestRedactCustomRedactorNonStringValue(t *testing.T) {
-	// CustomRedactor 接收非字符串值（数字/布尔/null）时走 fmtJSON 分支
+	// When CustomRedactor receives a non-string value (number/boolean/null), the fmtJSON branch is used.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -408,16 +408,16 @@ func TestRedactCustomRedactorNonStringValue(t *testing.T) {
 	result := h.Redact(opts)
 	text := result.Log.Entries[0].Request.PostData.Text
 
-	// 非字符串值经 fmtJSON 转成字符串后传给 CustomRedactor
+	// Non-string values are converted to strings by fmtJSON before being passed to CustomRedactor.
 	assert.Contains(t, text, `"secret_code": "[C:secret_code:12345]"`)
 	assert.Contains(t, text, `"is_admin": "[C:is_admin:true]"`)
 	assert.Contains(t, text, `"hidden": "[C:hidden:null]"`)
 }
 
-// --- 覆盖率：JSON body 解析失败回退到正则 ---
+// --- Coverage: fall back to regex when JSON body parsing fails. ---
 
 func TestRedactJSONBodyFallbackToRegex(t *testing.T) {
-	// 文本含 = 但不是合法 JSON，走 redactKeyValuePairs；token 作为键被脱敏
+	// Text contains = but is not valid JSON, so redactKeyValuePairs is used; token is redacted as a key.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -439,15 +439,15 @@ func TestRedactJSONBodyFallbackToRegex(t *testing.T) {
 	}
 	result := h.Redact(opts)
 	text := result.Log.Entries[0].Request.PostData.Text
-	// token 字段被脱敏
+	// The token field is redacted.
 	assert.Contains(t, text, "token=[R]")
 	assert.Contains(t, text, "keep=1")
 }
 
-// --- 覆盖率：JSON body 多行缩进探测 ---
+// --- Coverage: detect multiline JSON indentation. ---
 
 func TestRedactJSONBodyFourSpaceIndent(t *testing.T) {
-	// 4 空格缩进的多行 JSON
+	// Multiline JSON with four-space indentation.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -471,25 +471,25 @@ func TestRedactJSONBodyFourSpaceIndent(t *testing.T) {
 	text := result.Log.Entries[0].Request.PostData.Text
 
 	assert.Contains(t, text, `"password": "***"`)
-	assert.Contains(t, text, "\n") // 保持多行
+	assert.Contains(t, text, "\n") // Preserve multiple lines.
 }
 
-// --- 覆盖率：redactQueryStringSimple 的 valueRes 分支 ---
+// --- Coverage: valueRes branch in redactQueryStringSimple. ---
 
 func TestRedactQueryStringSimpleValuePatternFallback(t *testing.T) {
-	// url.Parse 会成功的 URL 不走 simple fallback；这里直接调用 simple 函数
+	// URLs accepted by url.Parse do not use the simple fallback; call the simple function directly here.
 	out := redactQueryStringSimple(
 		"https://example.com/?trace=Bearer%20secret",
-		[]string{}, // 不按名字匹配
+		[]string{}, // Do not match by name.
 		"[X]",
 		RedactOptions{},
 		compileValuePatterns(DefaultRedactValuePatterns()),
 	)
-	// 值模式匹配 Bearer，被替换
+	// The value pattern matches and replaces the Bearer token.
 	assert.Contains(t, out, "trace=")
 }
 
-// --- 覆盖率：redactKeyValuePairs 的值模式分支 ---
+// --- Coverage: value-pattern branch in redactKeyValuePairs. ---
 
 func TestRedactKeyValuePairsValuePattern(t *testing.T) {
 	// 表单里某字段值藏 Bearer token（明文，非 URL 编码），但字段名不在 PostDataFields
@@ -500,16 +500,16 @@ func TestRedactKeyValuePairsValuePattern(t *testing.T) {
 		ValuePatterns:  DefaultRedactValuePatterns(),
 	}
 	result := redactKeyValuePairs(text, opts, "[R]", compileValuePatterns(opts.ValuePatterns))
-	// note 的值被值模式脱敏
+	// The note value is redacted by the value pattern.
 	assert.Contains(t, result, "note=")
 	assert.NotContains(t, result, "Bearer eyJ")
 	assert.Contains(t, result, "keep=1")
 }
 
-// --- 覆盖率：JSON 数组内对象的字符串值跑值模式 ---
+// --- Coverage: apply value patterns to string values in objects inside JSON arrays. ---
 
 func TestRedactJSONValuePatternInArray(t *testing.T) {
-	// JSON 数组里每个对象的字符串值都跑值模式
+	// Apply value patterns to each string value in each object in the JSON array.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -525,7 +525,7 @@ func TestRedactJSONValuePatternInArray(t *testing.T) {
 	}
 
 	opts := RedactOptions{
-		PostDataFields: []string{}, // 不按名字
+		PostDataFields: []string{}, // Do not match by name.
 		Replacement:    "[R]",
 		ValuePatterns:  DefaultRedactValuePatterns(),
 	}
@@ -537,10 +537,10 @@ func TestRedactJSONValuePatternInArray(t *testing.T) {
 	assert.Contains(t, text, "[R]")
 }
 
-// --- 边界：CustomRedactor 与值模式共存 ---
+// --- Edge case: CustomRedactor and value patterns are used together. ---
 
 func TestRedactCustomRedactorWithValuePatterns(t *testing.T) {
-	// CustomRedactor 用于名字匹配；值模式仍作用于名字不匹配的字符串值
+	// CustomRedactor handles name matches; value patterns still apply to strings whose names do not match.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -566,17 +566,17 @@ func TestRedactCustomRedactorWithValuePatterns(t *testing.T) {
 	}
 	result := h.Redact(opts)
 
-	// 名字匹配走 CustomRedactor
+	// Name matches use CustomRedactor.
 	assert.Equal(t, "[CUSTOM:Authorization]", result.Log.Entries[0].Request.Headers[0].Value)
-	// 名字不匹配但值模式命中，走值模式（用 global replacement）
+	// Name does not match but a value pattern does, so use the value pattern (with global replacement).
 	assert.Equal(t, "[REDACTED]", result.Log.Entries[0].Request.Headers[1].Value)
 }
 
-// --- 覆盖率：detectJSONIndent 无缩进回退默认两空格 ---
+// --- Coverage: detectJSONIndent falls back to two spaces when indentation is absent. ---
 
 func TestRedactJSONBodyMultilineNoIndent(t *testing.T) {
-	// 多行 JSON 但各行无前置空格——detectJSONIndent 遍历后回退默认 "  "
-	// （json.Unmarshal 能解析这种不规范但合法的多行紧凑 JSON）
+	// Multiline JSON with no leading spaces on any line; detectJSONIndent falls back to the default "  ".
+	// (json.Unmarshal accepts this unconventional but valid multiline compact JSON.)
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -598,15 +598,15 @@ func TestRedactJSONBodyMultilineNoIndent(t *testing.T) {
 	}
 	result := h.Redact(opts)
 	text := result.Log.Entries[0].Request.PostData.Text
-	// 走 MarshalIndent（含换行），password 被脱敏
+	// Use MarshalIndent (with newlines) and redact password.
 	assert.Contains(t, text, "[R]")
 	assert.Contains(t, text, "\n")
 }
 
-// --- 覆盖率：redactPostDataText 无 = 非 JSON 的值模式分支 ---
+// --- Coverage: value-pattern branch for non-JSON redactPostDataText input without =. ---
 
 func TestRedactPostDataTextPlainValuePattern(t *testing.T) {
-	// 既不是 JSON 也不含 =，但有值模式命中——走最后的值模式分支
+	// Input is neither JSON nor does it contain =, but a value pattern matches; use the final value-pattern branch.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -632,10 +632,10 @@ func TestRedactPostDataTextPlainValuePattern(t *testing.T) {
 	assert.Contains(t, text, "[R]")
 }
 
-// --- 覆盖率：redactPostDataText 空文本与非识别格式分支 ---
+// --- Coverage: empty text and unrecognized format branches in redactPostDataText. ---
 
 func TestRedactPostDataTextEmpty(t *testing.T) {
-	// 空白文本直接返回
+	// Whitespace-only text returns immediately.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -653,7 +653,7 @@ func TestRedactPostDataTextEmpty(t *testing.T) {
 }
 
 func TestRedactPostDataTextUnrecognizedNoValuePattern(t *testing.T) {
-	// 非 JSON、无 =、无值模式——原样返回
+	// Non-JSON, no =, and no value-pattern match: return unchanged.
 	h := &Har{
 		Log: Log{
 			Entries: []Entries{
@@ -670,10 +670,10 @@ func TestRedactPostDataTextUnrecognizedNoValuePattern(t *testing.T) {
 	assert.Equal(t, "just plain text no equals", result.Log.Entries[0].Request.PostData.Text)
 }
 
-// --- 覆盖率：redactQueryStringSimple 空值参数 ---
+// --- Coverage: empty-value query parameters in redactQueryStringSimple. ---
 
 func TestRedactQueryStringSimpleEmptyValue(t *testing.T) {
-	// 参数值为空时，值模式分支应 return match（不替换）
+	// When the parameter value is empty, the value-pattern branch should return match unchanged.
 	out := redactQueryStringSimple(
 		"https://example.com/?key=&keep=1",
 		[]string{},
@@ -681,7 +681,7 @@ func TestRedactQueryStringSimpleEmptyValue(t *testing.T) {
 		RedactOptions{},
 		compileValuePatterns(DefaultRedactValuePatterns()),
 	)
-	// key= 为空值，不被替换
+	// key= has an empty value and is not replaced.
 	assert.Contains(t, out, "key=&")
 	assert.Contains(t, out, "keep=1")
 }

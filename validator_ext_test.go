@@ -6,15 +6,15 @@ import (
 )
 
 func TestRegisterValidator(t *testing.T) {
-	// 清理自定义规则
+	// Clean up custom rules.
 	customRules = nil
 
-	// 注册规则
+	// Register a rule.
 	RegisterValidator("test-rule", ValidationRule{
 		Name:        "test-rule",
 		Description: "Test validation rule",
 		Validate: func(har *Har) []*ValidationError {
-			return nil // 不产生错误
+			return nil // No error is produced.
 		},
 	})
 
@@ -76,7 +76,7 @@ func TestRegisterValidatorOverride(t *testing.T) {
 func TestValidateWithRules(t *testing.T) {
 	customRules = nil
 
-	// 注册一个总是通过的规则
+	// Register a rule that always passes.
 	RegisterValidator("pass-always", ValidationRule{
 		Name:        "pass-always",
 		Description: "Always passes",
@@ -93,9 +93,9 @@ func TestValidateWithRules(t *testing.T) {
 	entry.StartedDateTime = time.Now()
 
 	err := ValidateWithRules(har)
-	// 标准验证可能产生错误（MimeType等），但不应该panic
+	// Standard validation may produce errors (for example, MimeType), but should not panic.
 	if err != nil {
-		// 验证错误是可以接受的
+		// Validation errors are acceptable.
 		t.Logf("Validation error (expected): %v", err)
 	}
 }
@@ -103,7 +103,7 @@ func TestValidateWithRules(t *testing.T) {
 func TestValidateWithRulesCustomError(t *testing.T) {
 	customRules = nil
 
-	// 注册一个总是失败的规则
+	// Register a rule that always fails.
 	RegisterValidator("always-fail", ValidationRule{
 		Name:        "always-fail",
 		Description: "Always fails",
@@ -130,12 +130,12 @@ func TestValidateWithRulesCustomError(t *testing.T) {
 		t.Error("Expected validation error from custom rule")
 	}
 
-	// 清理
+	// Clean up.
 	UnregisterValidator("always-fail")
 }
 
 func TestValidateStrict(t *testing.T) {
-	// 创建一个有效的HAR文件
+	// Create a valid HAR file.
 	har := NewHar()
 	har.SetCreator("test", "1.0")
 	har.AddPage("page_1", "Test Page")
@@ -168,7 +168,7 @@ func TestValidateStrictPageIDUniqueness(t *testing.T) {
 	har := NewHar()
 	har.SetCreator("test", "1.0")
 	har.AddPage("page_1", "Page 1")
-	har.AddPage("page_1", "Page 1 Duplicate") // 重复ID
+	har.AddPage("page_1", "Page 1 Duplicate") // duplicate ID
 	entry := har.AddEntry("GET", "https://example.com", "HTTP/1.1", "")
 	entry.SetResponseStatus(200, "OK")
 	entry.SetResponseContent(0, "text/html")
@@ -231,10 +231,10 @@ func TestValidateStrictCacheFields(t *testing.T) {
 	entry.SetResponseStatus(200, "OK")
 	entry.SetResponseContent(0, "text/html")
 	entry.StartedDateTime = time.Now()
-	// 设置缺少必填字段的Cache
+	// 设置required field is missing的Cache
 	entry.Cache.BeforeRequest = &BeforeRequest{
-		ETag:     "", // 缺少必填字段
-		HitCount: -1, // 负值
+		ETag:     "", // required field is missing
+		HitCount: -1, // negative value
 	}
 
 	err := ValidateStrict(har)

@@ -208,7 +208,7 @@ func (r *Request) ToStandard() Request {
 	return *r
 }
 
-// Response 接口实现
+// Response interface implementation.
 
 // GetStatus implements the ResponseProvider interface.
 func (r *Response) GetStatus() int {

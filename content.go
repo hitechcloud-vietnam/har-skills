@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// MIMECategory 表示MIME类型的分类
+// MIMECategory represents a MIME type category.
 type MIMECategory string
 
 const (

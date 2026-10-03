@@ -198,7 +198,7 @@ func TestSlowestRequests(t *testing.T) {
 		t.Errorf("Expected 3 slowest, got %d", len(slowest))
 	}
 
-	// 最慢的应该在第一个
+	// The slowest request should be first.
 	if slowest[0].Time < slowest[1].Time {
 		t.Errorf("Expected sorted by time descending")
 	}

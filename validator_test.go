@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateHarFile(t *testing.T) {
-	// 测试有效的HAR文件
+	// Test a valid HAR file.
 	t.Run("ValidHar", func(t *testing.T) {
 		har := &Har{
 			Log: Log{
@@ -44,13 +44,13 @@ func TestValidateHarFile(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	// 测试缺少必要字段
+	// Test missing required fields.
 	t.Run("MissingRequiredFields", func(t *testing.T) {
 		har := &Har{
 			Log: Log{
-				// 缺少 Version
+				// Missing Version.
 				Creator: Creator{
-					// 缺少 Name
+					// Missing Name.
 					Version: "1.0",
 				},
 				Entries: []Entries{},
@@ -64,14 +64,14 @@ func TestValidateHarFile(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, ErrCodeValidation, harErr.Code)
 		assert.True(t, harErr.HasPartialErrors())
-		assert.GreaterOrEqual(t, len(harErr.GetPartialErrors()), 2) // 至少有两个错误（缺少版本和创建者名称）
+		assert.GreaterOrEqual(t, len(harErr.GetPartialErrors()), 2) // Expected at least two errors (missing version and creator name).
 	})
 
-	// 测试不支持的版本
+	// Test an unsupported version.
 	t.Run("UnsupportedVersion", func(t *testing.T) {
 		har := &Har{
 			Log: Log{
-				Version: "2.0", // 不支持的版本
+				Version: "2.0", // unsupported version
 				Creator: Creator{
 					Name:    "Test",
 					Version: "1.0",
@@ -88,7 +88,7 @@ func TestValidateHarFile(t *testing.T) {
 		assert.Equal(t, ErrCodeValidation, harErr.Code)
 		assert.True(t, harErr.HasPartialErrors())
 
-		// 验证是否有关于不支持版本的错误
+		// Verify that an unsupported-version error is reported.
 		found := false
 		for _, pe := range harErr.GetPartialErrors() {
 			if pe.Field == "log.version" {
@@ -96,10 +96,10 @@ func TestValidateHarFile(t *testing.T) {
 				break
 			}
 		}
-		assert.True(t, found, "应该有关于不支持版本的错误")
+		assert.True(t, found, "An unsupported-version error should be reported.")
 	})
 
-	// 测试条目验证
+	// Test entry validation.
 	t.Run("InvalidEntries", func(t *testing.T) {
 		har := &Har{
 			Log: Log{
@@ -110,18 +110,18 @@ func TestValidateHarFile(t *testing.T) {
 				},
 				Entries: []Entries{
 					{
-						// 缺少 StartedDateTime
+						// Missing StartedDateTime.
 						Request: Request{
-							// 缺少 Method
+							// Missing Method.
 							URL: "https://example.com",
-							// 缺少 HTTPVersion
+							// Missing HTTPVersion.
 						},
 						Response: Response{
 							Status: 200,
-							// 缺少 HTTPVersion
+							// Missing HTTPVersion.
 							Content: Content{
 								Size: 100,
-								// 缺少 MimeType
+								// Missing MimeType.
 							},
 						},
 					},
@@ -138,7 +138,7 @@ func TestValidateHarFile(t *testing.T) {
 		assert.True(t, harErr.HasPartialErrors())
 	})
 
-	// 测试无效的URL
+	// Test an invalid URL.
 	t.Run("InvalidURL", func(t *testing.T) {
 		har := &Har{
 			Log: Log{
@@ -152,7 +152,7 @@ func TestValidateHarFile(t *testing.T) {
 						StartedDateTime: time.Now(),
 						Request: Request{
 							Method:      "GET",
-							URL:         "://invalid-url", // 无效的URL
+							URL:         "://invalid-url", // Invalid URL
 							HTTPVersion: "HTTP/1.1",
 						},
 						Response: Response{
@@ -175,7 +175,7 @@ func TestValidateHarFile(t *testing.T) {
 		require.True(t, ok)
 		assert.True(t, harErr.HasPartialErrors())
 
-		// 验证是否有关于无效URL的错误
+		// Verify that an invalid-URL error is reported.
 		found := false
 		for _, pe := range harErr.GetPartialErrors() {
 			if pe.Field == "log.entries[0].request.url" {
@@ -183,12 +183,12 @@ func TestValidateHarFile(t *testing.T) {
 				break
 			}
 		}
-		assert.True(t, found, "应该有关于无效URL的错误")
+		assert.True(t, found, "An invalid-URL error should be reported.")
 	})
 }
 
 func TestVersionDetection(t *testing.T) {
-	// 测试版本检测
+	// Test version detection.
 	testCases := []struct {
 		name            string
 		version         string
@@ -200,8 +200,8 @@ func TestVersionDetection(t *testing.T) {
 		{"PrefixVersion11", "1.1.2", HarSpecVersion11},
 		{"PrefixVersion12", "1.2.1", HarSpecVersion12},
 		{"PrefixVersion13", "1.3.0", HarSpecVersion13},
-		{"InvalidVersion", "0.9", HarSpecVersion12}, // 默认为1.2
-		{"EmptyVersion", "", HarSpecVersion12},      // 默认为1.2
+		{"InvalidVersion", "0.9", HarSpecVersion12}, // Defaults to 1.2.
+		{"EmptyVersion", "", HarSpecVersion12},      // Defaults to 1.2.
 	}
 
 	for _, tc := range testCases {
@@ -218,21 +218,21 @@ func TestVersionDetection(t *testing.T) {
 }
 
 func TestHarVersionOptions(t *testing.T) {
-	// 测试指定版本选项
+	// Test the explicit version option.
 	t.Run("WithHarVersion", func(t *testing.T) {
 		opts := applyOptions(WithHarVersion(HarSpecVersion11))
 		assert.Equal(t, HarSpecVersion11, opts.harVersion)
 		assert.False(t, opts.autoDetectVersion)
 	})
 
-	// 测试指定无效版本
+	// Test an invalid explicit version.
 	t.Run("WithInvalidVersion", func(t *testing.T) {
 		opts := applyOptions(WithHarVersion("0.9"))
-		assert.Equal(t, HarSpecVersion12, opts.harVersion) // 应该保持默认值
-		assert.True(t, opts.autoDetectVersion)             // 应该保持默认值
+		assert.Equal(t, HarSpecVersion12, opts.harVersion) // Should retain the default value.
+		assert.True(t, opts.autoDetectVersion)             // Should retain the default value.
 	})
 
-	// 测试禁用自动检测
+	// Test disabling automatic version detection.
 	t.Run("DisableAutoDetect", func(t *testing.T) {
 		opts := applyOptions(WithAutoDetectVersion(false))
 		assert.False(t, opts.autoDetectVersion)
